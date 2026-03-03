@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken } from "@/features/auth/lib/session";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333/api";
+const API_URL =
+  process.env.API_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://api:3333/api";
 
 async function proxyToNestJS(request: NextRequest, path: string[]) {
   const token = await getAccessToken();

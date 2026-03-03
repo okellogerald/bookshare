@@ -9,7 +9,8 @@
     "migrate": "drizzle-kit migrate",
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed": "bun run src/seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.38.0",

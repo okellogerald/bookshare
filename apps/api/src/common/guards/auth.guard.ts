@@ -42,9 +42,14 @@ export class AuthGuard implements CanActivate {
     private readonly reflector: Reflector
   ) {
     const issuer = this.configService.getOrThrow<string>("ZITADEL_ISSUER");
+    const issuerInternal =
+      this.configService.get<string>("ZITADEL_ISSUER_INTERNAL") || issuer;
+    const issuerHost = new URL(issuer).host;
 
     this.jwksClient = jwksClient({
-      jwksUri: `${issuer}/oauth/v2/keys`,
+      jwksUri: `${issuerInternal}/oauth/v2/keys`,
+      requestHeaders:
+        issuerInternal === issuer ? undefined : { host: issuerHost },
       cache: true,
       cacheMaxEntries: 5,
       cacheMaxAge: 600000, // 10 minutes

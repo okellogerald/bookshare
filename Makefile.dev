@@ -77,6 +77,10 @@ db-studio: ## Open Drizzle Studio GUI
 db-post-migrate: ## Apply RLS policies, views, and grants (post-migration.sql)
 	psql "$(DB_URL)" -f infra/postgres/post-migration.sql
 
+.PHONY: db-seed
+db-seed: ## Insert test data (books, authors, copies, etc.)
+	DATABASE_URL=$(DB_URL) bun run --cwd packages/db seed
+
 .PHONY: db-psql
 db-psql: ## Open an interactive psql shell
 	psql "$(DB_URL)"

@@ -1,6 +1,9 @@
 import { getAccessToken } from "./session";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333/api";
+const API_URL =
+  process.env.API_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://api:3333/api";
 
 /**
  * Server-side API client that automatically attaches the auth token.
