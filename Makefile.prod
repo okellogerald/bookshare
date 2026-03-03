@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════════════════
+# Makefile.prod — Production Environment
+# Usage: make -f Makefile.prod <target>
+# ═══════════════════════════════════════════════════════════════
+
+COMPOSE := docker compose -f docker-compose.prod.yml
+DB_NAME := booktrack
+
+.DEFAULT_GOAL := help
+
+# ─── Docker Compose ───────────────────────────────────────────
+
+.PHONY: up
+up: ## Start all services (detached)
+	$(COMPOSE) up -d
+
+.PHONY: up-build
+up-build: ## Build images and start all services
+	$(COMPOSE) up -d --build
+
+.PHONY: down
+down: ## Stop all services
+	$(COMPOSE) down
+
+.PHONY: restart
+restart: ## Restart all services
+	$(COMPOSE) restart
+
+.PHONY: ps
+ps: ## List running services
+	$(COMPOSE) ps
+
+.PHONY: logs
+logs: ## Tail logs for all services
+	$(COMPOSE) logs -f
+
+.PHONY: logs-%
+logs-%: ## Tail logs for a specific service (e.g. make -f Makefile.prod logs-api)
+	$(COMPOSE) logs -f $*
+
+.PHONY: build
+build: ## Build all images without starting services
+	$(COMPOSE) build
+
+# ─── Database ─────────────────────────────────────────────────
+
+.PHONY: db-post-migrate
+db-post-migrate: ## Apply RLS policies, views, and grants inside the postgres container
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-booktrack} -d $(DB_NAME) < infra/postgres/post-migration.sql
+
+.PHONY: db-psql
+db-psql: ## Open an interactive psql shell inside the postgres container
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-booktrack} -d $(DB_NAME)
+
+# ─── Cleanup ──────────────────────────────────────────────────
+
+.PHONY: clean
+clean: ## Remove all containers, volumes, and orphans
+	$(COMPOSE) down -v --remove-orphans
+
+# ─── Help ─────────────────────────────────────────────────────
+
+.PHONY: help
+help: ## Show this help
+	@grep -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

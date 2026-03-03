@@ -1,0 +1,42 @@
+# ─── Build Stage ───────────────────────────────────────────────
+FROM oven/bun:1 AS builder
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY apps/web/package.json ./apps/web/
+COPY apps/api/package.json ./apps/api/
+COPY apps/workflows/package.json ./apps/workflows/
+
+RUN bun install --frozen-lockfile
+
+COPY packages/shared ./packages/shared
+COPY apps/web ./apps/web
+COPY tsconfig.base.json ./
+
+WORKDIR /app/apps/web
+RUN bun run build
+
+# ─── Production Stage ─────────────────────────────────────────
+FROM oven/bun:1-slim AS runner
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=builder /app/apps/web/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3334
+
+ENV PORT=3334
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["bun", "run", "server.js"]

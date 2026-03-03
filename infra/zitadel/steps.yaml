@@ -1,0 +1,24 @@
+# Zitadel initialization steps
+# This configures the default instance on first start
+#
+# After Zitadel starts, you will need to:
+# 1. Log in to the Zitadel console at http://localhost:8085
+# 2. Create a Project called "BookTrack"
+# 3. Create two Applications:
+#    - "BookTrack Web" (Web app, PKCE/Authorization Code, redirect: http://localhost:3334/api/auth/callback)
+#    - "BookTrack API" (API app, JWT profile)
+# 4. Define Project Roles: owner, manager, staff, viewer
+# 5. Create Organizations for your bookstores/booksellers
+#
+# The steps below configure the default admin user.
+
+FirstInstance:
+  Org:
+    Human:
+      UserName: "admin@booktrack.local"
+      Profile:
+        FirstName: "BookTrack"
+        LastName: "Admin"
+      Password: "BookTrack-Admin-2024!"
+  InstanceName: "BookTrack"
+  DefaultLanguage: "en"

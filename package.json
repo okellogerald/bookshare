@@ -1,0 +1,20 @@
+{
+  "name": "booktrack",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "docker compose -f docker-compose.dev.yml up",
+    "dev:build": "docker compose -f docker-compose.dev.yml up --build",
+    "dev:down": "docker compose -f docker-compose.dev.yml down",
+    "prod": "docker compose -f docker-compose.prod.yml up",
+    "prod:build": "docker compose -f docker-compose.prod.yml up --build",
+    "prod:down": "docker compose -f docker-compose.prod.yml down",
+    "db:generate": "bun --filter @booktrack/db run generate",
+    "db:migrate": "bun --filter @booktrack/db run migrate",
+    "db:push": "bun --filter @booktrack/db run push",
+    "db:studio": "bun --filter @booktrack/db run studio"
+  }
+}

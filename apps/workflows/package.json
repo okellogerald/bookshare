@@ -1,0 +1,21 @@
+{
+  "name": "@booktrack/workflows",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "iii -c iii-config.yaml",
+    "dev:build": "motia dev",
+    "start": "motia build && bun dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "motia": "latest",
+    "drizzle-orm": "^0.38.0",
+    "@booktrack/db": "workspace:*",
+    "@booktrack/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

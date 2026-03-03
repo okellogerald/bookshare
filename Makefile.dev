@@ -1,0 +1,100 @@
+# ═══════════════════════════════════════════════════════════════
+# Makefile.dev — Development Environment
+# Usage: make -f Makefile.dev <target>
+# ═══════════════════════════════════════════════════════════════
+
+COMPOSE := docker compose -f docker-compose.dev.yml
+DB_URL  := postgresql://booktrack:booktrack_dev@localhost:5434/booktrack
+
+.DEFAULT_GOAL := help
+
+# ─── Docker Compose ───────────────────────────────────────────
+
+.PHONY: up
+up: ## Start all services (detached)
+	$(COMPOSE) up -d
+	$(MAKE) -f Makefile.dev zitadel-fix-login
+
+.PHONY: up-build
+up-build: ## Start all services with image rebuild
+	$(COMPOSE) up -d --build
+	$(MAKE) -f Makefile.dev zitadel-fix-login
+
+.PHONY: down
+down: ## Stop all services
+	$(COMPOSE) down
+
+.PHONY: restart
+restart: ## Restart all services
+	$(COMPOSE) restart
+
+.PHONY: ps
+ps: ## List running services
+	$(COMPOSE) ps
+
+.PHONY: logs
+logs: ## Tail logs for all services
+	$(COMPOSE) logs -f
+
+.PHONY: logs-%
+logs-%: ## Tail logs for a specific service (e.g. make -f Makefile.dev logs-api)
+	$(COMPOSE) logs -f $*
+
+.PHONY: shell-%
+shell-%: ## Open a shell in a running service container (e.g. make -f Makefile.dev shell-api)
+	$(COMPOSE) exec $* sh
+
+.PHONY: zitadel-fix-login
+zitadel-fix-login: ## Force Zitadel to use login v1 routes in dev
+	@until $(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -tAc "SELECT 1" >/dev/null 2>&1; do sleep 1; done
+	@until $(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='projections' AND table_name='instance_features5'" | grep -q 1; do sleep 1; done
+	@$(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -c "UPDATE projections.instance_features5 SET value=jsonb_build_object('required', false), change_date=NOW() WHERE key='login_v2';" >/dev/null
+	@$(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -c "UPDATE projections.apps7_oidc_configs SET login_version=0 WHERE login_version <> 0;" >/dev/null
+
+.PHONY: zitadel-client-ids
+zitadel-client-ids: ## List available Zitadel OIDC client IDs
+	$(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -c "SELECT a.name, c.client_id, c.redirect_uris FROM projections.apps7 a JOIN projections.apps7_oidc_configs c ON c.app_id = a.id WHERE a.state = 1 ORDER BY a.name;"
+
+# ─── Database ─────────────────────────────────────────────────
+
+.PHONY: db-generate
+db-generate: ## Generate Drizzle migrations from schema
+	DATABASE_URL=$(DB_URL) bun run --cwd packages/db generate
+
+.PHONY: db-migrate
+db-migrate: ## Run pending Drizzle migrations
+	DATABASE_URL=$(DB_URL) bun run --cwd packages/db migrate
+
+.PHONY: db-push
+db-push: ## Push schema directly to database (no migration files)
+	DATABASE_URL=$(DB_URL) bun run --cwd packages/db push
+
+.PHONY: db-studio
+db-studio: ## Open Drizzle Studio GUI
+	DATABASE_URL=$(DB_URL) bun run --cwd packages/db studio
+
+.PHONY: db-post-migrate
+db-post-migrate: ## Apply RLS policies, views, and grants (post-migration.sql)
+	psql "$(DB_URL)" -f infra/postgres/post-migration.sql
+
+.PHONY: db-psql
+db-psql: ## Open an interactive psql shell
+	psql "$(DB_URL)"
+
+.PHONY: db-reset
+db-reset: ## Reset database — destroy volumes and restart all services
+	$(COMPOSE) down -v
+	$(COMPOSE) up -d
+
+# ─── Cleanup ──────────────────────────────────────────────────
+
+.PHONY: clean
+clean: ## Remove all containers, volumes, and orphans
+	$(COMPOSE) down -v --remove-orphans
+
+# ─── Help ─────────────────────────────────────────────────────
+
+.PHONY: help
+help: ## Show this help
+	@grep -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

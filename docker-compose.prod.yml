@@ -1,0 +1,188 @@
+services:
+  # ─── Database ─────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: booktrack
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ─── Authentication ───────────────────────────────────────────
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    restart: always
+    command: start-from-init --masterkeyFile /masterkey --tlsMode disabled --steps /steps.yaml
+    environment:
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: ${POSTGRES_USER}
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD}
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-true}
+      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-443}
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN}
+    volumes:
+      - ./infra/zitadel/masterkey:/masterkey:ro
+      - ./infra/zitadel/steps.yaml:/steps.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ─── Read API (PostgREST) ─────────────────────────────────────
+  postgrest:
+    image: postgrest/postgrest:latest
+    restart: always
+    environment:
+      PGRST_DB_URI: postgresql://postgrest_authenticator:${POSTGREST_DB_PASSWORD}@postgres:5432/booktrack
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: postgrest_anon
+      PGRST_JWT_SECRET: ${ZITADEL_JWT_SECRET}
+      PGRST_JWT_SECRET_IS_BASE64: "false"
+      PGRST_DB_MAX_ROWS: 1000
+      PGRST_JWT_AUD: ""
+      PGRST_JWT_ROLE_CLAIM_KEY: ".\"urn:zitadel:iam:org:project:roles\""
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # ─── Object Storage ──────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  minio-init:
+    image: minio/mc:latest
+    entrypoint: /bin/sh /init.sh
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./infra/minio/init.sh:/init.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # ─── API (NestJS) ────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.prod
+    restart: always
+    environment:
+      PORT: 3333
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/booktrack
+      ZITADEL_ISSUER: http://zitadel:8080
+      ZITADEL_EXTERNAL_URL: ${ZITADEL_EXTERNAL_URL}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: book-covers
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ─── Web (Next.js) ───────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.prod
+    restart: always
+    environment:
+      PORT: 3334
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+      POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
+      NEXT_PUBLIC_ZITADEL_URL: ${ZITADEL_EXTERNAL_URL}
+      NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ─── Workflows (Motia) ───────────────────────────────────────
+  workflows:
+    build:
+      context: .
+      dockerfile: apps/workflows/Dockerfile.prod
+    restart: always
+    environment:
+      PORT: 3335
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/booktrack
+      API_URL: http://api:3333/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ─── Reverse Proxy ───────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - web
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  postgres_data:
+  minio_data:

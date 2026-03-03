@@ -1,0 +1,173 @@
+services:
+  # ─── Database ─────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-booktrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booktrack_dev}
+      POSTGRES_DB: booktrack
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-booktrack}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Authentication ───────────────────────────────────────────
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    restart: unless-stopped
+    command: start-from-init --masterkeyFile /masterkey --tlsMode disabled --steps /steps.yaml
+    environment:
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: ${POSTGRES_USER:-booktrack}
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD:-booktrack_dev}
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER:-booktrack}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-booktrack_dev}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-false}
+      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-8085}
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN:-localhost}
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./infra/zitadel/masterkey:/masterkey:ro
+      - ./infra/zitadel/steps.yaml:/steps.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Read API (PostgREST) ─────────────────────────────────────
+  postgrest:
+    image: postgrest/postgrest:latest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgresql://postgrest_authenticator:postgrest_dev@postgres:5432/booktrack
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: postgrest_anon
+      PGRST_JWT_SECRET: ${ZITADEL_JWT_SECRET:-}
+      PGRST_JWT_SECRET_IS_BASE64: "false"
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3336
+      PGRST_DB_MAX_ROWS: 1000
+      # Use Zitadel's JWKS endpoint for JWT verification
+      PGRST_JWT_AUD: ""
+      PGRST_JWT_ROLE_CLAIM_KEY: ".\"urn:zitadel:iam:org:project:roles\""
+    ports:
+      - "3336:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Object Storage ──────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktrack}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    entrypoint: /bin/sh /init.sh
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktrack}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+    volumes:
+      - ./infra/minio/init.sh:/init.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # ─── API (NestJS) ────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 3333
+      DATABASE_URL: postgresql://${POSTGRES_USER:-booktrack}:${POSTGRES_PASSWORD:-booktrack_dev}@postgres:5432/booktrack
+      ZITADEL_ISSUER: http://zitadel:8080
+      ZITADEL_EXTERNAL_URL: ${ZITADEL_EXTERNAL_URL:-http://localhost:8085}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-booktrack}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+      MINIO_BUCKET: book-covers
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
+    ports:
+      - "3333:3333"
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/db/src:/app/packages/db/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Web (Next.js) ───────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 3334
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
+      POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
+      NEXT_PUBLIC_POSTGREST_URL: ${PUBLIC_POSTGREST_URL:-http://localhost:3336}
+      NEXT_PUBLIC_ZITADEL_URL: ${PUBLIC_ZITADEL_URL:-http://localhost:8085}
+      ZITADEL_ISSUER_URL: ${ZITADEL_ISSUER_URL:-http://localhost:8085}
+      ZITADEL_INTERNAL_URL: ${ZITADEL_INTERNAL_URL:-http://host.docker.internal:8085}
+      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID:-}
+      NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
+    ports:
+      - "3334:3334"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      - api
+
+  # ─── Workflows (Motia) ───────────────────────────────────────
+  workflows:
+    build:
+      context: .
+      dockerfile: apps/workflows/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 3335
+      DATABASE_URL: postgresql://${POSTGRES_USER:-booktrack}:${POSTGRES_PASSWORD:-booktrack_dev}@postgres:5432/booktrack
+      API_URL: http://api:3333/api
+    ports:
+      - "3335:3335"
+    volumes:
+      - ./apps/workflows/steps:/app/apps/workflows/steps
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/db/src:/app/packages/db/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:

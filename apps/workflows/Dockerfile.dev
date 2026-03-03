@@ -1,0 +1,43 @@
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+ARG III_VERSION=v0.7.0
+ARG TARGETARCH
+
+# Install iii engine binary used by Motia runtime.
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      "arm64") III_TARGET="aarch64-unknown-linux-gnu" ;; \
+      "amd64") III_TARGET="x86_64-unknown-linux-gnu" ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl; \
+    rm -rf /var/lib/apt/lists/*; \
+    curl -fsSL "https://github.com/iii-hq/iii/releases/download/${III_VERSION}/iii-${III_TARGET}.tar.gz" -o /tmp/iii.tar.gz; \
+    tar -xzf /tmp/iii.tar.gz -C /usr/local/bin iii; \
+    chmod +x /usr/local/bin/iii; \
+    rm -f /tmp/iii.tar.gz
+
+# Copy workspace root files
+COPY package.json bun.lock ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY apps/workflows/package.json ./apps/workflows/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source (volumes will override in dev)
+COPY packages/shared ./packages/shared
+COPY packages/db ./packages/db
+COPY apps/workflows ./apps/workflows
+COPY tsconfig.base.json ./
+
+WORKDIR /app/apps/workflows
+
+EXPOSE 3335
+
+CMD ["bun", "run", "dev"]
