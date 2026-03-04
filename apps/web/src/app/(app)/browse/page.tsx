@@ -12,9 +12,7 @@ import {
 } from "@/shared/components/ui/select";
 import { useBrowseListings } from "@/shared/queries/browse";
 import { useQuotesByBooks } from "@/shared/queries/quotes";
-import type { PgBrowseListing } from "@/shared/api";
 import { ListingCard } from "./listing-card";
-import { BookDetailDialog } from "./book-detail-dialog";
 
 export default function BrowsePage() {
   const [search, setSearch] = useState("");
@@ -53,10 +51,6 @@ export default function BrowsePage() {
     }
     return map;
   }, [allQuotes]);
-
-  // Dialog state
-  const [selectedListing, setSelectedListing] =
-    useState<PgBrowseListing | null>(null);
 
   return (
     <div className="space-y-6">
@@ -137,7 +131,6 @@ export default function BrowsePage() {
               key={listing.id}
               listing={listing}
               quote={quoteMap.get(listing.book_id)}
-              onClick={() => setSelectedListing(listing)}
             />
           ))}
         </div>
@@ -147,20 +140,6 @@ export default function BrowsePage() {
         </div>
       )}
 
-      {/* Book Detail Dialog */}
-      {selectedListing && (
-        <BookDetailDialog
-          bookId={selectedListing.book_id}
-          editionId={selectedListing.edition_id}
-          bookTitle={selectedListing.book_title}
-          bookSubtitle={selectedListing.book_subtitle}
-          authors={selectedListing.authors.map((a) => a.name).join(", ")}
-          open={!!selectedListing}
-          onOpenChange={(open) => {
-            if (!open) setSelectedListing(null);
-          }}
-        />
-      )}
     </div>
   );
 }

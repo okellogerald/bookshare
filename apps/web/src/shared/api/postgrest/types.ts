@@ -100,10 +100,16 @@ export interface PgCollection {
 
 // ─── View Types (PostgREST views) ──────────────────────────
 
+/** PostgREST resource-embedding: books?select=*,book_authors(author:authors(*)) */
 export interface PgBookWithAuthors extends PgBook {
   book_authors: Array<{
     author: PgAuthor;
   }>;
+}
+
+/** books_with_authors SQL view — flat authors JSON array */
+export interface PgBookWithAuthorsView extends PgBook {
+  authors: Array<{ id: string; name: string }>;
 }
 
 export interface PgBookWithCategories extends PgBook {

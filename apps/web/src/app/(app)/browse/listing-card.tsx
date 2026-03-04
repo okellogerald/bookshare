@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Card,
@@ -32,19 +33,18 @@ function isStale(lastConfirmedAt: string | null): boolean {
 interface ListingCardProps {
   listing: PgBrowseListing;
   quote?: string;
-  onClick?: () => void;
 }
 
-export function ListingCard({ listing, quote, onClick }: ListingCardProps) {
+export function ListingCard({ listing, quote }: ListingCardProps) {
   const authors = listing.authors
     .map((a) => a.name)
     .join(", ");
   const stale = isStale(listing.last_confirmed_at);
 
   return (
+    <Link href={`/books/${listing.book_id}`}>
     <Card
-      className={onClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined}
-      onClick={onClick}
+      className="cursor-pointer transition-colors hover:bg-accent/50"
     >
       <CardHeader className="pb-3">
         <CardTitle className="line-clamp-2 text-base">
@@ -96,5 +96,6 @@ export function ListingCard({ listing, quote, onClick }: ListingCardProps) {
         )}
       </CardContent>
     </Card>
+    </Link>
   );
 }

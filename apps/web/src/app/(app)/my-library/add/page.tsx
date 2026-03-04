@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Search, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -22,12 +22,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
+import { Badge } from "@/shared/components/ui/badge";
 import {
   useEditionByIsbn,
   useCreateCopy,
   useCreateBook,
   useCreateEdition,
+  useCreateAuthor,
+  useSearchAuthors,
 } from "@/shared/queries/my-library";
+
+interface SelectedAuthor {
+  id?: string;
+  name: string;
+}
 
 export default function AddCopyPage() {
   const router = useRouter();
@@ -35,11 +43,26 @@ export default function AddCopyPage() {
   // ISBN search
   const [isbn, setIsbn] = useState("");
   const [searchIsbn, setSearchIsbn] = useState("");
-  const { data: edition, isLoading: isSearching } = useEditionByIsbn(searchIsbn);
+  const { data: edition, isLoading: isSearching } =
+    useEditionByIsbn(searchIsbn);
 
   // New book fields (when ISBN not found)
   const [newBookTitle, setNewBookTitle] = useState("");
+  const [newBookSubtitle, setNewBookSubtitle] = useState("");
+  const [newBookDescription, setNewBookDescription] = useState("");
+
+  // New edition fields
   const [newBookFormat, setNewBookFormat] = useState("paperback");
+  const [newPublisher, setNewPublisher] = useState("");
+  const [newPublishedYear, setNewPublishedYear] = useState("");
+  const [newPageCount, setNewPageCount] = useState("");
+
+  // Author fields
+  const [authorInput, setAuthorInput] = useState("");
+  const [selectedAuthors, setSelectedAuthors] = useState<SelectedAuthor[]>([]);
+  const [showAuthorDropdown, setShowAuthorDropdown] = useState(false);
+  const { data: authorResults } = useSearchAuthors(authorInput);
+  const authorDropdownRef = useRef<HTMLDivElement>(null);
 
   // Copy fields
   const [condition, setCondition] = useState("good");
@@ -52,14 +75,58 @@ export default function AddCopyPage() {
   const createCopy = useCreateCopy();
   const createBook = useCreateBook();
   const createEdition = useCreateEdition();
+  const createAuthor = useCreateAuthor();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Close author dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        authorDropdownRef.current &&
+        !authorDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowAuthorDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const handleSearch = () => {
     if (isbn.length >= 10) {
       setSearchIsbn(isbn);
     }
   };
+
+  function selectExistingAuthor(author: { id: string; name: string }) {
+    if (!selectedAuthors.some((a) => a.id === author.id)) {
+      setSelectedAuthors((prev) => [
+        ...prev,
+        { id: author.id, name: author.name },
+      ]);
+    }
+    setAuthorInput("");
+    setShowAuthorDropdown(false);
+  }
+
+  function addNewAuthor() {
+    const name = authorInput.trim();
+    if (!name) return;
+    if (
+      !selectedAuthors.some(
+        (a) => a.name.toLowerCase() === name.toLowerCase()
+      )
+    ) {
+      setSelectedAuthors((prev) => [...prev, { name }]);
+    }
+    setAuthorInput("");
+    setShowAuthorDropdown(false);
+  }
+
+  function removeAuthor(index: number) {
+    setSelectedAuthors((prev) => prev.filter((_, i) => i !== index));
+  }
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -70,15 +137,38 @@ export default function AddCopyPage() {
         // Edition found — use its ID
         editionId = edition.id;
       } else {
-        // Create book + edition
+        // Resolve author IDs — create new ones as needed
+        const authorIds: string[] = [];
+        for (const author of selectedAuthors) {
+          if (author.id) {
+            authorIds.push(author.id);
+          } else {
+            const created = await createAuthor.mutateAsync({
+              name: author.name,
+            });
+            authorIds.push(created.id);
+          }
+        }
+
+        // Create book
         if (!newBookTitle.trim()) return;
         const book = await createBook.mutateAsync({
           title: newBookTitle.trim(),
+          subtitle: newBookSubtitle.trim() || undefined,
+          description: newBookDescription.trim() || undefined,
+          authorIds: authorIds.length > 0 ? authorIds : undefined,
         });
+
+        // Create edition
         const newEdition = await createEdition.mutateAsync({
           bookId: book.id,
           isbn: searchIsbn || undefined,
           format: newBookFormat,
+          publisher: newPublisher.trim() || undefined,
+          publishedYear: newPublishedYear
+            ? Number(newPublishedYear)
+            : undefined,
+          pageCount: newPageCount ? Number(newPageCount) : undefined,
         });
         editionId = newEdition.id;
       }
@@ -103,7 +193,8 @@ export default function AddCopyPage() {
 
   const editionFound = searchIsbn.length >= 10 && edition;
   const editionNotFound = searchIsbn.length >= 10 && !isSearching && !edition;
-  const showCopyForm = editionFound || (editionNotFound && newBookTitle.trim());
+  const showCopyForm =
+    editionFound || (editionNotFound && newBookTitle.trim());
 
   return (
     <div className="space-y-6">
@@ -134,7 +225,9 @@ export default function AddCopyPage() {
             <Input
               placeholder="Enter ISBN (10 or 13 digits)..."
               value={isbn}
-              onChange={(e) => setIsbn(e.target.value.replace(/[^0-9X-]/gi, ""))}
+              onChange={(e) =>
+                setIsbn(e.target.value.replace(/[^0-9X-]/gi, ""))
+              }
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
             <Button
@@ -158,8 +251,11 @@ export default function AddCopyPage() {
                 {(edition as any).book?.title ?? "Book found"}
               </p>
               <p className="text-sm text-muted-foreground">
-                {edition.format} &middot; {edition.publisher ?? "Unknown publisher"}{" "}
-                {edition.published_year ? `(${edition.published_year})` : ""}
+                {edition.format} &middot;{" "}
+                {edition.publisher ?? "Unknown publisher"}{" "}
+                {edition.published_year
+                  ? `(${edition.published_year})`
+                  : ""}
               </p>
               {edition.isbn && (
                 <p className="text-xs text-muted-foreground">
@@ -175,28 +271,166 @@ export default function AddCopyPage() {
               <p className="text-sm text-muted-foreground">
                 No edition found for this ISBN. Create a new book entry:
               </p>
-              <div className="space-y-2">
-                <Label>Book Title</Label>
-                <Input
-                  placeholder="Enter book title..."
-                  value={newBookTitle}
-                  onChange={(e) => setNewBookTitle(e.target.value)}
-                />
+
+              {/* Book details */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>
+                    Book Title <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    placeholder="Enter book title..."
+                    value={newBookTitle}
+                    onChange={(e) => setNewBookTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Subtitle</Label>
+                  <Input
+                    placeholder="Enter subtitle (optional)..."
+                    value={newBookSubtitle}
+                    onChange={(e) => setNewBookSubtitle(e.target.value)}
+                  />
+                </div>
+
+                {/* Author input with search */}
+                <div className="space-y-2" ref={authorDropdownRef}>
+                  <Label>Author(s)</Label>
+                  {selectedAuthors.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedAuthors.map((author, i) => (
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className="gap-1 pr-1"
+                        >
+                          {author.name}
+                          {!author.id && (
+                            <span className="text-xs text-muted-foreground">
+                              (new)
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeAuthor(i)}
+                            className="ml-0.5 rounded-sm hover:bg-muted"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      placeholder="Search or type author name..."
+                      value={authorInput}
+                      onChange={(e) => {
+                        setAuthorInput(e.target.value);
+                        setShowAuthorDropdown(true);
+                      }}
+                      onFocus={() => setShowAuthorDropdown(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addNewAuthor();
+                        }
+                      }}
+                    />
+                    {showAuthorDropdown && authorInput.length >= 2 && (
+                      <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md">
+                        {authorResults && authorResults.length > 0 && (
+                          <div className="max-h-[150px] overflow-y-auto">
+                            {authorResults.map((a) => (
+                              <button
+                                key={a.id}
+                                type="button"
+                                onClick={() => selectExistingAuthor(a)}
+                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent"
+                              >
+                                {a.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={addNewAuthor}
+                          className="flex w-full items-center border-t px-3 py-2 text-sm text-muted-foreground hover:bg-accent"
+                        >
+                          Add &quot;{authorInput.trim()}&quot; as new author
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    placeholder="Brief description of the book (optional)..."
+                    value={newBookDescription}
+                    onChange={(e) => setNewBookDescription(e.target.value)}
+                    rows={3}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Format</Label>
-                <Select value={newBookFormat} onValueChange={setNewBookFormat}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hardcover">Hardcover</SelectItem>
-                    <SelectItem value="paperback">Paperback</SelectItem>
-                    <SelectItem value="mass_market">Mass Market</SelectItem>
-                    <SelectItem value="ebook">eBook</SelectItem>
-                    <SelectItem value="audiobook">Audiobook</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Edition details */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <Select
+                    value={newBookFormat}
+                    onValueChange={setNewBookFormat}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hardcover">Hardcover</SelectItem>
+                      <SelectItem value="paperback">Paperback</SelectItem>
+                      <SelectItem value="mass_market">
+                        Mass Market
+                      </SelectItem>
+                      <SelectItem value="ebook">eBook</SelectItem>
+                      <SelectItem value="audiobook">Audiobook</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Publisher</Label>
+                  <Input
+                    placeholder="e.g. Penguin Books"
+                    value={newPublisher}
+                    onChange={(e) => setNewPublisher(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Publication Year</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 2023"
+                    value={newPublishedYear}
+                    onChange={(e) => setNewPublishedYear(e.target.value)}
+                    min={1000}
+                    max={new Date().getFullYear() + 1}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Page Count</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 320"
+                    value={newPageCount}
+                    onChange={(e) => setNewPageCount(e.target.value)}
+                    min={1}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -232,7 +466,10 @@ export default function AddCopyPage() {
 
               <div className="space-y-2">
                 <Label>Acquisition Type</Label>
-                <Select value={acquisitionType} onValueChange={setAcquisitionType}>
+                <Select
+                  value={acquisitionType}
+                  onValueChange={setAcquisitionType}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -296,7 +533,9 @@ export default function AddCopyPage() {
                 disabled={isSubmitting}
                 className="gap-2"
               >
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isSubmitting && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
                 Add Copy
               </Button>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, MoreHorizontal } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import {
@@ -25,7 +25,6 @@ import {
   useUpdateCopyStatus,
   useDeleteCopy,
 } from "@/shared/queries/my-library";
-import { MoreHorizontal } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   available: "Available",
@@ -91,9 +90,12 @@ export default function MyLibraryPage() {
               <TableRow key={copy.id}>
                 <TableCell>
                   <div>
-                    <p className="font-medium">
+                    <Link
+                      href={`/books/${copy.edition?.book?.id ?? ""}`}
+                      className="font-medium underline-offset-4 hover:underline"
+                    >
                       {copy.edition?.book?.title ?? "Unknown"}
-                    </p>
+                    </Link>
                     {copy.edition?.isbn && (
                       <p className="text-xs text-muted-foreground">
                         ISBN: {copy.edition.isbn}
@@ -192,6 +194,7 @@ export default function MyLibraryPage() {
           </Link>
         </div>
       )}
+
     </div>
   );
 }

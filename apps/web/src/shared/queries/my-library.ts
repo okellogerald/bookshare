@@ -1,16 +1,20 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PgCopyDetail, PgEdition } from "@/shared/api";
+import type { PgCopyDetail, PgEdition, PgAuthor, PgBookWithAuthorsView } from "@/shared/api";
 import type {
   CreateCopyBody,
   UpdateCopyBody,
   UpdateCopyStatusBody,
   CopyResponse,
   CreateBookBody,
+  UpdateBookBody,
   BookResponse,
   CreateEditionBody,
+  UpdateEditionBody,
   EditionResponse,
+  CreateAuthorBody,
+  AuthorResponse,
 } from "@/shared/api";
 import { nestjsFetch } from "./fetch";
 
@@ -113,7 +117,7 @@ export function useDeleteCopy() {
   });
 }
 
-// ─── Book + Edition Creation (for ISBN not found) ───────────
+// ─── Book + Edition + Author Creation (for ISBN not found) ──
 
 export function useCreateBook() {
   return useMutation({
@@ -126,5 +130,82 @@ export function useCreateEdition() {
   return useMutation({
     mutationFn: (body: CreateEditionBody) =>
       nestjsFetch<EditionResponse>("editions", "POST", body),
+  });
+}
+
+export function useCreateAuthor() {
+  return useMutation({
+    mutationFn: (body: CreateAuthorBody) =>
+      nestjsFetch<AuthorResponse>("authors", "POST", body),
+  });
+}
+
+async function searchAuthorsByName(name: string): Promise<PgAuthor[]> {
+  const params = new URLSearchParams();
+  params.set("name", `ilike.*${name}*`);
+  params.set("order", "name.asc");
+
+  const response = await fetch(`/api/postgrest/authors?${params}`);
+  if (!response.ok) throw new Error("Failed to search authors");
+  const json = await response.json();
+  return json.data;
+}
+
+export function useSearchAuthors(name: string) {
+  return useQuery({
+    queryKey: ["search-authors", name],
+    queryFn: () => searchAuthorsByName(name),
+    enabled: name.length >= 2,
+  });
+}
+
+// ─── Book & Edition Updates ─────────────────────────────────
+
+export function useUpdateBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateBookBody }) =>
+      nestjsFetch<BookResponse>(`books/${id}`, "PUT", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-copies"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["book-with-authors"] });
+    },
+  });
+}
+
+export function useUpdateEdition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateEditionBody }) =>
+      nestjsFetch<EditionResponse>(`editions/${id}`, "PUT", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-copies"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+    },
+  });
+}
+
+// ─── Book with Authors (for edit form pre-population) ───────
+
+async function fetchBookWithAuthors(
+  bookId: string
+): Promise<PgBookWithAuthorsView | null> {
+  const params = new URLSearchParams();
+  params.set("id", `eq.${bookId}`);
+
+  const response = await fetch(
+    `/api/postgrest/books_with_authors?${params}`
+  );
+  if (!response.ok) throw new Error("Failed to fetch book with authors");
+  const json = await response.json();
+  return json.data?.[0] ?? null;
+}
+
+export function useBookWithAuthors(bookId: string | undefined) {
+  return useQuery({
+    queryKey: ["book-with-authors", bookId],
+    queryFn: () => fetchBookWithAuthors(bookId!),
+    enabled: !!bookId,
   });
 }

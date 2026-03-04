@@ -1,5 +1,4 @@
-"use client";
-
+import Link from "next/link";
 import type { PgBrowseWant } from "@/shared/api";
 import {
   Card,
@@ -18,17 +17,16 @@ function isStale(lastConfirmedAt: string | null): boolean {
 interface WantCardProps {
   want: PgBrowseWant;
   quote?: string;
-  onClick?: () => void;
 }
 
-export function WantCard({ want, quote, onClick }: WantCardProps) {
+export function WantCard({ want, quote }: WantCardProps) {
   const stale = isStale(want.last_confirmed_at);
   const authors = want.authors?.map((a) => a.name).join(", ");
 
   return (
+    <Link href={`/books/${want.book_id}`}>
     <Card
-      className={`${stale ? "opacity-60" : ""} ${onClick ? "cursor-pointer transition-colors hover:bg-accent/50" : ""}`.trim() || undefined}
-      onClick={onClick}
+      className={`${stale ? "opacity-60" : ""} cursor-pointer transition-colors hover:bg-accent/50`.trim()}
     >
       <CardHeader className="pb-2">
         <CardTitle className="text-base leading-tight">
@@ -62,5 +60,6 @@ export function WantCard({ want, quote, onClick }: WantCardProps) {
         </div>
       </CardContent>
     </Card>
+    </Link>
   );
 }

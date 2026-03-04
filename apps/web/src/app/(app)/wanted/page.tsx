@@ -4,9 +4,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/shared/components/ui/input";
 import { useBrowseWants } from "@/shared/queries/wanted";
 import { useQuotesByBooks } from "@/shared/queries/quotes";
-import type { PgBrowseWant } from "@/shared/api";
 import { WantCard } from "./want-card";
-import { BookDetailDialog } from "../browse/book-detail-dialog";
 
 export default function WantedPage() {
   const [search, setSearch] = useState("");
@@ -37,9 +35,6 @@ export default function WantedPage() {
     return map;
   }, [allQuotes]);
 
-  // Dialog state
-  const [selectedWant, setSelectedWant] = useState<PgBrowseWant | null>(null);
-
   return (
     <div className="space-y-6">
       <div>
@@ -69,25 +64,11 @@ export default function WantedPage() {
               key={want.id}
               want={want}
               quote={quoteMap.get(want.book_id)}
-              onClick={() => setSelectedWant(want)}
             />
           ))}
         </div>
       )}
 
-      {/* Book Detail Dialog (view-only quotes — no editionId for adding) */}
-      {selectedWant && (
-        <BookDetailDialog
-          bookId={selectedWant.book_id}
-          bookTitle={selectedWant.book_title}
-          bookSubtitle={selectedWant.book_subtitle}
-          authors={selectedWant.authors?.map((a) => a.name).join(", ") ?? ""}
-          open={!!selectedWant}
-          onOpenChange={(open) => {
-            if (!open) setSelectedWant(null);
-          }}
-        />
-      )}
     </div>
   );
 }
