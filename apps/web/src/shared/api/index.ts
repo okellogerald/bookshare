@@ -16,6 +16,7 @@ export type {
   PgCollection,
   PgBrowseListing,
   PgWant,
+  PgWantWithBook,
   PgBrowseWant,
   // Joined / embedded types
   PgBookWithAuthors,

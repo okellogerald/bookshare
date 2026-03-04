@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import type { PgWantWithBook } from "@/shared/api";
 import { Button } from "@/shared/components/ui/button";
+import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import {
   Table,
   TableBody,
@@ -27,9 +30,17 @@ function isStale(lastConfirmedAt: string | null): boolean {
 }
 
 export default function MyWantsPage() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedWant, setSelectedWant] = useState<PgWantWithBook | null>(null);
+
   const { data: wants, isLoading } = useMyWants();
   const confirmWant = useConfirmWant();
   const deleteWant = useDeleteWant();
+
+  function handleOpenBookDetails(want: PgWantWithBook) {
+    setSelectedWant(want);
+    setDialogOpen(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -71,7 +82,18 @@ export default function MyWantsPage() {
               return (
                 <TableRow key={want.id}>
                   <TableCell className="font-medium">
-                    {want.book_id}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenBookDetails(want)}
+                      className="text-left underline-offset-4 hover:underline"
+                    >
+                      {want.book?.title ?? want.book_id}
+                    </button>
+                    {want.book?.subtitle && (
+                      <p className="text-xs text-muted-foreground">
+                        {want.book.subtitle}
+                      </p>
+                    )}
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
                     {want.notes || "—"}
@@ -116,6 +138,23 @@ export default function MyWantsPage() {
           </TableBody>
         </Table>
       )}
+
+      <BookDetailsDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        bookId={selectedWant?.book_id ?? null}
+        fallbackTitle={selectedWant?.book?.title ?? selectedWant?.book_id}
+        fallbackSubtitle={selectedWant?.book?.subtitle}
+      >
+        {selectedWant?.notes && (
+          <div className="rounded-md border p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Your note
+            </p>
+            <p className="mt-1 text-sm">{selectedWant.notes}</p>
+          </div>
+        )}
+      </BookDetailsDialog>
     </div>
   );
 }

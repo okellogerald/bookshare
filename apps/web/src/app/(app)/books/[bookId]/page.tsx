@@ -1,45 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  BookOpen,
-  Quote,
-  Pencil,
-  Trash2,
-  Plus,
-  Users,
-  Loader2,
-} from "lucide-react";
-import { Button } from "@/shared/components/ui/button";
+import { ArrowLeft, BookOpen, Loader2, Users } from "lucide-react";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import { Separator } from "@/shared/components/ui/separator";
-import { Textarea } from "@/shared/components/ui/textarea";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 import { useBookDetail, useEditionsByBook, useListingsByBook } from "@/shared/queries/books";
-import {
-  useQuotesByBook,
-  useCreateQuote,
-  useUpdateQuote,
-  useDeleteQuote,
-} from "@/shared/queries/quotes";
-import { useCurrentUser } from "@/shared/providers/user-provider";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -65,70 +37,10 @@ const conditionLabels: Record<string, string> = {
 
 export default function BookDetailPage() {
   const { bookId } = useParams<{ bookId: string }>();
-  const user = useCurrentUser();
 
   const { data: book, isLoading: bookLoading } = useBookDetail(bookId);
   const { data: editions } = useEditionsByBook(bookId);
-  const { data: quotes, isLoading: quotesLoading } = useQuotesByBook(bookId);
   const { data: listings } = useListingsByBook(bookId);
-
-  const createQuote = useCreateQuote();
-  const updateQuote = useUpdateQuote();
-  const deleteQuote = useDeleteQuote();
-
-  // Quote add form state
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newText, setNewText] = useState("");
-  const [newChapter, setNewChapter] = useState("");
-  const [selectedEditionId, setSelectedEditionId] = useState("");
-
-  // Quote edit state
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-  const [editChapter, setEditChapter] = useState("");
-
-  // Auto-select edition if only one
-  const resolvedEditionId =
-    selectedEditionId || (editions?.length === 1 ? editions[0].id : "");
-
-  async function handleAddQuote() {
-    if (!newText.trim() || !resolvedEditionId) return;
-    await createQuote.mutateAsync({
-      editionId: resolvedEditionId,
-      text: newText.trim(),
-      chapter: newChapter.trim() || undefined,
-    });
-    setNewText("");
-    setNewChapter("");
-    setSelectedEditionId("");
-    setShowAddForm(false);
-  }
-
-  async function handleUpdateQuote() {
-    if (!editingId || !editText.trim()) return;
-    await updateQuote.mutateAsync({
-      id: editingId,
-      body: {
-        text: editText.trim(),
-        chapter: editChapter.trim() || undefined,
-      },
-    });
-    setEditingId(null);
-  }
-
-  async function handleDeleteQuote(id: string) {
-    await deleteQuote.mutateAsync(id);
-  }
-
-  function startEdit(quote: {
-    id: string;
-    text: string;
-    chapter: string | null;
-  }) {
-    setEditingId(quote.id);
-    setEditText(quote.text);
-    setEditChapter(quote.chapter ?? "");
-  }
 
   if (bookLoading) {
     return (
@@ -152,11 +64,10 @@ export default function BookDetailPage() {
     );
   }
 
-  const authors = book.authors?.map((a) => a.name).join(", ") ?? "";
+  const authors = book.authors?.map((author) => author.name).join(", ") ?? "";
 
   return (
     <div className="space-y-6">
-      {/* Back navigation */}
       <Link href="/browse">
         <Button variant="ghost" size="sm" className="gap-2">
           <ArrowLeft className="h-4 w-4" />
@@ -164,7 +75,6 @@ export default function BookDetailPage() {
         </Button>
       </Link>
 
-      {/* Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">{book.title}</h1>
         {book.subtitle && (
@@ -181,7 +91,6 @@ export default function BookDetailPage() {
         )}
       </div>
 
-      {/* Description */}
       {book.description && (
         <Card>
           <CardHeader>
@@ -198,7 +107,6 @@ export default function BookDetailPage() {
         </Card>
       )}
 
-      {/* Editions */}
       {editions && editions.length > 0 && (
         <Card>
           <CardHeader>
@@ -241,191 +149,6 @@ export default function BookDetailPage() {
         </Card>
       )}
 
-      {/* Quotes */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Quote className="h-4 w-4" />
-              Quotes
-              {quotes && quotes.length > 0 && (
-                <span className="text-muted-foreground">
-                  ({quotes.length})
-                </span>
-              )}
-            </CardTitle>
-            {user && editions && editions.length > 0 && !showAddForm && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddForm(true)}
-              >
-                <Plus className="mr-1 h-3 w-3" />
-                Add Quote
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Add quote form */}
-          {showAddForm && (
-            <div className="space-y-3 rounded-lg border p-3">
-              <div className="space-y-1.5">
-                <Label>Quote</Label>
-                <Textarea
-                  placeholder="Enter a memorable quote from this book..."
-                  value={newText}
-                  onChange={(e) => setNewText(e.target.value)}
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Chapter (optional)</Label>
-                <Input
-                  placeholder="e.g. Chapter 3, Part 1"
-                  value={newChapter}
-                  onChange={(e) => setNewChapter(e.target.value)}
-                />
-              </div>
-              {editions && editions.length > 1 && (
-                <div className="space-y-1.5">
-                  <Label>Edition</Label>
-                  <Select
-                    value={selectedEditionId}
-                    onValueChange={setSelectedEditionId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select edition..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {editions.map((ed) => (
-                        <SelectItem key={ed.id} value={ed.id}>
-                          {formatLabels[ed.format] ?? ed.format}
-                          {ed.isbn ? ` (${ed.isbn})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleAddQuote}
-                  disabled={
-                    !newText.trim() ||
-                    !resolvedEditionId ||
-                    createQuote.isPending
-                  }
-                >
-                  {createQuote.isPending ? "Adding..." : "Add"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setNewText("");
-                    setNewChapter("");
-                    setSelectedEditionId("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Quotes list */}
-          {quotesLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-16 animate-pulse rounded-lg bg-muted"
-                />
-              ))}
-            </div>
-          ) : quotes && quotes.length > 0 ? (
-            <div className="space-y-3">
-              {quotes.map((quote) => (
-                <div key={quote.id} className="rounded-lg border p-3">
-                  {editingId === quote.id ? (
-                    <div className="space-y-3">
-                      <Textarea
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        rows={3}
-                      />
-                      <Input
-                        placeholder="Chapter (optional)"
-                        value={editChapter}
-                        onChange={(e) => setEditChapter(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={handleUpdateQuote}
-                          disabled={
-                            !editText.trim() || updateQuote.isPending
-                          }
-                        >
-                          {updateQuote.isPending ? "Saving..." : "Save"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingId(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm italic leading-relaxed">
-                        &ldquo;{quote.text}&rdquo;
-                      </p>
-                      {quote.chapter && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {quote.chapter}
-                        </p>
-                      )}
-                      {user && user.id === quote.added_by && (
-                        <div className="mt-2 flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2"
-                            onClick={() => startEdit(quote)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteQuote(quote.id)}
-                            disabled={deleteQuote.isPending}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No quotes yet. Be the first to add one!
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Available Copies */}
       {listings && listings.length > 0 && (
         <Card>
           <CardHeader>

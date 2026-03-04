@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal } from "lucide-react";
+import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import {
@@ -45,10 +47,28 @@ const shareTypeLabels: Record<string, string> = {
 };
 
 export default function MyLibraryPage() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<{
+    id: string;
+    title?: string;
+    subtitle?: string | null;
+  } | null>(null);
+
   const { data: copies, isLoading } = useMyCopies();
   const confirmMutation = useConfirmCopy();
   const statusMutation = useUpdateCopyStatus();
   const deleteMutation = useDeleteCopy();
+
+  function handleOpenBookDetails(copy: NonNullable<typeof copies>[number]) {
+    const book = copy.edition?.book;
+    if (!book?.id) return;
+    setSelectedBook({
+      id: book.id,
+      title: book.title,
+      subtitle: book.subtitle,
+    });
+    setDialogOpen(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -90,12 +110,17 @@ export default function MyLibraryPage() {
               <TableRow key={copy.id}>
                 <TableCell>
                   <div>
-                    <Link
-                      href={`/books/${copy.edition?.book?.id ?? ""}`}
-                      className="font-medium underline-offset-4 hover:underline"
-                    >
-                      {copy.edition?.book?.title ?? "Unknown"}
-                    </Link>
+                    {copy.edition?.book?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBookDetails(copy)}
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
+                        {copy.edition.book.title}
+                      </button>
+                    ) : (
+                      <span className="font-medium">Unknown</span>
+                    )}
                     {copy.edition?.isbn && (
                       <p className="text-xs text-muted-foreground">
                         ISBN: {copy.edition.isbn}
@@ -194,6 +219,14 @@ export default function MyLibraryPage() {
           </Link>
         </div>
       )}
+
+      <BookDetailsDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        bookId={selectedBook?.id ?? null}
+        fallbackTitle={selectedBook?.title}
+        fallbackSubtitle={selectedBook?.subtitle}
+      />
 
     </div>
   );

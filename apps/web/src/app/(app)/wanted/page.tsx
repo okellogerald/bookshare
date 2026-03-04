@@ -1,39 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import type { PgBrowseWant } from "@/shared/api";
+import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { Input } from "@/shared/components/ui/input";
 import { useBrowseWants } from "@/shared/queries/wanted";
-import { useQuotesByBooks } from "@/shared/queries/quotes";
 import { WantCard } from "./want-card";
 
 export default function WantedPage() {
   const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedWant, setSelectedWant] = useState<PgBrowseWant | null>(null);
   const { data: wants, isLoading } = useBrowseWants({ search });
 
-  // Collect unique book IDs
-  const bookIds = useMemo(
-    () => [...new Set(wants?.map((w) => w.book_id) ?? [])],
-    [wants]
-  );
-
-  const { data: allQuotes } = useQuotesByBooks(bookIds);
-
-  // Build a map of bookId → random quote text
-  const quoteMap = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!allQuotes) return map;
-
-    const byBook = new Map<string, string[]>();
-    for (const q of allQuotes) {
-      const arr = byBook.get(q.book_id) ?? [];
-      arr.push(q.text);
-      byBook.set(q.book_id, arr);
-    }
-    for (const [bookId, texts] of byBook) {
-      map.set(bookId, texts[Math.floor(Math.random() * texts.length)]);
-    }
-    return map;
-  }, [allQuotes]);
+  function handleWantSelect(want: PgBrowseWant) {
+    setSelectedWant(want);
+    setDialogOpen(true);
+  }
 
   return (
     <div className="space-y-6">
@@ -48,7 +31,7 @@ export default function WantedPage() {
         <Input
           placeholder="Search by book title..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => setSearch(event.target.value)}
           className="max-w-sm"
         />
       </div>
@@ -60,15 +43,27 @@ export default function WantedPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {wants.map((want) => (
-            <WantCard
-              key={want.id}
-              want={want}
-              quote={quoteMap.get(want.book_id)}
-            />
+            <WantCard key={want.id} want={want} onSelect={handleWantSelect} />
           ))}
         </div>
       )}
 
+      <BookDetailsDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        bookId={selectedWant?.book_id ?? null}
+        fallbackTitle={selectedWant?.book_title}
+        fallbackSubtitle={selectedWant?.book_subtitle}
+      >
+        {selectedWant?.notes && (
+          <div className="rounded-md border p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Want notes
+            </p>
+            <p className="mt-1 text-sm">{selectedWant.notes}</p>
+          </div>
+        )}
+      </BookDetailsDialog>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { PgBrowseWant } from "@/shared/api";
 import {
   Card,
@@ -16,50 +15,48 @@ function isStale(lastConfirmedAt: string | null): boolean {
 
 interface WantCardProps {
   want: PgBrowseWant;
-  quote?: string;
+  onSelect: (want: PgBrowseWant) => void;
 }
 
-export function WantCard({ want, quote }: WantCardProps) {
+export function WantCard({ want, onSelect }: WantCardProps) {
   const stale = isStale(want.last_confirmed_at);
   const authors = want.authors?.map((a) => a.name).join(", ");
 
   return (
-    <Link href={`/books/${want.book_id}`}>
-    <Card
-      className={`${stale ? "opacity-60" : ""} cursor-pointer transition-colors hover:bg-accent/50`.trim()}
+    <button
+      type="button"
+      className="w-full text-left"
+      onClick={() => onSelect(want)}
     >
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base leading-tight">
-          {want.book_title}
-        </CardTitle>
-        {want.book_subtitle && (
-          <p className="text-sm text-muted-foreground">{want.book_subtitle}</p>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {authors && (
-          <p className="text-sm text-muted-foreground">by {authors}</p>
-        )}
-
-        {quote && (
-          <p className="line-clamp-2 text-sm italic text-muted-foreground">
-            &ldquo;{quote}&rdquo;
-          </p>
-        )}
-
-        {want.notes && (
-          <p className="text-sm italic">&ldquo;{want.notes}&rdquo;</p>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {stale && (
-            <Badge variant="outline" className="text-amber-600 border-amber-600">
-              Stale
-            </Badge>
+      <Card
+        className={`${stale ? "opacity-60" : ""} cursor-pointer transition-colors hover:bg-accent/50`.trim()}
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base leading-tight">
+            {want.book_title}
+          </CardTitle>
+          {want.book_subtitle && (
+            <p className="text-sm text-muted-foreground">{want.book_subtitle}</p>
           )}
-        </div>
-      </CardContent>
-    </Card>
-    </Link>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {authors && (
+            <p className="text-sm text-muted-foreground">by {authors}</p>
+          )}
+
+          {want.notes && (
+            <p className="text-sm">{want.notes}</p>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {stale && (
+              <Badge variant="outline" className="border-amber-600 text-amber-600">
+                Stale
+              </Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </button>
   );
 }

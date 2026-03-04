@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Card,
@@ -32,70 +31,66 @@ function isStale(lastConfirmedAt: string | null): boolean {
 
 interface ListingCardProps {
   listing: PgBrowseListing;
-  quote?: string;
+  onSelect: (listing: PgBrowseListing) => void;
 }
 
-export function ListingCard({ listing, quote }: ListingCardProps) {
+export function ListingCard({ listing, onSelect }: ListingCardProps) {
   const authors = listing.authors
     .map((a) => a.name)
     .join(", ");
   const stale = isStale(listing.last_confirmed_at);
 
   return (
-    <Link href={`/books/${listing.book_id}`}>
-    <Card
-      className="cursor-pointer transition-colors hover:bg-accent/50"
+    <button
+      type="button"
+      className="w-full text-left"
+      onClick={() => onSelect(listing)}
     >
-      <CardHeader className="pb-3">
-        <CardTitle className="line-clamp-2 text-base">
-          {listing.book_title}
-        </CardTitle>
-        {authors && (
-          <p className="text-sm text-muted-foreground">{authors}</p>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {listing.share_type && (
-            <Badge variant="default">
-              {shareTypeLabels[listing.share_type] ?? listing.share_type}
-            </Badge>
+      <Card className="cursor-pointer transition-colors hover:bg-accent/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="line-clamp-2 text-base">
+            {listing.book_title}
+          </CardTitle>
+          {authors && (
+            <p className="text-sm text-muted-foreground">{authors}</p>
           )}
-          <Badge variant="secondary">
-            {conditionLabels[listing.condition] ?? listing.condition}
-          </Badge>
-          <Badge variant="outline">{listing.format}</Badge>
-        </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {listing.share_type && (
+              <Badge variant="default">
+                {shareTypeLabels[listing.share_type] ?? listing.share_type}
+              </Badge>
+            )}
+            <Badge variant="secondary">
+              {conditionLabels[listing.condition] ?? listing.condition}
+            </Badge>
+            <Badge variant="outline">{listing.format}</Badge>
+          </div>
 
-        {quote && (
-          <p className="line-clamp-2 text-sm italic text-muted-foreground">
-            &ldquo;{quote}&rdquo;
-          </p>
-        )}
+          {listing.isbn && (
+            <p className="text-xs text-muted-foreground">
+              ISBN: {listing.isbn}
+            </p>
+          )}
 
-        {listing.isbn && (
-          <p className="text-xs text-muted-foreground">
-            ISBN: {listing.isbn}
-          </p>
-        )}
+          {listing.contact_note && (
+            <p className="text-sm">{listing.contact_note}</p>
+          )}
 
-        {listing.contact_note && (
-          <p className="text-sm">{listing.contact_note}</p>
-        )}
+          {listing.location && (
+            <p className="text-xs text-muted-foreground">
+              Location: {listing.location}
+            </p>
+          )}
 
-        {listing.location && (
-          <p className="text-xs text-muted-foreground">
-            Location: {listing.location}
-          </p>
-        )}
-
-        {stale && (
-          <p className="text-xs text-destructive">
-            Not confirmed recently
-          </p>
-        )}
-      </CardContent>
-    </Card>
-    </Link>
+          {stale && (
+            <p className="text-xs text-destructive">
+              Not confirmed recently
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </button>
   );
 }

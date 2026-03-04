@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PgWant, PgEdition } from "@/shared/api";
+import type { PgWantWithBook } from "@/shared/api";
 import type { CreateWantBody, WantResponse } from "@/shared/api";
 
 // ─── Fetch helpers ──────────────────────────────────────────
@@ -26,9 +26,9 @@ async function nestjsFetch<T>(
 
 // ─── Queries ────────────────────────────────────────────────
 
-async function fetchMyWants(): Promise<PgWant[]> {
+async function fetchMyWants(): Promise<PgWantWithBook[]> {
   const params = new URLSearchParams();
-  params.set("select", "*");
+  params.set("select", "*,book:books(*)");
   params.set("order", "created_at.desc");
 
   const response = await fetch(`/api/postgrest/wants?${params}`);

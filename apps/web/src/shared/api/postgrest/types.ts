@@ -174,6 +174,11 @@ export interface PgWant {
   updated_at: string;
 }
 
+/** wants table with embedded book via select=*,book:books(*) */
+export interface PgWantWithBook extends PgWant {
+  book: PgBook | null;
+}
+
 /** browse_wants view — cross-user, all active wants with book info */
 export interface PgBrowseWant {
   id: string;
