@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BookMarked, BookOpen, Heart, Library, LogOut, Search } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Separator } from "@/shared/components/ui/separator";
+import { UserProvider } from "@/shared/providers/user-provider";
 import { cn } from "@/shared/lib/utils";
 
 interface User {
@@ -79,7 +80,9 @@ export function AppShellClient({
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
-        <div className="container max-w-6xl py-6">{children}</div>
+        <UserProvider user={user}>
+          <div className="container max-w-6xl py-6">{children}</div>
+        </UserProvider>
       </main>
     </div>
   );

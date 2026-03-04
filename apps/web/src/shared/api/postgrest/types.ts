@@ -40,11 +40,16 @@ export interface PgEdition {
 
 export interface PgBookQuote {
   id: string;
-  book_id: string;
+  edition_id: string;
   text: string;
-  page_number: number | null;
   chapter: string | null;
+  added_by: string;
   created_at: string;
+}
+
+/** book_quotes_with_book view — quotes joined through editions to expose book_id */
+export interface PgBookQuoteWithBook extends PgBookQuote {
+  book_id: string;
 }
 
 export interface PgCategory {

@@ -56,12 +56,13 @@ services:
     environment:
       PGRST_DB_URI: postgresql://postgrest_authenticator:${POSTGREST_DB_PASSWORD}@postgres:5432/booktrack
       PGRST_DB_SCHEMAS: public
-      PGRST_DB_ANON_ROLE: postgrest_anon
+      PGRST_DB_ANON_ROLE: postgrest_auth
       PGRST_JWT_SECRET: ${ZITADEL_JWT_SECRET}
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_DB_MAX_ROWS: 1000
+      PGRST_DB_PRE_REQUEST: public.pgrst_auth_guard
       PGRST_JWT_AUD: ""
-      PGRST_JWT_ROLE_CLAIM_KEY: ".\"urn:zitadel:iam:org:project:roles\""
+      PGRST_JWT_ROLE_CLAIM_KEY: ".role"
     depends_on:
       postgres:
         condition: service_healthy

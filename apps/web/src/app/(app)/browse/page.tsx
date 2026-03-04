@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -11,7 +11,10 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { useBrowseListings } from "@/shared/queries/browse";
+import { useQuotesByBooks } from "@/shared/queries/quotes";
+import type { PgBrowseListing } from "@/shared/api";
 import { ListingCard } from "./listing-card";
+import { BookDetailDialog } from "./book-detail-dialog";
 
 export default function BrowsePage() {
   const [search, setSearch] = useState("");
@@ -25,6 +28,35 @@ export default function BrowsePage() {
     condition: condition || undefined,
     format: format || undefined,
   });
+
+  // Collect unique book IDs from listings
+  const bookIds = useMemo(
+    () => [...new Set(listings?.map((l) => l.book_id) ?? [])],
+    [listings]
+  );
+
+  const { data: allQuotes } = useQuotesByBooks(bookIds);
+
+  // Build a map of bookId → random quote text
+  const quoteMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!allQuotes) return map;
+
+    const byBook = new Map<string, string[]>();
+    for (const q of allQuotes) {
+      const arr = byBook.get(q.book_id) ?? [];
+      arr.push(q.text);
+      byBook.set(q.book_id, arr);
+    }
+    for (const [bookId, texts] of byBook) {
+      map.set(bookId, texts[Math.floor(Math.random() * texts.length)]);
+    }
+    return map;
+  }, [allQuotes]);
+
+  // Dialog state
+  const [selectedListing, setSelectedListing] =
+    useState<PgBrowseListing | null>(null);
 
   return (
     <div className="space-y-6">
@@ -101,13 +133,33 @@ export default function BrowsePage() {
       ) : listings && listings.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              quote={quoteMap.get(listing.book_id)}
+              onClick={() => setSelectedListing(listing)}
+            />
           ))}
         </div>
       ) : (
         <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed">
           <p className="text-muted-foreground">No listings found</p>
         </div>
+      )}
+
+      {/* Book Detail Dialog */}
+      {selectedListing && (
+        <BookDetailDialog
+          bookId={selectedListing.book_id}
+          editionId={selectedListing.edition_id}
+          bookTitle={selectedListing.book_title}
+          bookSubtitle={selectedListing.book_subtitle}
+          authors={selectedListing.authors.map((a) => a.name).join(", ")}
+          open={!!selectedListing}
+          onOpenChange={(open) => {
+            if (!open) setSelectedListing(null);
+          }}
+        />
       )}
     </div>
   );

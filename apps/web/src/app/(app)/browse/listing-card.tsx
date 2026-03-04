@@ -29,14 +29,23 @@ function isStale(lastConfirmedAt: string | null): boolean {
   return confirmed < thirtyDaysAgo;
 }
 
-export function ListingCard({ listing }: { listing: PgBrowseListing }) {
+interface ListingCardProps {
+  listing: PgBrowseListing;
+  quote?: string;
+  onClick?: () => void;
+}
+
+export function ListingCard({ listing, quote, onClick }: ListingCardProps) {
   const authors = listing.authors
     .map((a) => a.name)
     .join(", ");
   const stale = isStale(listing.last_confirmed_at);
 
   return (
-    <Card>
+    <Card
+      className={onClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined}
+      onClick={onClick}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="line-clamp-2 text-base">
           {listing.book_title}
@@ -57,6 +66,12 @@ export function ListingCard({ listing }: { listing: PgBrowseListing }) {
           </Badge>
           <Badge variant="outline">{listing.format}</Badge>
         </div>
+
+        {quote && (
+          <p className="line-clamp-2 text-sm italic text-muted-foreground">
+            &ldquo;{quote}&rdquo;
+          </p>
+        )}
 
         {listing.isbn && (
           <p className="text-xs text-muted-foreground">

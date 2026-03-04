@@ -15,8 +15,15 @@ interface SessionData {
   };
 }
 
+function isJwtLike(token?: string | null): token is string {
+  return !!token && token.split(".").length === 3;
+}
+
 export async function setSession(data: SessionData): Promise<void> {
   const cookieStore = await cookies();
+  const tokenForApi = isJwtLike(data.accessToken)
+    ? data.accessToken
+    : data.idToken ?? data.accessToken;
 
   cookieStore.set(SESSION_COOKIE, JSON.stringify(data), {
     httpOnly: true,
@@ -26,7 +33,7 @@ export async function setSession(data: SessionData): Promise<void> {
     maxAge: 60 * 60 * 24,
   });
 
-  cookieStore.set(TOKEN_COOKIE, data.accessToken, {
+  cookieStore.set(TOKEN_COOKIE, tokenForApi, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -57,7 +64,21 @@ export async function getSession(): Promise<SessionData | null> {
 
 export async function getAccessToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  return cookieStore.get(TOKEN_COOKIE)?.value ?? null;
+  const tokenCookie = cookieStore.get(TOKEN_COOKIE)?.value ?? null;
+  if (isJwtLike(tokenCookie)) return tokenCookie;
+
+  const sessionCookie = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!sessionCookie) return tokenCookie;
+
+  try {
+    const session: SessionData = JSON.parse(sessionCookie);
+    if (isJwtLike(session.accessToken)) return session.accessToken;
+    if (isJwtLike(session.idToken)) return session.idToken;
+  } catch {
+    return tokenCookie;
+  }
+
+  return tokenCookie;
 }
 
 export async function clearSession(): Promise<void> {

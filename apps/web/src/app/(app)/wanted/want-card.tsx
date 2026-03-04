@@ -15,12 +15,21 @@ function isStale(lastConfirmedAt: string | null): boolean {
   return Date.now() - new Date(lastConfirmedAt).getTime() > thirtyDaysMs;
 }
 
-export function WantCard({ want }: { want: PgBrowseWant }) {
+interface WantCardProps {
+  want: PgBrowseWant;
+  quote?: string;
+  onClick?: () => void;
+}
+
+export function WantCard({ want, quote, onClick }: WantCardProps) {
   const stale = isStale(want.last_confirmed_at);
   const authors = want.authors?.map((a) => a.name).join(", ");
 
   return (
-    <Card className={stale ? "opacity-60" : undefined}>
+    <Card
+      className={`${stale ? "opacity-60" : ""} ${onClick ? "cursor-pointer transition-colors hover:bg-accent/50" : ""}`.trim() || undefined}
+      onClick={onClick}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="text-base leading-tight">
           {want.book_title}
@@ -32,6 +41,12 @@ export function WantCard({ want }: { want: PgBrowseWant }) {
       <CardContent className="space-y-2">
         {authors && (
           <p className="text-sm text-muted-foreground">by {authors}</p>
+        )}
+
+        {quote && (
+          <p className="line-clamp-2 text-sm italic text-muted-foreground">
+            &ldquo;{quote}&rdquo;
+          </p>
         )}
 
         {want.notes && (

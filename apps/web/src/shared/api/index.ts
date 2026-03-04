@@ -9,6 +9,7 @@ export type {
   PgAuthor,
   PgEdition,
   PgBookQuote,
+  PgBookQuoteWithBook,
   PgCategory,
   PgCopy,
   PgCopyEvent,

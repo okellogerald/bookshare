@@ -39,7 +39,7 @@ export class CopiesService {
   }
 
   async create(dto: CreateCopyDto, userId: string) {
-    return this.db.transaction(async (tx) => {
+    const copyId = await this.db.transaction(async (tx) => {
       const [copy] = await tx
         .insert(copies)
         .values({
@@ -71,8 +71,10 @@ export class CopiesService {
         notes: `Copy acquired via ${dto.acquisitionType}`,
       });
 
-      return this.findOne(copy.id, userId);
+      return copy.id;
     });
+
+    return this.findOne(copyId, userId);
   }
 
   async update(id: string, dto: UpdateCopyDto, userId: string) {

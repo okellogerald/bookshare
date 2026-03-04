@@ -1,13 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/shared/components/ui/input";
 import { useBrowseWants } from "@/shared/queries/wanted";
+import { useQuotesByBooks } from "@/shared/queries/quotes";
+import type { PgBrowseWant } from "@/shared/api";
 import { WantCard } from "./want-card";
+import { BookDetailDialog } from "../browse/book-detail-dialog";
 
 export default function WantedPage() {
   const [search, setSearch] = useState("");
   const { data: wants, isLoading } = useBrowseWants({ search });
+
+  // Collect unique book IDs
+  const bookIds = useMemo(
+    () => [...new Set(wants?.map((w) => w.book_id) ?? [])],
+    [wants]
+  );
+
+  const { data: allQuotes } = useQuotesByBooks(bookIds);
+
+  // Build a map of bookId → random quote text
+  const quoteMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!allQuotes) return map;
+
+    const byBook = new Map<string, string[]>();
+    for (const q of allQuotes) {
+      const arr = byBook.get(q.book_id) ?? [];
+      arr.push(q.text);
+      byBook.set(q.book_id, arr);
+    }
+    for (const [bookId, texts] of byBook) {
+      map.set(bookId, texts[Math.floor(Math.random() * texts.length)]);
+    }
+    return map;
+  }, [allQuotes]);
+
+  // Dialog state
+  const [selectedWant, setSelectedWant] = useState<PgBrowseWant | null>(null);
 
   return (
     <div className="space-y-6">
@@ -34,9 +65,28 @@ export default function WantedPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {wants.map((want) => (
-            <WantCard key={want.id} want={want} />
+            <WantCard
+              key={want.id}
+              want={want}
+              quote={quoteMap.get(want.book_id)}
+              onClick={() => setSelectedWant(want)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Book Detail Dialog (view-only quotes — no editionId for adding) */}
+      {selectedWant && (
+        <BookDetailDialog
+          bookId={selectedWant.book_id}
+          bookTitle={selectedWant.book_title}
+          bookSubtitle={selectedWant.book_subtitle}
+          authors={selectedWant.authors?.map((a) => a.name).join(", ") ?? ""}
+          open={!!selectedWant}
+          onOpenChange={(open) => {
+            if (!open) setSelectedWant(null);
+          }}
+        />
       )}
     </div>
   );

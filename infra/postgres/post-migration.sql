@@ -22,6 +22,20 @@ CREATE OR REPLACE FUNCTION current_user_id() RETURNS TEXT AS $$
   SELECT current_setting('request.jwt.claims', true)::json->>'sub';
 $$ LANGUAGE sql STABLE;
 
+-- Enforce authentication for all PostgREST requests regardless of role claim
+CREATE OR REPLACE FUNCTION pgrst_auth_guard() RETURNS void AS $$
+DECLARE
+  claims_json text;
+BEGIN
+  claims_json := current_setting('request.jwt.claims', true);
+  IF claims_json IS NULL OR claims_json = '' OR (claims_json::json->>'sub') IS NULL THEN
+    RAISE insufficient_privilege USING MESSAGE = 'authentication required';
+  END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+GRANT EXECUTE ON FUNCTION pgrst_auth_guard() TO postgrest_anon, postgrest_auth;
+
 -- ─── RLS Policies: copies ───────────────────────────────────
 
 DROP POLICY IF EXISTS copies_anon_deny ON copies;
@@ -240,3 +254,21 @@ GROUP BY w.id, b.id;
 
 -- Grant browse wants view to authenticated users only
 GRANT SELECT ON browse_wants TO postgrest_auth;
+
+-- ─── Book Quotes with Book ID View ───────────────────────────
+-- Joins quotes through editions to expose book_id for easy filtering.
+-- Global table — no RLS needed.
+
+CREATE OR REPLACE VIEW book_quotes_with_book AS
+SELECT
+  bq.id,
+  bq.text,
+  bq.chapter,
+  bq.added_by,
+  bq.created_at,
+  bq.edition_id,
+  e.book_id
+FROM book_quotes bq
+JOIN editions e ON e.id = bq.edition_id;
+
+GRANT SELECT ON book_quotes_with_book TO postgrest_auth;

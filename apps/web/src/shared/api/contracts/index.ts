@@ -94,24 +94,22 @@ export interface EditionResponse {
 
 // Quotes
 export interface CreateQuoteBody {
-  bookId: string;
+  editionId: string;
   text: string;
-  pageNumber?: number;
   chapter?: string;
 }
 
 export interface UpdateQuoteBody {
   text?: string;
-  pageNumber?: number;
   chapter?: string;
 }
 
 export interface QuoteResponse {
   id: string;
-  bookId: string;
+  editionId: string;
   text: string;
-  pageNumber: number | null;
   chapter: string | null;
+  addedBy: string;
   createdAt: string;
 }
 
