@@ -26,9 +26,11 @@ import { Badge } from "@/shared/components/ui/badge";
 import {
   useEditionByIsbn,
   useCreateCopy,
+  useCreateCopyImagePresign,
   useCreateBook,
   useCreateEdition,
   useCreateAuthor,
+  useAttachCopyImages,
   useSearchAuthors,
 } from "@/shared/queries/my-library";
 
@@ -71,8 +73,12 @@ export default function AddCopyPage() {
   const [contactNote, setContactNote] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const createCopy = useCreateCopy();
+  const createCopyImagePresign = useCreateCopyImagePresign();
+  const attachCopyImages = useAttachCopyImages();
   const createBook = useCreateBook();
   const createEdition = useCreateEdition();
   const createAuthor = useCreateAuthor();
@@ -128,6 +134,29 @@ export default function AddCopyPage() {
     setSelectedAuthors((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function handleImageSelection(files: FileList | null) {
+    if (!files) return;
+    const list = Array.from(files);
+    if (list.length + selectedImages.length > 5) {
+      setImageError("You can upload up to 5 images per copy.");
+      return;
+    }
+
+    for (const file of list) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        setImageError("Only jpg, png, and webp images are supported.");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setImageError("Each image must be 5MB or less.");
+        return;
+      }
+    }
+
+    setImageError(null);
+    setSelectedImages((prev) => [...prev, ...list].slice(0, 5));
+  }
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -173,7 +202,7 @@ export default function AddCopyPage() {
         editionId = newEdition.id;
       }
 
-      await createCopy.mutateAsync({
+      const createdCopy = await createCopy.mutateAsync({
         editionId,
         condition,
         acquisitionType,
@@ -182,6 +211,41 @@ export default function AddCopyPage() {
         location: location || undefined,
         notes: notes || undefined,
       });
+
+      if (selectedImages.length > 0) {
+        const uploadedImages: Array<{
+          objectKey: string;
+          imageUrl: string;
+          sortOrder: number;
+        }> = [];
+
+        for (let index = 0; index < selectedImages.length; index += 1) {
+          const file = selectedImages[index];
+          const presign = await createCopyImagePresign.mutateAsync({
+            fileName: file.name,
+            contentType: file.type,
+            fileSize: file.size,
+          });
+          const uploadRes = await fetch(presign.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+          if (!uploadRes.ok) {
+            throw new Error("Failed to upload copy image");
+          }
+          uploadedImages.push({
+            objectKey: presign.objectKey,
+            imageUrl: presign.publicUrl,
+            sortOrder: index,
+          });
+        }
+
+        await attachCopyImages.mutateAsync({
+          id: createdCopy.id,
+          body: { images: uploadedImages },
+        });
+      }
 
       router.push("/my-library");
     } catch (error) {
@@ -522,6 +586,37 @@ export default function AddCopyPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Copy Images</Label>
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={(event) => handleImageSelection(event.target.files)}
+              />
+              {!!selectedImages.length && (
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  {selectedImages.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded border px-2 py-1">
+                      <span className="truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        className="text-destructive"
+                        onClick={() =>
+                          setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {imageError && (
+                <p className="text-sm text-destructive">{imageError}</p>
+              )}
             </div>
 
             <div className="flex justify-end gap-2">

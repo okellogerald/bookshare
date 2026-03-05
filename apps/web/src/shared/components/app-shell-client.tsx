@@ -1,8 +1,17 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookMarked, BookOpen, Heart, Library, LogOut, Search } from "lucide-react";
+import {
+  BookMarked,
+  BookOpen,
+  Heart,
+  Library,
+  LogOut,
+  Search,
+  Users,
+} from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Separator } from "@/shared/components/ui/separator";
 import { UserProvider } from "@/shared/providers/user-provider";
@@ -12,11 +21,13 @@ interface User {
   id: string;
   email?: string;
   name?: string;
+  username?: string;
 }
 
 const navItems = [
   { href: "/browse", label: "Browse", icon: Search },
   { href: "/wanted", label: "Wanted", icon: Heart },
+  { href: "/community", label: "Community", icon: Users },
   { href: "/my-library", label: "My Library", icon: Library },
   { href: "/my-wants", label: "My Wants", icon: BookMarked },
 ];
@@ -29,6 +40,16 @@ export function AppShellClient({
   user: User | null;
 }) {
   const pathname = usePathname();
+  const syncedProfile = useRef(false);
+
+  useEffect(() => {
+    if (!user || syncedProfile.current) return;
+    syncedProfile.current = true;
+
+    fetch("/api/nestjs/profiles/sync", { method: "POST" }).catch(() => {
+      // Best-effort profile bootstrap for first-time users.
+    });
+  }, [user]);
 
   return (
     <div className="flex min-h-screen">

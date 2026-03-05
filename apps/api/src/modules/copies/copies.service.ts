@@ -1,9 +1,26 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, copies, copyEvents } from "@booktrack/db";
+import {
+  type Database,
+  copies,
+  copyEvents,
+  copyImages,
+  memberProfiles,
+  wants,
+} from "@booktrack/db";
 import { eq, and } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
-import { CreateCopyDto, UpdateCopyDto, UpdateCopyStatusDto } from "./dto";
+import {
+  AttachCopyImagesDto,
+  CreateCopyDto,
+  UpdateCopyDto,
+  UpdateCopyStatusDto,
+} from "./dto";
 
 @Injectable()
 export class CopiesService {
@@ -15,6 +32,12 @@ export class CopiesService {
       with: {
         edition: { with: { book: true } },
         collectionCopies: { with: { collection: true } },
+        images: {
+          orderBy: (images, { asc }) => [
+            asc(images.sortOrder),
+            asc(images.createdAt),
+          ],
+        },
       },
       orderBy: (copies, { desc }) => [desc(copies.createdAt)],
     });
@@ -31,6 +54,12 @@ export class CopiesService {
           orderBy: (events, { desc }) => [desc(events.createdAt)],
         },
         collectionCopies: { with: { collection: true } },
+        images: {
+          orderBy: (images, { asc }) => [
+            asc(images.sortOrder),
+            asc(images.createdAt),
+          ],
+        },
       },
     });
 
@@ -55,6 +84,7 @@ export class CopiesService {
           notes: dto.notes,
           shareType: dto.shareType as any,
           contactNote: dto.contactNote,
+          borrowerUserId: null,
           lastConfirmedAt: new Date(),
         })
         .returning();
@@ -111,12 +141,40 @@ export class CopiesService {
     const existing = await this.findOne(id, userId);
     const fromStatus = existing.status;
     const toStatus = dto.status;
+    const requiresCounterparty = ["lent", "sold", "given_away"].includes(
+      toStatus
+    );
+    const counterpartyUserId = dto.counterpartyUserId ?? null;
+
+    if (requiresCounterparty && !counterpartyUserId) {
+      throw new BadRequestException(
+        "counterpartyUserId is required for lent, sold, and given_away"
+      );
+    }
+    if (!requiresCounterparty && counterpartyUserId) {
+      throw new BadRequestException(
+        "counterpartyUserId is only allowed for lent, sold, and given_away"
+      );
+    }
+
+    if (counterpartyUserId) {
+      const counterparty = await this.db.query.memberProfiles.findFirst({
+        where: eq(memberProfiles.userId, counterpartyUserId),
+      });
+      if (!counterparty) {
+        throw new NotFoundException("Counterparty member profile not found");
+      }
+    }
 
     // Determine event type from the target status
     const eventTypeMap: Record<string, string> = {
+      lent: "lent",
       sold: "sold",
       rented: "rented",
-      available: fromStatus === "rented" ? "returned" : "status_change",
+      available:
+        fromStatus === "rented" || fromStatus === "lent"
+          ? "returned"
+          : "status_change",
       donated: "donated",
       given_away: "given_away",
       lost: "lost",
@@ -124,11 +182,16 @@ export class CopiesService {
     };
 
     const eventType = eventTypeMap[toStatus] ?? "status_change";
+    const shouldSetBorrower = toStatus === "lent";
+    const shouldClearBorrower = !shouldSetBorrower;
 
     return this.db.transaction(async (tx) => {
       await tx
         .update(copies)
-        .set({ status: toStatus as any })
+        .set({
+          status: toStatus as any,
+          borrowerUserId: shouldSetBorrower ? counterpartyUserId : null,
+        })
         .where(
           and(eq(copies.id, id), eq(copies.userId, userId))
         );
@@ -143,10 +206,83 @@ export class CopiesService {
         amount: dto.amount,
         currency: dto.currency,
         notes: dto.notes,
+        metadata: counterpartyUserId
+          ? { counterpartyUserId, shouldClearBorrower }
+          : undefined,
       });
+
+      if (requiresCounterparty && counterpartyUserId) {
+        await tx
+          .update(wants)
+          .set({
+            status: "fulfilled",
+            fulfilledAt: new Date(),
+            fulfilledByCopyId: id,
+            fulfilledByUserId: userId,
+          })
+          .where(
+            and(
+              eq(wants.userId, counterpartyUserId),
+              eq(wants.bookId, existing.edition.book.id),
+              eq(wants.status, "active")
+            )
+          );
+      }
 
       return this.findOne(id, userId);
     });
+  }
+
+  async attachImages(
+    copyId: string,
+    dto: AttachCopyImagesDto,
+    userId: string
+  ) {
+    await this.findOne(copyId, userId);
+    if (dto.images.length === 0) return [];
+
+    const existingImages = await this.db.query.copyImages.findMany({
+      where: and(eq(copyImages.copyId, copyId), eq(copyImages.userId, userId)),
+    });
+
+    if (existingImages.length + dto.images.length > 5) {
+      throw new BadRequestException("A copy can only have up to 5 images");
+    }
+
+    return this.db
+      .insert(copyImages)
+      .values(
+        dto.images.map((image, index) => ({
+          copyId,
+          userId,
+          objectKey: image.objectKey,
+          imageUrl: image.imageUrl,
+          sortOrder:
+            image.sortOrder ??
+            existingImages.length + index,
+        }))
+      )
+      .returning();
+  }
+
+  async removeImage(copyId: string, imageId: string, userId: string) {
+    await this.findOne(copyId, userId);
+    const [deleted] = await this.db
+      .delete(copyImages)
+      .where(
+        and(
+          eq(copyImages.id, imageId),
+          eq(copyImages.copyId, copyId),
+          eq(copyImages.userId, userId)
+        )
+      )
+      .returning({ id: copyImages.id });
+
+    if (!deleted) {
+      throw new NotFoundException("Copy image not found");
+    }
+
+    return { deleted: true };
   }
 
   async confirm(id: string, userId: string) {

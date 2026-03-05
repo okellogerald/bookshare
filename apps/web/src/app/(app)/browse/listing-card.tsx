@@ -47,6 +47,15 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
       onClick={() => onSelect(listing)}
     >
       <Card className="cursor-pointer transition-colors hover:bg-accent/50">
+        {listing.primary_image_url && (
+          <div className="overflow-hidden rounded-t-lg border-b">
+            <img
+              src={listing.primary_image_url}
+              alt={listing.book_title}
+              className="h-36 w-full object-cover"
+            />
+          </div>
+        )}
         <CardHeader className="pb-3">
           <CardTitle className="line-clamp-2 text-base">
             {listing.book_title}
@@ -76,6 +85,20 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
 
           {listing.contact_note && (
             <p className="text-sm">{listing.contact_note}</p>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Listed by @{listing.owner_username ?? "member"}
+            {listing.owner_display_name
+              ? ` • ${listing.owner_display_name}`
+              : ""}
+          </p>
+
+          {listing.status === "lent" && (
+            <p className="text-xs text-muted-foreground">
+              Borrowed by @{listing.borrower_username ?? "member"} from @
+              {listing.owner_username ?? "member"}
+            </p>
           )}
 
           {listing.location && (

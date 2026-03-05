@@ -64,6 +64,7 @@ export interface PgCategory {
 export interface PgCopy {
   id: string;
   user_id: string;
+  borrower_user_id: string | null;
   edition_id: string;
   condition: string;
   status: string;
@@ -98,6 +99,26 @@ export interface PgCollection {
   updated_at: string;
 }
 
+export interface PgMemberProfile {
+  user_id: string;
+  username: string;
+  display_name: string;
+  city_area: string | null;
+  contact_handle: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PgCopyImage {
+  id: string;
+  copy_id: string;
+  user_id: string;
+  object_key: string;
+  image_url: string;
+  sort_order: number;
+  created_at: string;
+}
+
 // ─── View Types (PostgREST views) ──────────────────────────
 
 /** PostgREST resource-embedding: books?select=*,book_authors(author:authors(*)) */
@@ -126,6 +147,8 @@ export interface PgCopyDetail extends PgCopy {
   edition: PgEdition & {
     book: PgBook;
   };
+  images?: PgCopyImage[];
+  borrower_profile?: PgMemberProfile | null;
 }
 
 export interface PgCopyEventDetail extends PgCopyEvent {
@@ -156,6 +179,11 @@ export interface PgBrowseListing {
   book_subtitle: string | null;
   book_description: string | null;
   book_language: string;
+  owner_username: string | null;
+  owner_display_name: string | null;
+  borrower_username: string | null;
+  borrower_display_name: string | null;
+  primary_image_url: string | null;
   authors: Array<{ id: string; name: string }>;
 }
 
@@ -169,6 +197,10 @@ export interface PgWant {
   user_id: string;
   book_id: string;
   notes: string | null;
+  status: "active" | "fulfilled" | "cancelled";
+  fulfilled_at: string | null;
+  fulfilled_by_copy_id: string | null;
+  fulfilled_by_user_id: string | null;
   last_confirmed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -179,20 +211,23 @@ export interface PgWantWithBook extends PgWant {
   book: PgBook | null;
 }
 
-/** browse_wants view — cross-user, all active wants with book info */
+/** browse_wants view — cross-user, grouped active wants by book */
 export interface PgBrowseWant {
-  id: string;
-  user_id: string;
   book_id: string;
-  notes: string | null;
-  last_confirmed_at: string | null;
-  created_at: string;
-  updated_at: string;
+  want_count: number;
   book_title: string;
   book_subtitle: string | null;
   book_description: string | null;
   book_language: string;
   authors: Array<{ id: string; name: string }>;
+  wanters: Array<{
+    user_id: string;
+    username: string | null;
+    display_name: string | null;
+    notes: string | null;
+    created_at: string;
+    last_confirmed_at: string | null;
+  }>;
 }
 
 // ─── Convenience Aliases ────────────────────────────────────

@@ -33,6 +33,7 @@ export type CopyCondition = (typeof CopyCondition)[keyof typeof CopyCondition];
 export const CopyStatus = {
   AVAILABLE: "available",
   RESERVED: "reserved",
+  LENT: "lent",
   RENTED: "rented",
   CHECKED_OUT: "checked_out",
   SOLD: "sold",
@@ -60,6 +61,7 @@ export const CopyEventType = {
   ACQUIRED: "acquired",
   STATUS_CHANGE: "status_change",
   CONDITION_CHANGE: "condition_change",
+  LENT: "lent",
   SOLD: "sold",
   RENTED: "rented",
   RETURNED: "returned",
@@ -72,6 +74,15 @@ export const CopyEventType = {
 
 export type CopyEventType =
   (typeof CopyEventType)[keyof typeof CopyEventType];
+
+// ─── Want Status ─────────────────────────────────────────────
+export const WantStatus = {
+  ACTIVE: "active",
+  FULFILLED: "fulfilled",
+  CANCELLED: "cancelled",
+} as const;
+
+export type WantStatus = (typeof WantStatus)[keyof typeof WantStatus];
 
 // ─── Zitadel Roles ───────────────────────────────────────────
 export const UserRole = {

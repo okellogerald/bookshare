@@ -13,6 +13,7 @@ import {
   collections,
   collectionCopies,
   wants,
+  memberProfiles,
 } from "./schema";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -30,8 +31,16 @@ async function seed() {
 
   // ─── Truncate ───────────────────────────────────────────────
   await db.execute(
-    sql`TRUNCATE books, authors, categories, editions, book_authors, book_categories, book_quotes, copies, copy_events, collections, collection_copies, wants CASCADE`
+    sql`TRUNCATE books, authors, categories, editions, book_authors, book_categories, book_quotes, copies, copy_events, copy_images, collections, collection_copies, wants, member_profiles CASCADE`
   );
+
+  await db.insert(memberProfiles).values({
+    userId: USER_ID,
+    username: "seed_reader",
+    displayName: "Seed Reader",
+    cityArea: "BookTown",
+    contactHandle: "@seed_reader",
+  });
 
   // ─── Authors ────────────────────────────────────────────────
   const [fitzgerald, lee, orwell, austen, tolkien, herbert, harari, norman, martin, kahneman] =

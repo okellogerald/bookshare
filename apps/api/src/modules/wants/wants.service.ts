@@ -5,8 +5,8 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, wants } from "@booktrack/db";
-import { eq, and } from "drizzle-orm";
+import { type Database, copies, editions, wants } from "@booktrack/db";
+import { eq, and, inArray } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
 import { CreateWantDto } from "./dto";
 
@@ -33,14 +33,42 @@ export class WantsService {
   }
 
   async create(dto: CreateWantDto, userId: string) {
-    // Check for duplicate (user_id, book_id)
+    // Check for duplicate active want (user_id, book_id)
     const existing = await this.db.query.wants.findFirst({
-      where: and(eq(wants.userId, userId), eq(wants.bookId, dto.bookId)),
+      where: and(
+        eq(wants.userId, userId),
+        eq(wants.bookId, dto.bookId),
+        eq(wants.status, "active")
+      ),
     });
 
     if (existing) {
       throw new ConflictException(
         "You already have a want for this book"
+      );
+    }
+
+    const activeOwnership = await this.db
+      .select({ id: copies.id })
+      .from(copies)
+      .innerJoin(editions, eq(copies.editionId, editions.id))
+      .where(
+        and(
+          eq(copies.userId, userId),
+          eq(editions.bookId, dto.bookId),
+          inArray(copies.status, [
+            "available",
+            "reserved",
+            "lent",
+            "checked_out",
+          ] as any[])
+        )
+      )
+      .limit(1);
+
+    if (activeOwnership.length > 0) {
+      throw new ConflictException(
+        "You already have an active copy of this book in your library"
       );
     }
 
@@ -50,6 +78,7 @@ export class WantsService {
         userId,
         bookId: dto.bookId,
         notes: dto.notes,
+        status: "active",
         lastConfirmedAt: new Date(),
       })
       .returning();
@@ -69,9 +98,11 @@ export class WantsService {
 
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
-    await this.db
-      .delete(wants)
-      .where(and(eq(wants.id, id), eq(wants.userId, userId)));
-    return { deleted: true };
+    const [updated] = await this.db
+      .update(wants)
+      .set({ status: "cancelled" })
+      .where(and(eq(wants.id, id), eq(wants.userId, userId)))
+      .returning();
+    return updated;
   }
 }

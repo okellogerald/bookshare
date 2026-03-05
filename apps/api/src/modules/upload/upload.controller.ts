@@ -1,6 +1,8 @@
-import { Controller, Get } from "@nestjs/common";
+import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { UploadService } from "./upload.service";
+import { CreateCopyImagePresignDto } from "./dto";
+import { CurrentUser } from "../../common/decorators";
 
 @ApiTags("Upload")
 @ApiBearerAuth()
@@ -11,5 +13,13 @@ export class UploadController {
   @Get("config")
   getConfig() {
     return this.uploadService.getUploadConfig();
+  }
+
+  @Post("copy-image-presign")
+  createCopyImagePresign(
+    @Body() dto: CreateCopyImagePresignDto,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.uploadService.createCopyImagePresign(dto, userId);
   }
 }

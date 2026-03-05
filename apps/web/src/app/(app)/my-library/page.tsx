@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
@@ -21,16 +21,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { Label } from "@/shared/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
+import { useCurrentUser } from "@/shared/providers/user-provider";
 import {
   useMyCopies,
   useConfirmCopy,
   useUpdateCopyStatus,
   useDeleteCopy,
 } from "@/shared/queries/my-library";
+import { useCommunityMembers } from "@/shared/queries/community";
 
 const statusLabels: Record<string, string> = {
   available: "Available",
   reserved: "Reserved",
+  lent: "Lent Out",
   rented: "Rented",
   checked_out: "Checked Out",
   sold: "Sold",
@@ -53,11 +59,28 @@ export default function MyLibraryPage() {
     title?: string;
     subtitle?: string | null;
   } | null>(null);
+  const [statusDialog, setStatusDialog] = useState<{
+    copyId: string;
+    status: "lent" | "sold" | "given_away";
+  } | null>(null);
+  const [counterpartyUserId, setCounterpartyUserId] = useState("");
 
   const { data: copies, isLoading } = useMyCopies();
+  const { data: members } = useCommunityMembers();
+  const currentUser = useCurrentUser();
   const confirmMutation = useConfirmCopy();
   const statusMutation = useUpdateCopyStatus();
   const deleteMutation = useDeleteCopy();
+  const memberNameById = useMemo(
+    () =>
+      new Map(
+        (members ?? []).map((member) => [
+          member.user_id,
+          `@${member.username}${member.display_name ? ` (${member.display_name})` : ""}`,
+        ])
+      ),
+    [members]
+  );
 
   function handleOpenBookDetails(copy: NonNullable<typeof copies>[number]) {
     const book = copy.edition?.book;
@@ -68,6 +91,27 @@ export default function MyLibraryPage() {
       subtitle: book.subtitle,
     });
     setDialogOpen(true);
+  }
+
+  function openStatusDialog(
+    copyId: string,
+    status: "lent" | "sold" | "given_away"
+  ) {
+    setCounterpartyUserId("");
+    setStatusDialog({ copyId, status });
+  }
+
+  function submitStatusDialog() {
+    if (!statusDialog || !counterpartyUserId) return;
+    statusMutation.mutate({
+      id: statusDialog.copyId,
+      body: {
+        status: statusDialog.status,
+        counterpartyUserId,
+      },
+    });
+    setStatusDialog(null);
+    setCounterpartyUserId("");
   }
 
   return (
@@ -142,6 +186,11 @@ export default function MyLibraryPage() {
                   >
                     {statusLabels[copy.status] ?? copy.status}
                   </Badge>
+                  {copy.status === "lent" && copy.borrower_user_id && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Borrowed by {memberNameById.get(copy.borrower_user_id) ?? copy.borrower_user_id}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell>
                   {copy.share_type ? (
@@ -172,15 +221,43 @@ export default function MyLibraryPage() {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {copy.status === "available" ? (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              statusMutation.mutate({
+                                id: copy.id,
+                                body: { status: "reserved" },
+                              })
+                            }
+                          >
+                            Mark Reserved
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openStatusDialog(copy.id, "lent")}
+                          >
+                            Mark Lent Out
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openStatusDialog(copy.id, "sold")}
+                          >
+                            Mark Sold
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openStatusDialog(copy.id, "given_away")}
+                          >
+                            Mark Given Away
+                          </DropdownMenuItem>
+                        </>
+                      ) : copy.status === "lent" ? (
                         <DropdownMenuItem
                           onClick={() =>
                             statusMutation.mutate({
                               id: copy.id,
-                              body: { status: "reserved" },
+                              body: { status: "available" },
                             })
                           }
                         >
-                          Mark Reserved
+                          Mark Returned
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
@@ -227,6 +304,60 @@ export default function MyLibraryPage() {
         fallbackTitle={selectedBook?.title}
         fallbackSubtitle={selectedBook?.subtitle}
       />
+
+      <Dialog
+        open={!!statusDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStatusDialog(null);
+            setCounterpartyUserId("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Community Member</DialogTitle>
+            <DialogDescription>
+              Choose who received this copy.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="counterparty">Member</Label>
+            <Select value={counterpartyUserId} onValueChange={setCounterpartyUserId}>
+              <SelectTrigger id="counterparty">
+                <SelectValue placeholder="Select member..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(members ?? [])
+                  .filter((member) => member.user_id !== currentUser?.id)
+                  .map((member) => (
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    @{member.username}
+                    {member.display_name ? ` (${member.display_name})` : ""}
+                  </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStatusDialog(null);
+                setCounterpartyUserId("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitStatusDialog}
+              disabled={!counterpartyUserId || statusMutation.isPending}
+            >
+              {statusMutation.isPending ? "Saving..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

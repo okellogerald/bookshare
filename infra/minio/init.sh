@@ -9,10 +9,12 @@ done
 
 echo "MinIO is ready. Creating buckets..."
 
-# Create the book-covers bucket if it doesn't exist
-mc mb --ignore-existing local/book-covers
+BUCKET="${MINIO_BUCKET:-bookshare-media-dev}"
 
-# Set the bucket policy to allow public read (for cover images)
-mc anonymous set download local/book-covers
+# Create the configured bucket if it doesn't exist
+mc mb --ignore-existing "local/${BUCKET}"
+
+# Set the bucket policy to allow public read (for images)
+mc anonymous set download "local/${BUCKET}"
 
 echo "MinIO initialization complete."

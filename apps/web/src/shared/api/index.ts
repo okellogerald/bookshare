@@ -14,6 +14,8 @@ export type {
   PgCopy,
   PgCopyEvent,
   PgCollection,
+  PgMemberProfile,
+  PgCopyImage,
   PgBrowseListing,
   PgWant,
   PgWantWithBook,
@@ -46,6 +48,8 @@ export {
   eventsContract,
   categoriesContract,
   wantsContract,
+  profilesContract,
+  uploadContract,
 } from "./contracts";
 
 export type {
@@ -69,6 +73,8 @@ export type {
   CreateCopyBody,
   UpdateCopyBody,
   UpdateCopyStatusBody,
+  AttachCopyImagesBody,
+  CopyImageResponse,
   CopyResponse,
   // Collections
   CreateCollectionBody,
@@ -85,6 +91,10 @@ export type {
   // Wants
   CreateWantBody,
   WantResponse,
+  ProfileResponse,
+  UpdateProfileBody,
+  CopyImagePresignBody,
+  CopyImagePresignResponse,
 } from "./contracts";
 
 // ─── NestJS client (ts-rest) ─────────────────────────────────

@@ -36,6 +36,10 @@ export default function MyWantsPage() {
   const { data: wants, isLoading } = useMyWants();
   const confirmWant = useConfirmWant();
   const deleteWant = useDeleteWant();
+  const activeWants = (wants ?? []).filter((want) => want.status === "active");
+  const fulfilledWants = (wants ?? []).filter(
+    (want) => want.status === "fulfilled"
+  );
 
   function handleOpenBookDetails(want: PgWantWithBook) {
     setSelectedWant(want);
@@ -66,77 +70,127 @@ export default function MyWantsPage() {
           You haven&apos;t posted any wants yet.
         </p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Book</TableHead>
-              <TableHead>Notes</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="w-[50px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {wants.map((want) => {
-              const stale = isStale(want.last_confirmed_at);
-              return (
-                <TableRow key={want.id}>
-                  <TableCell className="font-medium">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenBookDetails(want)}
-                      className="text-left underline-offset-4 hover:underline"
-                    >
-                      {want.book?.title ?? want.book_id}
-                    </button>
-                    {want.book?.subtitle && (
-                      <p className="text-xs text-muted-foreground">
-                        {want.book.subtitle}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    {want.notes || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {stale ? (
-                      <Badge variant="outline" className="text-amber-600 border-amber-600">
-                        Stale
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Active</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(want.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => confirmWant.mutate(want.id)}
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold">Active Wants</h2>
+            {!activeWants.length ? (
+              <p className="text-sm text-muted-foreground">No active wants.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Book</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="w-[50px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeWants.map((want) => {
+                    const stale = isStale(want.last_confirmed_at);
+                    return (
+                      <TableRow key={want.id}>
+                        <TableCell className="font-medium">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenBookDetails(want)}
+                            className="text-left underline-offset-4 hover:underline"
+                          >
+                            {want.book?.title ?? want.book_id}
+                          </button>
+                          {want.book?.subtitle && (
+                            <p className="text-xs text-muted-foreground">
+                              {want.book.subtitle}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {want.notes || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {stale ? (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-600 text-amber-600"
+                            >
+                              Stale
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Active</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(want.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => confirmWant.mutate(want.id)}
+                              >
+                                Confirm Still Wanted
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => deleteWant.mutate(want.id)}
+                              >
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold">Fulfilled Wants</h2>
+            {!fulfilledWants.length ? (
+              <p className="text-sm text-muted-foreground">No fulfilled wants yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Book</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead>Fulfilled</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fulfilledWants.map((want) => (
+                    <TableRow key={want.id}>
+                      <TableCell className="font-medium">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenBookDetails(want)}
+                          className="text-left underline-offset-4 hover:underline"
                         >
-                          Confirm Still Wanted
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => deleteWant.mutate(want.id)}
-                        >
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                          {want.book?.title ?? want.book_id}
+                        </button>
+                      </TableCell>
+                      <TableCell>{want.notes || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {want.fulfilled_at
+                          ? new Date(want.fulfilled_at).toLocaleDateString()
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </div>
       )}
 
       <BookDetailsDialog

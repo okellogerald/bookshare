@@ -164,6 +164,13 @@ export default function BookDetailPage() {
                   className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3"
                 >
                   <div className="space-y-1">
+                    {listing.primary_image_url && (
+                      <img
+                        src={listing.primary_image_url}
+                        alt={listing.book_title}
+                        className="mb-2 h-24 w-20 rounded object-cover"
+                      />
+                    )}
                     <div className="flex flex-wrap gap-1.5">
                       {listing.share_type && (
                         <Badge variant="default">
@@ -179,6 +186,18 @@ export default function BookDetailPage() {
                         {formatLabels[listing.format] ?? listing.format}
                       </Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Listed by @{listing.owner_username ?? "member"}
+                      {listing.owner_display_name
+                        ? ` • ${listing.owner_display_name}`
+                        : ""}
+                    </p>
+                    {listing.status === "lent" && (
+                      <p className="text-xs text-muted-foreground">
+                        Borrowed by @{listing.borrower_username ?? "member"} from @
+                        {listing.owner_username ?? "member"}
+                      </p>
+                    )}
                     {listing.contact_note && (
                       <p className="text-sm">{listing.contact_note}</p>
                     )}

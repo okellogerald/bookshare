@@ -3,6 +3,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PgCopyDetail, PgEdition, PgAuthor, PgBookWithAuthorsView } from "@/shared/api";
 import type {
+  AttachCopyImagesBody,
+  CopyImagePresignBody,
+  CopyImagePresignResponse,
+  CopyImageResponse,
   CreateCopyBody,
   UpdateCopyBody,
   UpdateCopyStatusBody,
@@ -22,13 +26,31 @@ import { nestjsFetch } from "./fetch";
 
 async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const params = new URLSearchParams();
-  params.set("select", "*,edition:editions(*,book:books(*))");
+  params.set("select", "*,edition:editions(*,book:books(*)),images:copy_images(*)");
   params.set("order", "created_at.desc");
 
   const response = await fetch(`/api/postgrest/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch copies");
   const json = await response.json();
   return json.data;
+}
+
+async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
+  const params = new URLSearchParams();
+  params.set("select", "edition:editions(book_id)");
+  params.set("status", "in.(available,reserved,lent,checked_out)");
+
+  const response = await fetch(`/api/postgrest/copies?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch active owned books");
+  const json = await response.json();
+  const rows = json.data as Array<{ edition?: { book_id?: string } }>;
+  return Array.from(
+    new Set(
+      rows
+        .map((row) => row.edition?.book_id)
+        .filter((bookId): bookId is string => !!bookId)
+    )
+  );
 }
 
 async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
@@ -57,6 +79,13 @@ export function useEditionByIsbn(isbn: string) {
   });
 }
 
+export function useMyActiveOwnedBookIds() {
+  return useQuery({
+    queryKey: ["my-active-owned-book-ids"],
+    queryFn: fetchMyActiveOwnedBookIds,
+  });
+}
+
 // ─── Mutations ──────────────────────────────────────────────
 
 export function useCreateCopy() {
@@ -66,6 +95,7 @@ export function useCreateCopy() {
       nestjsFetch<CopyResponse>("copies", "POST", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
+      queryClient.invalidateQueries({ queryKey: ["my-active-owned-book-ids"] });
     },
   });
 }
@@ -89,6 +119,7 @@ export function useUpdateCopyStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["copy"] });
     },
   });
 }
@@ -101,6 +132,7 @@ export function useConfirmCopy() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["copy"] });
     },
   });
 }
@@ -113,7 +145,46 @@ export function useDeleteCopy() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["my-active-owned-book-ids"] });
     },
+  });
+}
+
+export function useAttachCopyImages() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: AttachCopyImagesBody;
+    }) => nestjsFetch<CopyImageResponse[]>(`copies/${id}/images`, "POST", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-copies"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["my-active-owned-book-ids"] });
+    },
+  });
+}
+
+export function useDeleteCopyImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, imageId }: { id: string; imageId: string }) =>
+      nestjsFetch<{ deleted: boolean }>(`copies/${id}/images/${imageId}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-copies"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["my-active-owned-book-ids"] });
+    },
+  });
+}
+
+export function useCreateCopyImagePresign() {
+  return useMutation({
+    mutationFn: (body: CopyImagePresignBody) =>
+      nestjsFetch<CopyImagePresignResponse>("upload/copy-image-presign", "POST", body),
   });
 }
 

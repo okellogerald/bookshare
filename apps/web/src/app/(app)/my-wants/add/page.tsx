@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card";
 import { useEditionByIsbn, useCreateWant } from "@/shared/queries/my-wants";
+import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
 
 export default function AddWantPage() {
   const router = useRouter();
@@ -22,15 +23,18 @@ export default function AddWantPage() {
 
   const { data: edition, isLoading: searchingEdition } =
     useEditionByIsbn(isbn);
+  const { data: myActiveOwnedBookIds, isLoading: activeOwnedBooksLoading } =
+    useMyActiveOwnedBookIds();
   const createWant = useCreateWant();
 
   // The edition query returns PgEdition with embedded book
   const book = edition ? (edition as any).book : null;
+  const alreadyInMyLibrary = !!book?.id && (myActiveOwnedBookIds ?? []).includes(book.id);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!book?.id) return;
+    if (!book?.id || alreadyInMyLibrary) return;
 
     createWant.mutate(
       { bookId: book.id, notes: notes || undefined },
@@ -88,6 +92,11 @@ export default function AddWantPage() {
       {/* Step 3: Notes + submit */}
       {book && (
         <form onSubmit={handleSubmit} className="space-y-4">
+          {alreadyInMyLibrary && (
+            <p className="text-sm text-muted-foreground">
+              This book is already in your active library, so it cannot be added to wants.
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
             <Textarea
@@ -99,7 +108,10 @@ export default function AddWantPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button type="submit" disabled={createWant.isPending}>
+            <Button
+              type="submit"
+              disabled={createWant.isPending || activeOwnedBooksLoading || alreadyInMyLibrary}
+            >
               {createWant.isPending ? "Posting..." : "Post Want"}
             </Button>
             <Button

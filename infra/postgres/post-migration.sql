@@ -16,6 +16,8 @@ ALTER TABLE copies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE copy_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_copies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE member_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE copy_images ENABLE ROW LEVEL SECURITY;
 
 -- Ensure helper exists even on pre-existing DBs where init.sql wasn't re-run
 CREATE OR REPLACE FUNCTION current_user_id() RETURNS TEXT AS $$
@@ -88,6 +90,30 @@ CREATE POLICY collection_copies_auth_select ON collection_copies
     )
   );
 
+-- ─── RLS Policies: member_profiles ─────────────────────────
+
+DROP POLICY IF EXISTS member_profiles_anon_deny ON member_profiles;
+CREATE POLICY member_profiles_anon_deny ON member_profiles
+  FOR SELECT TO postgrest_anon
+  USING (false);
+
+DROP POLICY IF EXISTS member_profiles_auth_select ON member_profiles;
+CREATE POLICY member_profiles_auth_select ON member_profiles
+  FOR SELECT TO postgrest_auth
+  USING (true);
+
+-- ─── RLS Policies: copy_images ─────────────────────────────
+
+DROP POLICY IF EXISTS copy_images_anon_deny ON copy_images;
+CREATE POLICY copy_images_anon_deny ON copy_images
+  FOR SELECT TO postgrest_anon
+  USING (false);
+
+DROP POLICY IF EXISTS copy_images_auth_select ON copy_images;
+CREATE POLICY copy_images_auth_select ON copy_images
+  FOR SELECT TO postgrest_auth
+  USING (true);
+
 -- ─── RLS Policies: wants ───────────────────────────────────
 
 ALTER TABLE wants ENABLE ROW LEVEL SECURITY;
@@ -150,6 +176,7 @@ FROM editions e
 JOIN books b ON b.id = e.book_id;
 
 -- Copies with edition and book info (user-scoped via RLS)
+DROP VIEW IF EXISTS copies_detail;
 CREATE OR REPLACE VIEW copies_detail AS
 SELECT
   c.*,
@@ -177,14 +204,16 @@ FROM categories c
 LEFT JOIN categories p ON p.id = c.parent_id;
 
 -- ─── Browse Listings View ───────────────────────────────────
--- Cross-user view of all available copies with book, edition, and author info.
+-- Cross-user view of all available/lent copies with owner and borrower profile info.
 -- Does NOT use security_invoker — intentionally bypasses RLS so all
--- authenticated users can browse all available copies.
+-- authenticated users can browse community listings.
 
+DROP VIEW IF EXISTS browse_listings;
 CREATE OR REPLACE VIEW browse_listings AS
 SELECT
   c.id,
   c.user_id,
+  c.borrower_user_id,
   c.edition_id,
   c.condition,
   c.status,
@@ -205,6 +234,11 @@ SELECT
   b.subtitle AS book_subtitle,
   b.description AS book_description,
   b.language AS book_language,
+  owner_profile.username AS owner_username,
+  owner_profile.display_name AS owner_display_name,
+  borrower_profile.username AS borrower_username,
+  borrower_profile.display_name AS borrower_display_name,
+  primary_image.image_url AS primary_image_url,
   COALESCE(
     json_agg(
       json_build_object('id', a.id, 'name', a.name)
@@ -214,43 +248,81 @@ SELECT
 FROM copies c
 JOIN editions e ON e.id = c.edition_id
 JOIN books b ON b.id = e.book_id
+LEFT JOIN member_profiles owner_profile ON owner_profile.user_id = c.user_id
+LEFT JOIN member_profiles borrower_profile ON borrower_profile.user_id = c.borrower_user_id
+LEFT JOIN LATERAL (
+  SELECT ci.image_url
+  FROM copy_images ci
+  WHERE ci.copy_id = c.id
+  ORDER BY ci.sort_order ASC, ci.created_at ASC
+  LIMIT 1
+) AS primary_image ON TRUE
 LEFT JOIN book_authors ba ON ba.book_id = b.id
 LEFT JOIN authors a ON a.id = ba.author_id
-WHERE c.status = 'available'
-GROUP BY c.id, e.id, b.id;
+WHERE c.status IN ('available', 'lent')
+GROUP BY
+  c.id,
+  e.id,
+  b.id,
+  owner_profile.username,
+  owner_profile.display_name,
+  borrower_profile.username,
+  borrower_profile.display_name,
+  primary_image.image_url;
 
 -- Grant browse view to authenticated users only
 GRANT SELECT ON browse_listings TO postgrest_auth;
 
 -- ─── Browse Wants View ────────────────────────────────────
--- Cross-user view of all active wants with book and author info.
+-- Cross-user grouped view of active wants by book with wantee profiles.
 -- Does NOT use security_invoker — intentionally bypasses RLS so all
 -- authenticated users can browse all wanted books.
 
+DROP VIEW IF EXISTS browse_wants;
 CREATE OR REPLACE VIEW browse_wants AS
 SELECT
-  w.id,
-  w.user_id,
-  w.book_id,
-  w.notes,
-  w.last_confirmed_at,
-  w.created_at,
-  w.updated_at,
+  b.id AS book_id,
+  wb.want_count,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
   b.description AS book_description,
   b.language AS book_language,
+  wb.wanters,
   COALESCE(
-    json_agg(
-      json_build_object('id', a.id, 'name', a.name)
-    ) FILTER (WHERE a.id IS NOT NULL),
+    authors_data.authors,
     '[]'::json
   ) AS authors
-FROM wants w
-JOIN books b ON b.id = w.book_id
-LEFT JOIN book_authors ba ON ba.book_id = b.id
-LEFT JOIN authors a ON a.id = ba.author_id
-GROUP BY w.id, b.id;
+FROM books b
+LEFT JOIN (
+  SELECT
+    ba.book_id,
+    json_agg(
+      DISTINCT jsonb_build_object('id', a.id, 'name', a.name)
+    ) FILTER (WHERE a.id IS NOT NULL) AS authors
+  FROM book_authors ba
+  LEFT JOIN authors a ON a.id = ba.author_id
+  GROUP BY ba.book_id
+) AS authors_data ON authors_data.book_id = b.id
+JOIN (
+  SELECT
+    w.book_id,
+    COUNT(*)::int AS want_count,
+    json_agg(
+      json_build_object(
+        'user_id', w.user_id,
+        'username', mp.username,
+        'display_name', mp.display_name,
+        'notes', w.notes,
+        'created_at', w.created_at,
+        'last_confirmed_at', w.last_confirmed_at
+      )
+      ORDER BY w.created_at DESC
+    ) AS wanters
+  FROM wants w
+  LEFT JOIN member_profiles mp ON mp.user_id = w.user_id
+  WHERE w.status = 'active'
+  GROUP BY w.book_id
+) AS wb ON wb.book_id = b.id;
 
 -- Grant browse wants view to authenticated users only
 GRANT SELECT ON browse_wants TO postgrest_auth;
@@ -259,6 +331,7 @@ GRANT SELECT ON browse_wants TO postgrest_auth;
 -- Joins quotes through editions to expose book_id for easy filtering.
 -- Global table — no RLS needed.
 
+DROP VIEW IF EXISTS book_quotes_with_book;
 CREATE OR REPLACE VIEW book_quotes_with_book AS
 SELECT
   bq.id,

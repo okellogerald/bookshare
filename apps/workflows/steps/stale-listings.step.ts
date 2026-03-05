@@ -10,7 +10,7 @@
  */
 
 import { createDb, copies, wants } from "@booktrack/db";
-import { and, eq, lt, isNotNull, count } from "drizzle-orm";
+import { and, inArray, lt, isNotNull, count } from "drizzle-orm";
 
 export const config = {
   name: "Stale Listings Checker",
@@ -42,7 +42,7 @@ export async function handler(_input: unknown, { enqueue, logger }: any) {
       .from(copies)
       .where(
         and(
-          eq(copies.status, "available"),
+          inArray(copies.status, ["available", "lent"] as any[]),
           isNotNull(copies.lastConfirmedAt),
           lt(copies.lastConfirmedAt, thirtyDaysAgo)
         )

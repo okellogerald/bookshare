@@ -10,7 +10,12 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { CopiesService } from "./copies.service";
-import { CreateCopyDto, UpdateCopyDto, UpdateCopyStatusDto } from "./dto";
+import {
+  AttachCopyImagesDto,
+  CreateCopyDto,
+  UpdateCopyDto,
+  UpdateCopyStatusDto,
+} from "./dto";
 import { CurrentUser } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 
@@ -59,6 +64,24 @@ export class CopiesController {
   @Patch(":id/confirm")
   confirm(@Param("id") id: string, @CurrentUser("id") userId: string) {
     return this.copiesService.confirm(id, userId);
+  }
+
+  @Post(":id/images")
+  attachImages(
+    @Param("id") id: string,
+    @Body() dto: AttachCopyImagesDto,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.copiesService.attachImages(id, dto, userId);
+  }
+
+  @Delete(":id/images/:imageId")
+  removeImage(
+    @Param("id") id: string,
+    @Param("imageId") imageId: string,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.copiesService.removeImage(id, imageId, userId);
   }
 
   @Delete(":id")

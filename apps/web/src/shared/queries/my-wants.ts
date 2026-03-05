@@ -3,32 +3,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PgWantWithBook } from "@/shared/api";
 import type { CreateWantBody, WantResponse } from "@/shared/api";
-
-// ─── Fetch helpers ──────────────────────────────────────────
-
-async function nestjsFetch<T>(
-  path: string,
-  method: string,
-  body?: unknown
-): Promise<T> {
-  const res = await fetch(`/api/nestjs/${path}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API error (${res.status}): ${text}`);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json();
-}
+import { nestjsFetch } from "./fetch";
 
 // ─── Queries ────────────────────────────────────────────────
 
 async function fetchMyWants(): Promise<PgWantWithBook[]> {
   const params = new URLSearchParams();
   params.set("select", "*,book:books(*)");
+  params.set("status", "in.(active,fulfilled)");
   params.set("order", "created_at.desc");
 
   const response = await fetch(`/api/postgrest/wants?${params}`);

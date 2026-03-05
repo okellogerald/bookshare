@@ -12,6 +12,7 @@ interface SessionData {
     id: string;
     email?: string;
     name?: string;
+    username?: string;
   };
 }
 

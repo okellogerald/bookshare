@@ -8,3 +8,5 @@ export * from "./copy-events";
 export * from "./categories";
 export * from "./collections";
 export * from "./wants";
+export * from "./member-profiles";
+export * from "./copy-images";

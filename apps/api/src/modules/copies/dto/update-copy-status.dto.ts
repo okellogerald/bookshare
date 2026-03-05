@@ -6,6 +6,7 @@ export class UpdateCopyStatusDto {
     enum: [
       "available",
       "reserved",
+      "lent",
       "rented",
       "checked_out",
       "sold",
@@ -18,6 +19,7 @@ export class UpdateCopyStatusDto {
   @IsEnum([
     "available",
     "reserved",
+    "lent",
     "rented",
     "checked_out",
     "sold",
@@ -42,4 +44,12 @@ export class UpdateCopyStatusDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Required for lent/sold/given_away to identify the receiving community member",
+  })
+  @IsOptional()
+  @IsString()
+  counterpartyUserId?: string;
 }

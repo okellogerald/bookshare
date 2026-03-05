@@ -26,9 +26,12 @@ import {
 } from "@/shared/components/ui/card";
 import {
   useUpdateCopy,
+  useAttachCopyImages,
   useUpdateBook,
   useUpdateEdition,
   useBookWithAuthors,
+  useCreateCopyImagePresign,
+  useDeleteCopyImage,
   useSearchAuthors,
   useCreateAuthor,
 } from "@/shared/queries/my-library";
@@ -37,7 +40,7 @@ import type { PgCopyDetail } from "@/shared/api";
 async function fetchCopy(id: string): Promise<PgCopyDetail> {
   const params = new URLSearchParams();
   params.set("id", `eq.${id}`);
-  params.set("select", "*,edition:editions(*,book:books(*))");
+  params.set("select", "*,edition:editions(*,book:books(*)),images:copy_images(*)");
 
   const response = await fetch(`/api/postgrest/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch copy");
@@ -89,8 +92,13 @@ export default function EditCopyPage() {
   const [contactNote, setContactNote] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const updateCopy = useUpdateCopy();
+  const attachCopyImages = useAttachCopyImages();
+  const createCopyImagePresign = useCreateCopyImagePresign();
+  const deleteCopyImage = useDeleteCopyImage();
   const updateBook = useUpdateBook();
   const updateEdition = useUpdateEdition();
   const createAuthor = useCreateAuthor();
@@ -174,6 +182,28 @@ export default function EditCopyPage() {
     setSelectedAuthors((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function handleImageSelection(files: FileList | null) {
+    if (!files) return;
+    const existingCount = copy?.images?.length ?? 0;
+    const list = Array.from(files);
+    if (existingCount + selectedImages.length + list.length > 5) {
+      setImageError("You can upload up to 5 images per copy.");
+      return;
+    }
+    for (const file of list) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        setImageError("Only jpg, png, and webp images are supported.");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setImageError("Each image must be 5MB or less.");
+        return;
+      }
+    }
+    setImageError(null);
+    setSelectedImages((prev) => [...prev, ...list].slice(0, 5));
+  }
+
   const handleSubmit = async () => {
     if (!bookId || !editionId) return;
     setIsSubmitting(true);
@@ -224,6 +254,44 @@ export default function EditCopyPage() {
           notes: notes || undefined,
         },
       });
+
+      if (selectedImages.length > 0) {
+        const uploadedImages: Array<{
+          objectKey: string;
+          imageUrl: string;
+          sortOrder: number;
+        }> = [];
+
+        for (let index = 0; index < selectedImages.length; index += 1) {
+          const file = selectedImages[index];
+          const presign = await createCopyImagePresign.mutateAsync({
+            fileName: file.name,
+            contentType: file.type,
+            fileSize: file.size,
+          });
+
+          const uploadRes = await fetch(presign.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error("Failed to upload copy image");
+          }
+
+          uploadedImages.push({
+            objectKey: presign.objectKey,
+            imageUrl: presign.publicUrl,
+            sortOrder: (copy?.images?.length ?? 0) + index,
+          });
+        }
+
+        await attachCopyImages.mutateAsync({
+          id,
+          body: { images: uploadedImages },
+        });
+      }
 
       router.push("/my-library");
     } catch (error) {
@@ -488,6 +556,65 @@ export default function EditCopyPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Existing Images</Label>
+            {!copy?.images?.length ? (
+              <p className="text-sm text-muted-foreground">No images uploaded.</p>
+            ) : (
+              <div className="space-y-2">
+                {copy.images.map((image) => (
+                  <div key={image.id} className="flex items-center gap-3 rounded border p-2">
+                    <img
+                      src={image.image_url}
+                      alt="Copy"
+                      className="h-16 w-16 rounded object-cover"
+                    />
+                    <div className="flex-1">
+                      <p className="truncate text-sm">{image.image_url}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteCopyImage.mutate({ id, imageId: image.id })}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Add Images</Label>
+            <Input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(event) => handleImageSelection(event.target.files)}
+            />
+            {!!selectedImages.length && (
+              <div className="space-y-1 text-sm text-muted-foreground">
+                {selectedImages.map((file, index) => (
+                  <div key={`${file.name}-${index}`} className="flex items-center justify-between rounded border px-2 py-1">
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      className="text-destructive"
+                      onClick={() =>
+                        setSelectedImages((prev) => prev.filter((_, i) => i !== index))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {imageError && <p className="text-sm text-destructive">{imageError}</p>}
           </div>
 
           <div className="flex justify-end gap-2">

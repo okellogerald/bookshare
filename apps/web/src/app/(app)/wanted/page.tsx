@@ -43,7 +43,7 @@ export default function WantedPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {wants.map((want) => (
-            <WantCard key={want.id} want={want} onSelect={handleWantSelect} />
+            <WantCard key={want.book_id} want={want} onSelect={handleWantSelect} />
           ))}
         </div>
       )}
@@ -55,12 +55,26 @@ export default function WantedPage() {
         fallbackTitle={selectedWant?.book_title}
         fallbackSubtitle={selectedWant?.book_subtitle}
       >
-        {selectedWant?.notes && (
-          <div className="rounded-md border p-3">
+        {selectedWant && (
+          <div className="space-y-3 rounded-md border p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Want notes
+              Community wanters ({selectedWant.want_count})
             </p>
-            <p className="mt-1 text-sm">{selectedWant.notes}</p>
+            <div className="space-y-2">
+              {selectedWant.wanters.map((wanter) => (
+                <div key={wanter.user_id} className="rounded border p-2">
+                  <p className="text-sm font-medium">
+                    @{wanter.username ?? "member"}
+                    {wanter.display_name ? ` • ${wanter.display_name}` : ""}
+                  </p>
+                  {wanter.notes ? (
+                    <p className="text-sm text-muted-foreground">{wanter.notes}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No note provided.</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </BookDetailsDialog>

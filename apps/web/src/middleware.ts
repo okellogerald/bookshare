@@ -8,6 +8,7 @@ import type { NextRequest } from "next/server";
 const protectedPrefixes = [
   "/browse",
   "/wanted",
+  "/community",
   "/my-library",
   "/my-wants",
   "/api/postgrest",

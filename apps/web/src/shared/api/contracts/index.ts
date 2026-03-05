@@ -141,11 +141,31 @@ export interface UpdateCopyStatusBody {
   amount?: string;
   currency?: string;
   notes?: string;
+  counterpartyUserId?: string;
+}
+
+export interface AttachCopyImagesBody {
+  images: Array<{
+    objectKey: string;
+    imageUrl: string;
+    sortOrder?: number;
+  }>;
+}
+
+export interface CopyImageResponse {
+  id: string;
+  copyId: string;
+  userId: string;
+  objectKey: string;
+  imageUrl: string;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface CopyResponse {
   id: string;
   userId: string;
+  borrowerUserId: string | null;
   editionId: string;
   condition: string;
   status: string;
@@ -328,6 +348,18 @@ export const copiesContract = c.router({
     body: c.type<UpdateCopyStatusBody>(),
     responses: { 200: c.type<CopyResponse>() },
   },
+  attachImages: {
+    method: "POST",
+    path: "/api/nestjs/copies/:id/images",
+    body: c.type<AttachCopyImagesBody>(),
+    responses: { 201: c.type<CopyImageResponse[]>() },
+  },
+  removeImage: {
+    method: "DELETE",
+    path: "/api/nestjs/copies/:id/images/:imageId",
+    body: null,
+    responses: { 200: c.type<{ deleted: boolean }>() },
+  },
   confirm: {
     method: "PATCH",
     path: "/api/nestjs/copies/:id/confirm",
@@ -416,6 +448,10 @@ export interface WantResponse {
   userId: string;
   bookId: string;
   notes: string | null;
+  status: "active" | "fulfilled" | "cancelled";
+  fulfilledAt: string | null;
+  fulfilledByCopyId: string | null;
+  fulfilledByUserId: string | null;
   lastConfirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -442,6 +478,65 @@ export const wantsContract = c.router({
   },
 });
 
+export interface ProfileResponse {
+  userId: string;
+  username: string;
+  displayName: string;
+  cityArea: string | null;
+  contactHandle: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProfileBody {
+  username?: string;
+  displayName?: string;
+  cityArea?: string;
+  contactHandle?: string;
+}
+
+export interface CopyImagePresignBody {
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+}
+
+export interface CopyImagePresignResponse {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
+  expiresInSeconds: number;
+}
+
+export const profilesContract = c.router({
+  sync: {
+    method: "POST",
+    path: "/api/nestjs/profiles/sync",
+    body: null,
+    responses: { 201: c.type<ProfileResponse>() },
+  },
+  getMe: {
+    method: "GET",
+    path: "/api/nestjs/profiles/me",
+    responses: { 200: c.type<ProfileResponse>() },
+  },
+  updateMe: {
+    method: "PUT",
+    path: "/api/nestjs/profiles/me",
+    body: c.type<UpdateProfileBody>(),
+    responses: { 200: c.type<ProfileResponse>() },
+  },
+});
+
+export const uploadContract = c.router({
+  createCopyImagePresign: {
+    method: "POST",
+    path: "/api/nestjs/upload/copy-image-presign",
+    body: c.type<CopyImagePresignBody>(),
+    responses: { 201: c.type<CopyImagePresignResponse>() },
+  },
+});
+
 // ─── Combined Contract ──────────────────────────────────────
 
 export const apiContract = c.router({
@@ -454,4 +549,6 @@ export const apiContract = c.router({
   events: eventsContract,
   categories: categoriesContract,
   wants: wantsContract,
+  profiles: profilesContract,
+  upload: uploadContract,
 });

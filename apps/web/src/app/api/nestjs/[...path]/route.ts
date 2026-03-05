@@ -13,7 +13,8 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
   }
 
   const apiPath = path.join("/");
-  const url = `${API_URL}/${apiPath}`;
+  const search = request.nextUrl.searchParams.toString();
+  const url = `${API_URL}/${apiPath}${search ? `?${search}` : ""}`;
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -57,6 +58,14 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyToNestJS(request, path);
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
   const { path } = await params;
   return proxyToNestJS(request, path);
 }

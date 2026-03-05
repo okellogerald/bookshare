@@ -12,7 +12,7 @@ async function fetchBrowseWants(
 ): Promise<PgBrowseWant[]> {
   const params = new URLSearchParams();
   params.set("select", "*");
-  params.set("order", "created_at.desc");
+  params.set("order", "want_count.desc,book_title.asc");
 
   if (filters.search) {
     params.set("book_title", `ilike.*${filters.search}*`);

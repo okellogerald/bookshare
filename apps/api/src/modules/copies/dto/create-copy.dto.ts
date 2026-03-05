@@ -22,6 +22,7 @@ export class CreateCopyDto {
     enum: [
       "available",
       "reserved",
+      "lent",
       "rented",
       "checked_out",
       "sold",
@@ -36,6 +37,7 @@ export class CreateCopyDto {
   @IsEnum([
     "available",
     "reserved",
+    "lent",
     "rented",
     "checked_out",
     "sold",

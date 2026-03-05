@@ -16,6 +16,7 @@ import {
 } from "@/shared/components/ui/select";
 import { useBrowseListings } from "@/shared/queries/browse";
 import { useCreateWant, useMyWants } from "@/shared/queries/my-wants";
+import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
 import { ListingCard } from "./listing-card";
 
 const shareTypeLabels: Record<string, string> = {
@@ -48,15 +49,24 @@ export default function BrowsePage() {
     format: format || undefined,
   });
   const { data: myWants, isLoading: myWantsLoading } = useMyWants();
+  const { data: myActiveOwnedBookIds, isLoading: activeOwnedBooksLoading } =
+    useMyActiveOwnedBookIds();
   const createWant = useCreateWant();
 
   const wantedBookIds = useMemo(
     () => new Set(myWants?.map((want) => want.book_id) ?? []),
     [myWants]
   );
+  const activeOwnedBookIds = useMemo(
+    () => new Set(myActiveOwnedBookIds ?? []),
+    [myActiveOwnedBookIds]
+  );
 
   const alreadyInMyWants = selectedListing
     ? wantedBookIds.has(selectedListing.book_id)
+    : false;
+  const alreadyInMyLibrary = selectedListing
+    ? activeOwnedBookIds.has(selectedListing.book_id)
     : false;
 
   function handleListingSelect(listing: PgBrowseListing) {
@@ -66,7 +76,15 @@ export default function BrowsePage() {
   }
 
   function handleAddToWants() {
-    if (!selectedListing || alreadyInMyWants || myWantsLoading) return;
+    if (
+      !selectedListing ||
+      alreadyInMyWants ||
+      alreadyInMyLibrary ||
+      myWantsLoading ||
+      activeOwnedBooksLoading
+    ) {
+      return;
+    }
 
     setAddWantError(null);
     createWant.mutate(
@@ -81,6 +99,9 @@ export default function BrowsePage() {
             error instanceof Error &&
             error.message.toLowerCase().includes("already have a want")
               ? "This book is already in your wants list."
+              : error instanceof Error &&
+                error.message.toLowerCase().includes("active copy")
+                ? "You already have an active copy of this book in your library."
               : "Could not add this book to your wants list.";
           setAddWantError(message);
         },
@@ -187,14 +208,18 @@ export default function BrowsePage() {
               disabled={
                 !selectedListing ||
                 myWantsLoading ||
+                activeOwnedBooksLoading ||
                 alreadyInMyWants ||
+                alreadyInMyLibrary ||
                 createWant.isPending
               }
             >
-              {myWantsLoading
+              {myWantsLoading || activeOwnedBooksLoading
                 ? "Checking..."
                 : alreadyInMyWants
                 ? "Already in My Wants"
+                : alreadyInMyLibrary
+                ? "Already in My Library"
                 : createWant.isPending
                   ? "Adding..."
                   : "Add to My Wants"}
@@ -224,6 +249,18 @@ export default function BrowsePage() {
             {selectedListing.location && (
               <p className="text-sm text-muted-foreground">
                 Location: {selectedListing.location}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Listed by @{selectedListing.owner_username ?? "member"}
+              {selectedListing.owner_display_name
+                ? ` (${selectedListing.owner_display_name})`
+                : ""}
+            </p>
+            {selectedListing.status === "lent" && (
+              <p className="text-sm">
+                Borrowed by @{selectedListing.borrower_username ?? "member"} from @
+                {selectedListing.owner_username ?? "member"}
               </p>
             )}
             {selectedListing.contact_note && (

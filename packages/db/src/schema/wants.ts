@@ -4,10 +4,13 @@ import {
   varchar,
   text,
   timestamp,
-  unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { books } from "./books";
+import { copies } from "./copies";
+import { wantStatusEnum } from "./enums";
+import { memberProfiles } from "./member-profiles";
 
 export const wants = pgTable(
   "wants",
@@ -18,6 +21,13 @@ export const wants = pgTable(
       .notNull()
       .references(() => books.id, { onDelete: "restrict" }),
     notes: text("notes"),
+    status: wantStatusEnum("status").notNull().default("active"),
+    fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
+    fulfilledByCopyId: uuid("fulfilled_by_copy_id").references(
+      () => copies.id,
+      { onDelete: "set null" }
+    ),
+    fulfilledByUserId: varchar("fulfilled_by_user_id", { length: 255 }),
     lastConfirmedAt: timestamp("last_confirmed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -27,12 +37,24 @@ export const wants = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [unique("wants_user_book_unique").on(t.userId, t.bookId)]
+  (t) => [
+    uniqueIndex("wants_user_book_active_unique")
+      .on(t.userId, t.bookId)
+      .where(sql`${t.status} = 'active'`),
+  ]
 );
 
 export const wantsRelations = relations(wants, ({ one }) => ({
   book: one(books, {
     fields: [wants.bookId],
     references: [books.id],
+  }),
+  userProfile: one(memberProfiles, {
+    fields: [wants.userId],
+    references: [memberProfiles.userId],
+  }),
+  fulfilledByCopy: one(copies, {
+    fields: [wants.fulfilledByCopyId],
+    references: [copies.id],
   }),
 }));

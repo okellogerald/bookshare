@@ -92,6 +92,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktrack}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+      MINIO_BUCKET: bookshare-media-dev
     volumes:
       - ./infra/minio/init.sh:/init.sh:ro
     depends_on:
@@ -114,7 +115,8 @@ services:
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-booktrack}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
-      MINIO_BUCKET: book-covers
+      MINIO_BUCKET: bookshare-media-dev
+      PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
     ports:
       - "3333:3333"

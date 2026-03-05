@@ -11,6 +11,7 @@ export const copyConditionEnum = pgEnum("copy_condition", [
 export const copyStatusEnum = pgEnum("copy_status", [
   "available",
   "reserved",
+  "lent",
   "rented",
   "checked_out",
   "sold",
@@ -37,6 +38,7 @@ export const copyEventTypeEnum = pgEnum("copy_event_type", [
   "acquired",
   "status_change",
   "condition_change",
+  "lent",
   "sold",
   "rented",
   "returned",
@@ -45,6 +47,12 @@ export const copyEventTypeEnum = pgEnum("copy_event_type", [
   "lost",
   "damaged",
   "note_added",
+]);
+
+export const wantStatusEnum = pgEnum("want_status", [
+  "active",
+  "fulfilled",
+  "cancelled",
 ]);
 
 export const bookFormatEnum = pgEnum("book_format", [

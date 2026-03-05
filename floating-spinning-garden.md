@@ -306,7 +306,7 @@ Same services but:
 7. Write Dockerfiles (`.dev` + `.prod`) for each app
 8. Write `docker-compose.dev.yml` with postgres, zitadel, minio
 9. Write postgres init script (create both databases)
-10. Write minio init script (create `book-covers` bucket)
+10. Write minio init script (create `bookshare-media-*` bucket)
 11. Configure Zitadel init steps (project, apps, roles)
 12. Write `docker-compose.prod.yml`
 

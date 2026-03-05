@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
         id: claims.sub,
         email: claims.email as string | undefined,
         name: claims.name as string | undefined,
+        username: claims.preferred_username as string | undefined,
       },
     });
 

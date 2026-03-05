@@ -9,6 +9,8 @@ import { relations } from "drizzle-orm";
 import { editions } from "./editions";
 import { copyEvents } from "./copy-events";
 import { collectionCopies } from "./collections";
+import { memberProfiles } from "./member-profiles";
+import { copyImages } from "./copy-images";
 import {
   copyConditionEnum,
   copyStatusEnum,
@@ -26,6 +28,10 @@ export {
 export const copies = pgTable("copies", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: varchar("user_id", { length: 255 }).notNull(),
+  borrowerUserId: varchar("borrower_user_id", { length: 255 }).references(
+    () => memberProfiles.userId,
+    { onDelete: "set null" }
+  ),
   editionId: uuid("edition_id")
     .notNull()
     .references(() => editions.id, { onDelete: "restrict" }),
@@ -52,6 +58,17 @@ export const copiesRelations = relations(copies, ({ one, many }) => ({
     fields: [copies.editionId],
     references: [editions.id],
   }),
+  ownerProfile: one(memberProfiles, {
+    fields: [copies.userId],
+    references: [memberProfiles.userId],
+    relationName: "ownerProfile",
+  }),
+  borrowerProfile: one(memberProfiles, {
+    fields: [copies.borrowerUserId],
+    references: [memberProfiles.userId],
+    relationName: "borrowerProfile",
+  }),
   events: many(copyEvents),
   collectionCopies: many(collectionCopies),
+  images: many(copyImages),
 }));

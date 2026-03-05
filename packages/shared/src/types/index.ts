@@ -5,6 +5,7 @@ import type {
   AcquisitionType,
   CopyEventType,
   ShareType,
+  WantStatus,
 } from "../constants/enums";
 
 // ─── Book ────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ export interface BookQuote {
 export interface Copy {
   id: string;
   userId: string;
+  borrowerUserId: string | null;
   editionId: string;
   condition: CopyCondition;
   status: CopyStatus;
@@ -109,6 +111,10 @@ export interface Want {
   userId: string;
   bookId: string;
   notes: string | null;
+  status: WantStatus;
+  fulfilledAt: Date | null;
+  fulfilledByCopyId: string | null;
+  fulfilledByUserId: string | null;
   lastConfirmedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

@@ -14,6 +14,7 @@ import { UploadModule } from "./modules/upload/upload.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { CollectionsModule } from "./modules/collections/collections.module";
 import { WantsModule } from "./modules/wants/wants.module";
+import { ProfilesModule } from "./modules/profiles/profiles.module";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { WantsModule } from "./modules/wants/wants.module";
     CategoriesModule,
     CollectionsModule,
     WantsModule,
+    ProfilesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
