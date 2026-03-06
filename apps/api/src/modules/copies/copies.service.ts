@@ -164,6 +164,20 @@ export class CopiesService {
       if (!counterparty) {
         throw new NotFoundException("Counterparty member profile not found");
       }
+
+      const activeWant = await this.db.query.wants.findFirst({
+        where: and(
+          eq(wants.userId, counterpartyUserId),
+          eq(wants.bookId, existing.edition.book.id),
+          eq(wants.status, "active")
+        ),
+      });
+
+      if (!activeWant) {
+        throw new BadRequestException(
+          "counterpartyUserId must belong to a member with an active want for this book"
+        );
+      }
     }
 
     // Determine event type from the target status

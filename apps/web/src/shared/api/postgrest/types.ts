@@ -55,6 +55,7 @@ export interface PgBookQuoteWithBook extends PgBookQuote {
 export interface PgCategory {
   id: string;
   name: string;
+  slug: string;
   description: string | null;
   parent_id: string | null;
   created_at: string;
@@ -136,6 +137,11 @@ export interface PgBookWithAuthors extends PgBook {
 /** books_with_authors SQL view — flat authors JSON array */
 export interface PgBookWithAuthorsView extends PgBook {
   authors: Array<{ id: string; name: string }>;
+}
+
+/** books_with_categories SQL view — flat categories JSON array */
+export interface PgBookWithCategoriesView extends PgBook {
+  categories: Array<{ id: string; name: string; slug: string }>;
 }
 
 export interface PgBookWithCategories extends PgBook {

@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
 import { getOIDCConfig, getRedirectUri } from "@/features/auth/lib/oidc";
 
-export async function GET() {
+const FORCE_LOGIN_COOKIE = "bookshare_force_login";
+
+export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
   const redirectUri = getRedirectUri();
+  const forceLogin =
+    request.cookies.get(FORCE_LOGIN_COOKIE)?.value === "1";
 
   const codeVerifier = client.randomPKCECodeVerifier();
   const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
@@ -30,6 +34,10 @@ export async function GET() {
     code_challenge_method: "S256",
     state,
   };
+  if (forceLogin) {
+    parameters.prompt = "login";
+    parameters.max_age = "0";
+  }
 
   const redirectTo = client.buildAuthorizationUrl(config, parameters);
 
@@ -51,6 +59,10 @@ export async function GET() {
     path: "/",
     maxAge: 600,
   });
+
+  if (forceLogin) {
+    response.cookies.delete(FORCE_LOGIN_COOKIE);
+  }
 
   return response;
 }

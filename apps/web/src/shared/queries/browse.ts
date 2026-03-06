@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { PgBrowseListing } from "@/shared/api";
+import { isHiddenCommunityUsername } from "@/shared/lib/member-visibility";
 
 interface BrowseFilters {
   search?: string;
@@ -33,7 +34,17 @@ async function fetchBrowseListings(
   const response = await fetch(`/api/postgrest/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
-  return json.data;
+  const listings = json.data as PgBrowseListing[];
+  return listings
+    .filter((listing) => !isHiddenCommunityUsername(listing.owner_username))
+    .map((listing) => {
+      if (!isHiddenCommunityUsername(listing.borrower_username)) return listing;
+      return {
+        ...listing,
+        borrower_username: null,
+        borrower_display_name: null,
+      };
+    });
 }
 
 export function useBrowseListings(filters: BrowseFilters = {}) {

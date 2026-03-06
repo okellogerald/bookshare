@@ -6,6 +6,8 @@ import {
 } from "@/features/auth/lib/oidc";
 import { getSession } from "@/features/auth/lib/session";
 
+const FORCE_LOGIN_COOKIE = "bookshare_force_login";
+
 export async function GET() {
   const postLogoutRedirectUri = getPostLogoutRedirectUri();
   const config = await getOIDCConfig();
@@ -38,6 +40,13 @@ export async function GET() {
   response.cookies.delete("bookshare_token");
   response.cookies.delete("oidc_code_verifier");
   response.cookies.delete("oidc_state");
+  response.cookies.set(FORCE_LOGIN_COOKIE, "1", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 300,
+  });
 
   return response;
 }

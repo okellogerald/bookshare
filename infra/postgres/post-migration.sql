@@ -235,9 +235,15 @@ SELECT
   b.description AS book_description,
   b.language AS book_language,
   owner_profile.username AS owner_username,
-  owner_profile.display_name AS owner_display_name,
+  COALESCE(
+    NULLIF(TRIM(CONCAT_WS(' ', owner_profile.first_name, owner_profile.last_name)), ''),
+    owner_profile.username
+  ) AS owner_display_name,
   borrower_profile.username AS borrower_username,
-  borrower_profile.display_name AS borrower_display_name,
+  COALESCE(
+    NULLIF(TRIM(CONCAT_WS(' ', borrower_profile.first_name, borrower_profile.last_name)), ''),
+    borrower_profile.username
+  ) AS borrower_display_name,
   primary_image.image_url AS primary_image_url,
   COALESCE(
     json_agg(
@@ -265,9 +271,11 @@ GROUP BY
   e.id,
   b.id,
   owner_profile.username,
-  owner_profile.display_name,
+  owner_profile.first_name,
+  owner_profile.last_name,
   borrower_profile.username,
-  borrower_profile.display_name,
+  borrower_profile.first_name,
+  borrower_profile.last_name,
   primary_image.image_url;
 
 -- Grant browse view to authenticated users only
@@ -311,7 +319,10 @@ JOIN (
       json_build_object(
         'user_id', w.user_id,
         'username', mp.username,
-        'display_name', mp.display_name,
+        'display_name', COALESCE(
+          NULLIF(TRIM(CONCAT_WS(' ', mp.first_name, mp.last_name)), ''),
+          mp.username
+        ),
         'notes', w.notes,
         'created_at', w.created_at,
         'last_confirmed_at', w.last_confirmed_at

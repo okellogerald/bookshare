@@ -1,7 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { PgBookWithAuthorsView, PgEdition, PgBrowseListing } from "@/shared/api";
+import type {
+  PgBookWithAuthorsView,
+  PgBookWithCategoriesView,
+  PgEdition,
+  PgBrowseListing,
+} from "@/shared/api";
+import { isHiddenCommunityUsername } from "@/shared/lib/member-visibility";
 
 // ─── Book detail (with authors) ─────────────────────────────
 
@@ -21,6 +27,26 @@ export function useBookDetail(bookId: string) {
   return useQuery({
     queryKey: ["book-detail", bookId],
     queryFn: () => fetchBookDetail(bookId),
+    enabled: !!bookId,
+  });
+}
+
+async function fetchBookCategories(
+  bookId: string
+): Promise<PgBookWithCategoriesView | null> {
+  const params = new URLSearchParams();
+  params.set("id", `eq.${bookId}`);
+
+  const response = await fetch(`/api/postgrest/books_with_categories?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch book categories");
+  const json = await response.json();
+  return json.data?.[0] ?? null;
+}
+
+export function useBookCategories(bookId: string) {
+  return useQuery({
+    queryKey: ["book-categories", bookId],
+    queryFn: () => fetchBookCategories(bookId),
     enabled: !!bookId,
   });
 }
@@ -58,7 +84,17 @@ async function fetchListingsByBook(
   const response = await fetch(`/api/postgrest/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
-  return json.data;
+  const listings = json.data as PgBrowseListing[];
+  return listings
+    .filter((listing) => !isHiddenCommunityUsername(listing.owner_username))
+    .map((listing) => {
+      if (!isHiddenCommunityUsername(listing.borrower_username)) return listing;
+      return {
+        ...listing,
+        borrower_username: null,
+        borrower_display_name: null,
+      };
+    });
 }
 
 export function useListingsByBook(bookId: string) {

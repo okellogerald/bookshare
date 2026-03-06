@@ -1,7 +1,13 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PgCopyDetail, PgEdition, PgAuthor, PgBookWithAuthorsView } from "@/shared/api";
+import type {
+  PgAuthor,
+  PgBookWithAuthorsView,
+  PgCategory,
+  PgCopyDetail,
+  PgEdition,
+} from "@/shared/api";
 import type {
   AttachCopyImagesBody,
   CopyImagePresignBody,
@@ -66,6 +72,17 @@ async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
   return json.data?.[0] ?? null;
 }
 
+async function fetchAllCategories(): Promise<PgCategory[]> {
+  const params = new URLSearchParams();
+  params.set("select", "id,name,slug,parent_id");
+  params.set("order", "name.asc");
+
+  const response = await fetch(`/api/postgrest/categories?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch categories");
+  const json = await response.json();
+  return json.data;
+}
+
 export function useMyCopies() {
   return useQuery({
     queryKey: ["my-copies"],
@@ -85,6 +102,13 @@ export function useMyActiveOwnedBookIds() {
   return useQuery({
     queryKey: ["my-active-owned-book-ids"],
     queryFn: fetchMyActiveOwnedBookIds,
+  });
+}
+
+export function useAllCategories() {
+  return useQuery({
+    queryKey: ["all-categories"],
+    queryFn: fetchAllCategories,
   });
 }
 

@@ -17,6 +17,7 @@ import {
 import { useBrowseListings } from "@/shared/queries/browse";
 import { useCreateWant, useMyWants } from "@/shared/queries/my-wants";
 import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
+import { useCurrentUser } from "@/shared/providers/user-provider";
 import { ListingCard } from "./listing-card";
 
 const shareTypeLabels: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function BrowsePage() {
   const [shareType, setShareType] = useState<string>("");
   const [condition, setCondition] = useState<string>("");
   const [format, setFormat] = useState<string>("");
+  const [includeOwnListings, setIncludeOwnListings] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<PgBrowseListing | null>(null);
   const [addWantError, setAddWantError] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export default function BrowsePage() {
   const { data: myActiveOwnedBookIds, isLoading: activeOwnedBooksLoading } =
     useMyActiveOwnedBookIds();
   const createWant = useCreateWant();
+  const currentUser = useCurrentUser();
 
   const wantedBookIds = useMemo(
     () => new Set(myWants?.map((want) => want.book_id) ?? []),
@@ -60,6 +63,13 @@ export default function BrowsePage() {
   const activeOwnedBookIds = useMemo(
     () => new Set(myActiveOwnedBookIds ?? []),
     [myActiveOwnedBookIds]
+  );
+  const visibleListings = useMemo(
+    () =>
+      (listings ?? []).filter(
+        (listing) => includeOwnListings || listing.user_id !== currentUser?.id
+      ),
+    [currentUser?.id, includeOwnListings, listings]
   );
 
   const alreadyInMyWants = selectedListing
@@ -168,6 +178,13 @@ export default function BrowsePage() {
             <SelectItem value="audiobook">Audiobook</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant={includeOwnListings ? "secondary" : "outline"}
+          onClick={() => setIncludeOwnListings((prev) => !prev)}
+          type="button"
+        >
+          {includeOwnListings ? "Including My Listings" : "Hide My Listings"}
+        </Button>
       </div>
 
       {isLoading ? (
@@ -179,9 +196,9 @@ export default function BrowsePage() {
             />
           ))}
         </div>
-      ) : listings && listings.length > 0 ? (
+      ) : visibleListings.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {listings.map((listing) => (
+          {visibleListings.map((listing) => (
             <ListingCard
               key={listing.id}
               listing={listing}

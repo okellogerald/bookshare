@@ -50,6 +50,10 @@ export default function CommunityPage() {
             <div className="space-y-3">
               {sortedMembers.map((member) => {
                 const isMe = currentUser?.id === member.user_id;
+                const fullName = [member.first_name, member.last_name]
+                  .filter((value): value is string => !!value && value.trim().length > 0)
+                  .join(" ")
+                  .trim();
                 return (
                   <div key={member.user_id} className="rounded-md border p-3">
                     <div>
@@ -58,7 +62,7 @@ export default function CommunityPage() {
                         {isMe ? " (You)" : ""}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {member.display_name}
+                        {fullName || "Name not set"}
                       </p>
                     </div>
                     <div className="mt-2 text-sm">

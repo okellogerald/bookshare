@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Separator } from "@/shared/components/ui/separator";
-import { useBookDetail, useEditionsByBook } from "@/shared/queries/books";
+import { useBookCategories, useBookDetail, useEditionsByBook } from "@/shared/queries/books";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -44,6 +44,7 @@ export function BookDetailsDialog({
 }: BookDetailsDialogProps) {
   const queryBookId = bookId ?? "";
   const { data: book, isLoading: bookLoading } = useBookDetail(queryBookId);
+  const { data: bookWithCategories } = useBookCategories(queryBookId);
   const { data: editions, isLoading: editionsLoading } = useEditionsByBook(queryBookId);
 
   const title = book?.title ?? fallbackTitle ?? "Book details";
@@ -57,11 +58,11 @@ export function BookDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         {heroImageUrl ? (
-          <div className="overflow-hidden rounded-md border">
+          <div className="flex max-h-[70vh] items-center justify-center overflow-hidden rounded-md border p-2">
             <img
               src={heroImageUrl}
               alt={title}
-              className="h-56 w-full object-cover"
+              className="max-h-[65vh] w-auto max-w-full object-contain"
             />
           </div>
         ) : (
@@ -95,6 +96,15 @@ export function BookDetailsDialog({
             {book.language && (
               <Badge variant="outline">{book.language.toUpperCase()}</Badge>
             )}
+            {bookWithCategories?.categories?.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {bookWithCategories.categories.map((category) => (
+                  <Badge key={category.id} variant="secondary">
+                    {category.name}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
 
             {book.description ? (
               <p className="whitespace-pre-line text-sm leading-relaxed">

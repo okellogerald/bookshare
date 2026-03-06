@@ -24,6 +24,7 @@ export type {
   PgBookWithAuthors,
   PgBookWithAuthorsView,
   PgBookWithCategories,
+  PgBookWithCategoriesView,
   PgEditionWithBook,
   PgCopyDetail,
   PgCopyEventDetail,

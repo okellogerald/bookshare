@@ -32,6 +32,7 @@ import {
   useDeleteCopy,
 } from "@/shared/queries/my-library";
 import { useCommunityMembers } from "@/shared/queries/community";
+import { useActiveWantersForBook } from "@/shared/queries/wanted";
 
 const statusLabels: Record<string, string> = {
   available: "Available",
@@ -69,18 +70,43 @@ export default function MyLibraryPage() {
   const { data: copies, isLoading } = useMyCopies();
   const { data: members } = useCommunityMembers();
   const currentUser = useCurrentUser();
+  const selectedStatusCopy = useMemo(
+    () =>
+      statusDialog
+        ? (copies ?? []).find((copy) => copy.id === statusDialog.copyId) ?? null
+        : null,
+    [copies, statusDialog]
+  );
+  const statusDialogBookId = selectedStatusCopy?.edition?.book?.id ?? null;
+  const { data: activeWanters, isLoading: activeWantersLoading } =
+    useActiveWantersForBook(statusDialogBookId);
   const confirmMutation = useConfirmCopy();
   const statusMutation = useUpdateCopyStatus();
   const deleteMutation = useDeleteCopy();
   const memberNameById = useMemo(
     () =>
       new Map(
-        (members ?? []).map((member) => [
-          member.user_id,
-          `@${member.username}${member.display_name ? ` (${member.display_name})` : ""}`,
-        ])
+        (members ?? []).map((member) => {
+          const fullName = [member.first_name, member.last_name]
+            .filter((value): value is string => !!value && value.trim().length > 0)
+            .join(" ")
+            .trim();
+          return [
+            member.user_id,
+            `@${member.username}${fullName ? ` (${fullName})` : ""}`,
+          ];
+        })
       ),
     [members]
+  );
+  const eligibleWanters = useMemo(
+    () =>
+      (activeWanters ?? []).filter((wanter) => wanter.user_id !== currentUser?.id),
+    [activeWanters, currentUser?.id]
+  );
+  const hasEligibleWanters = eligibleWanters.length > 0;
+  const selectedCounterpartyIsEligible = eligibleWanters.some(
+    (wanter) => wanter.user_id === counterpartyUserId
   );
 
   function handleOpenBookDetails(copy: NonNullable<typeof copies>[number]) {
@@ -193,7 +219,7 @@ export default function MyLibraryPage() {
                   </Badge>
                   {copy.status === "lent" && copy.borrower_user_id && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Borrowed by {memberNameById.get(copy.borrower_user_id) ?? copy.borrower_user_id}
+                      Borrowed by {memberNameById.get(copy.borrower_user_id) ?? "member"}
                     </p>
                   )}
                 </TableCell>
@@ -329,21 +355,36 @@ export default function MyLibraryPage() {
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="counterparty">Member</Label>
-            <Select value={counterpartyUserId} onValueChange={setCounterpartyUserId}>
+            <Select
+              value={counterpartyUserId}
+              onValueChange={setCounterpartyUserId}
+              disabled={activeWantersLoading || !hasEligibleWanters}
+            >
               <SelectTrigger id="counterparty">
-                <SelectValue placeholder="Select member..." />
+                <SelectValue
+                  placeholder={
+                    activeWantersLoading
+                      ? "Loading wanters..."
+                      : hasEligibleWanters
+                        ? "Select member..."
+                        : "No active wanters"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {(members ?? [])
-                  .filter((member) => member.user_id !== currentUser?.id)
-                  .map((member) => (
-                  <SelectItem key={member.user_id} value={member.user_id}>
-                    @{member.username}
-                    {member.display_name ? ` (${member.display_name})` : ""}
+                {eligibleWanters.map((wanter) => (
+                  <SelectItem key={wanter.user_id} value={wanter.user_id}>
+                    @{wanter.username ?? "member"}
+                    {wanter.display_name ? ` (${wanter.display_name})` : ""}
                   </SelectItem>
-                  ))}
+                ))}
               </SelectContent>
             </Select>
+            {!activeWantersLoading && !hasEligibleWanters && (
+              <p className="text-sm text-destructive">
+                No active wanters for this book. You can only mark this copy as lent, sold, or given away to someone who currently wants it.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -357,7 +398,11 @@ export default function MyLibraryPage() {
             </Button>
             <Button
               onClick={submitStatusDialog}
-              disabled={!counterpartyUserId || statusMutation.isPending}
+              disabled={
+                !counterpartyUserId ||
+                !selectedCounterpartyIsEligible ||
+                statusMutation.isPending
+              }
             >
               {statusMutation.isPending ? "Saving..." : "Confirm"}
             </Button>

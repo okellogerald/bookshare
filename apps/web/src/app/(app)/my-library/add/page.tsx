@@ -24,6 +24,7 @@ import {
 } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import {
+  useAllCategories,
   useEditionByIsbn,
   useCreateCopy,
   useCreateCopyImagePresign,
@@ -34,6 +35,7 @@ import {
   useAttachCopyImages,
   useSearchAuthors,
 } from "@/shared/queries/my-library";
+import { useBookCategories } from "@/shared/queries/books";
 
 interface SelectedAuthor {
   id?: string;
@@ -63,6 +65,7 @@ export default function AddCopyPage() {
   const [newBookTitle, setNewBookTitle] = useState("");
   const [newBookSubtitle, setNewBookSubtitle] = useState("");
   const [newBookDescription, setNewBookDescription] = useState("");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   // New edition fields
   const [newBookFormat, setNewBookFormat] = useState("paperback");
@@ -81,6 +84,9 @@ export default function AddCopyPage() {
   const [showAuthorDropdown, setShowAuthorDropdown] = useState(false);
   const { data: authorResults } = useSearchAuthors(authorInput);
   const authorDropdownRef = useRef<HTMLDivElement>(null);
+  const { data: allCategories } = useAllCategories();
+  const editionBookId = ((edition as any)?.book?.id as string | undefined) ?? "";
+  const { data: editionBookWithCategories } = useBookCategories(editionBookId);
 
   // Copy fields
   const [condition, setCondition] = useState("good");
@@ -149,6 +155,14 @@ export default function AddCopyPage() {
 
   function removeAuthor(index: number) {
     setSelectedAuthors((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function toggleSelectedCategory(categoryId: string) {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
   }
 
   function handleImageSelection(files: FileList | null) {
@@ -237,6 +251,8 @@ export default function AddCopyPage() {
           description: newBookDescription.trim() || undefined,
           language: resolvedLanguage,
           authorIds: authorIds.length > 0 ? authorIds : undefined,
+          categoryIds:
+            selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
         });
 
         let coverImageUrl: string | undefined;
@@ -396,6 +412,22 @@ export default function AddCopyPage() {
                   ISBN: {edition.isbn}
                 </p>
               )}
+              <div className="mt-3 space-y-1">
+                <p className="text-xs text-muted-foreground">Categories</p>
+                {editionBookWithCategories?.categories?.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {editionBookWithCategories.categories.map((category) => (
+                      <Badge key={category.id} variant="outline">
+                        {category.name}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No categories assigned.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -508,6 +540,32 @@ export default function AddCopyPage() {
                     onChange={(e) => setNewBookDescription(e.target.value)}
                     rows={3}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Categories</Label>
+                  {!allCategories?.length ? (
+                    <p className="text-sm text-muted-foreground">
+                      No categories available.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {allCategories.map((category) => {
+                        const selected = selectedCategoryIds.includes(category.id);
+                        return (
+                          <button
+                            key={category.id}
+                            type="button"
+                            onClick={() => toggleSelectedCategory(category.id)}
+                          >
+                            <Badge variant={selected ? "default" : "outline"}>
+                              {category.name}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 

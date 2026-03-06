@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card";
 import {
+  useAllCategories,
   useUpdateCopy,
   useAttachCopyImages,
   useUpdateBook,
@@ -36,6 +37,7 @@ import {
   useSearchAuthors,
   useCreateAuthor,
 } from "@/shared/queries/my-library";
+import { useBookCategories } from "@/shared/queries/books";
 import type { PgCopyDetail } from "@/shared/api";
 
 async function fetchCopy(id: string): Promise<PgCopyDetail> {
@@ -78,6 +80,8 @@ export default function EditCopyPage() {
   const editionId = copy?.edition?.id;
 
   const { data: bookWithAuthors } = useBookWithAuthors(bookId);
+  const { data: bookWithCategories } = useBookCategories(bookId ?? "");
+  const { data: allCategories } = useAllCategories();
 
   // Book fields
   const [bookTitle, setBookTitle] = useState("");
@@ -103,6 +107,7 @@ export default function EditCopyPage() {
   // Author fields
   const [authorInput, setAuthorInput] = useState("");
   const [selectedAuthors, setSelectedAuthors] = useState<SelectedAuthor[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [showAuthorDropdown, setShowAuthorDropdown] = useState(false);
   const { data: authorResults } = useSearchAuthors(authorInput);
   const authorDropdownRef = useRef<HTMLDivElement>(null);
@@ -179,6 +184,14 @@ export default function EditCopyPage() {
     }
   }, [bookWithAuthors]);
 
+  useEffect(() => {
+    if (bookWithCategories?.categories) {
+      setSelectedCategoryIds(
+        bookWithCategories.categories.map((category) => category.id)
+      );
+    }
+  }, [bookWithCategories]);
+
   // Close author dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -217,6 +230,14 @@ export default function EditCopyPage() {
 
   function removeAuthor(index: number) {
     setSelectedAuthors((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function toggleSelectedCategory(categoryId: string) {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    );
   }
 
   function handleImageSelection(files: FileList | null) {
@@ -301,6 +322,7 @@ export default function EditCopyPage() {
           description: bookDescription.trim() || undefined,
           language: resolvedLanguage,
           authorIds,
+          categoryIds: bookWithCategories ? selectedCategoryIds : undefined,
         },
       });
 
@@ -527,6 +549,32 @@ export default function EditCopyPage() {
                 onChange={(e) => setBookDescription(e.target.value)}
                 rows={3}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              {!allCategories?.length ? (
+                <p className="text-sm text-muted-foreground">
+                  No categories available.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {allCategories.map((category) => {
+                    const selected = selectedCategoryIds.includes(category.id);
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => toggleSelectedCategory(category.id)}
+                      >
+                        <Badge variant={selected ? "default" : "outline"}>
+                          {category.name}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

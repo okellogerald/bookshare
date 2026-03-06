@@ -505,10 +505,9 @@ export type IdentityGender =
   | "GENDER_DIVERSE";
 
 export interface UpdateProfileIdentityBody {
+  username?: string;
   firstName?: string;
   lastName?: string;
-  displayName?: string;
-  nickname?: string;
   gender?: IdentityGender;
 }
 

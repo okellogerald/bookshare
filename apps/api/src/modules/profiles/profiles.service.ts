@@ -38,30 +38,26 @@ export class ProfilesService {
       existing.identityUpdatedAt <= tokenIssuedAtDate;
 
     const baseUsername = this.getBaseUsername(user);
-    const identityUsername = await this.getUniqueUsername(baseUsername, user.id);
     const username =
-      existing && existing.username !== identityUsername
-        ? identityUsername
-        : (existing?.username ?? identityUsername);
-    const claimDisplayName = this.getDisplayName(user, username, existing?.displayName);
-    const displayName = shouldSyncIdentityFromClaims
-      ? claimDisplayName
-      : (existing?.displayName ?? claimDisplayName);
+      existing?.username?.trim().length
+        ? existing.username
+        : await this.getUniqueUsername(baseUsername, user.id);
+    const firstName = shouldSyncIdentityFromClaims
+      ? (user.firstName ?? existing?.firstName ?? null)
+      : (existing?.firstName ?? null);
+    const lastName = shouldSyncIdentityFromClaims
+      ? (user.lastName ?? existing?.lastName ?? null)
+      : (existing?.lastName ?? null);
+    const displayName = this.composeDisplayName(firstName, lastName, username);
 
     const identityUpdates = {
       username,
       displayName,
-      firstName: shouldSyncIdentityFromClaims
-        ? (user.firstName ?? null)
-        : (existing?.firstName ?? null),
-      lastName: shouldSyncIdentityFromClaims
-        ? (user.lastName ?? null)
-        : (existing?.lastName ?? null),
-      nickname: shouldSyncIdentityFromClaims
-        ? (user.nickname ?? null)
-        : (existing?.nickname ?? null),
+      firstName,
+      lastName,
+      nickname: null,
       gender: shouldSyncIdentityFromClaims
-        ? (user.gender ?? null)
+        ? (this.normalizeGender(user.gender) ?? null)
         : (existing?.gender ?? null),
       identityUpdatedAt: shouldSyncIdentityFromClaims
         ? new Date()
@@ -132,29 +128,27 @@ export class ProfilesService {
     const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
     const existing = await this.findMe(user);
 
+    const usernameInput = (dto.username ?? existing.username ?? "").trim();
     const firstName = (dto.firstName ?? existing.firstName ?? "").trim();
     const lastName = (dto.lastName ?? existing.lastName ?? "").trim();
-    const displayName = (dto.displayName ?? existing.displayName ?? "").trim();
-    const nickname = dto.nickname !== undefined
-      ? dto.nickname.trim()
-      : (existing.nickname ?? "");
+    const username = await this.ensureUniqueUsername(usernameInput, user.id);
+    const displayName = this.composeDisplayName(firstName, lastName, username);
     const gender = this.normalizeGender(dto.gender ?? existing.gender ?? undefined);
 
+    if (!username) {
+      throw new BadRequestException("username is required");
+    }
     if (!firstName) {
       throw new BadRequestException("firstName is required");
     }
     if (!lastName) {
       throw new BadRequestException("lastName is required");
     }
-    if (!displayName) {
-      throw new BadRequestException("displayName is required");
-    }
 
     const payload = {
       firstName,
       lastName,
       displayName,
-      nickName: nickname || undefined,
       gender,
     };
 
@@ -163,10 +157,11 @@ export class ProfilesService {
     const [updated] = await this.db
       .update(memberProfiles)
       .set({
+        username,
         firstName,
         lastName,
         displayName,
-        nickname: nickname || null,
+        nickname: null,
         gender: gender ?? null,
         identityUpdatedAt: new Date(),
       })
@@ -187,32 +182,26 @@ export class ProfilesService {
     return this.normalizeUsername(preferred);
   }
 
-  private getDisplayName(
-    user: AuthenticatedUser,
-    username: string,
-    existingDisplayName?: string
+  private composeDisplayName(
+    firstName: string | null | undefined,
+    lastName: string | null | undefined,
+    username: string
   ) {
-    const fullName = [user.firstName, user.lastName]
+    const fullName = [firstName, lastName]
       .filter((value): value is string => !!value && value.trim().length > 0)
       .join(" ")
       .trim();
-    return (
-      user.name?.trim() ||
-      fullName ||
-      user.nickname?.trim() ||
-      existingDisplayName ||
-      username
-    );
+    return fullName || username;
   }
 
-  private normalizeUsername(value: string) {
+  private normalizeUsername(value: string, fallback = "member") {
     const normalized = value
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, "_")
       .replace(/_+/g, "_")
       .replace(/^_+|_+$/g, "");
 
-    if (!normalized) return "member";
+    if (!normalized) return fallback;
     return normalized.slice(0, 50);
   }
 
@@ -231,6 +220,34 @@ export class ProfilesService {
       finalCandidate = `${candidate.slice(0, 50 - suffixText.length)}${suffixText}`;
       suffix += 1;
     }
+  }
+
+  private async ensureUniqueUsername(value: string, userId: string) {
+    if (value.trim().length === 0) {
+      throw new BadRequestException("username is required");
+    }
+
+    const normalized = this.normalizeUsername(value, "");
+    if (!normalized) {
+      throw new BadRequestException(
+        "username must include at least one letter or number"
+      );
+    }
+    if (normalized.length < 3) {
+      throw new BadRequestException(
+        "username must be at least 3 characters after normalization"
+      );
+    }
+
+    const existing = await this.db.query.memberProfiles.findFirst({
+      where: eq(memberProfiles.username, normalized),
+    });
+
+    if (existing && existing.userId !== userId) {
+      throw new BadRequestException("username is already taken");
+    }
+
+    return normalized;
   }
 
   private extractBearerToken(authorization: string | undefined) {
@@ -282,7 +299,6 @@ export class ProfilesService {
       firstName: string;
       lastName: string;
       displayName: string;
-      nickName?: string;
       gender?: ZitadelGenderValue;
     }
   ) {
@@ -317,7 +333,6 @@ export class ProfilesService {
           givenName: payload.firstName,
           familyName: payload.lastName,
           displayName: payload.displayName,
-          nickName: payload.nickName,
           gender: payload.gender,
         },
       }),

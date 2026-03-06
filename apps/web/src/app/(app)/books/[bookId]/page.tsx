@@ -11,7 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import { useBookDetail, useEditionsByBook, useListingsByBook } from "@/shared/queries/books";
+import {
+  useBookCategories,
+  useBookDetail,
+  useEditionsByBook,
+  useListingsByBook,
+} from "@/shared/queries/books";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -39,6 +44,7 @@ export default function BookDetailPage() {
   const { bookId } = useParams<{ bookId: string }>();
 
   const { data: book, isLoading: bookLoading } = useBookDetail(bookId);
+  const { data: bookWithCategories } = useBookCategories(bookId);
   const { data: editions } = useEditionsByBook(bookId);
   const { data: listings } = useListingsByBook(bookId);
 
@@ -89,6 +95,15 @@ export default function BookDetailPage() {
         {book.language && book.language !== "en" && (
           <Badge variant="outline">{book.language.toUpperCase()}</Badge>
         )}
+        {bookWithCategories?.categories?.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {bookWithCategories.categories.map((category) => (
+              <Badge key={category.id} variant="secondary">
+                {category.name}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {book.description && (
