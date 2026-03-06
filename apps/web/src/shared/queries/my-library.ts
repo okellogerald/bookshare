@@ -277,6 +277,10 @@ export function useUpdateBook() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["my-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["book-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["book-categories"] });
       queryClient.invalidateQueries({ queryKey: ["book-with-authors"] });
     },
   });

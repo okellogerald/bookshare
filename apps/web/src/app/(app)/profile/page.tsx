@@ -43,7 +43,7 @@ export default function ProfilePage() {
   const [cityArea, setCityArea] = useState("");
   const [contactHandle, setContactHandle] = useState("");
 
-  const { data: myProfile, isLoading } = useMyProfile();
+  const { data: myProfile, isLoading, isError, error } = useMyProfile();
   const updateIdentity = useUpdateMyIdentity();
   const updateProfile = useUpdateMyProfile();
 
@@ -94,6 +94,12 @@ export default function ProfilePage() {
         <CardContent className="space-y-4">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading profile...</p>
+          ) : isError ? (
+            <p className="text-sm text-destructive">
+              {error instanceof Error
+                ? error.message
+                : "Failed to load profile."}
+            </p>
           ) : (
             <>
               <form className="space-y-4" onSubmit={handleSaveIdentity}>

@@ -131,6 +131,11 @@ export default function MyWantsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/my-wants/${want.id}/edit`}>
+                                  Edit Book Details
+                                </Link>
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => confirmWant.mutate(want.id)}
                               >
@@ -164,6 +169,7 @@ export default function MyWantsPage() {
                     <TableHead>Book</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead>Fulfilled</TableHead>
+                    <TableHead className="w-[140px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -183,6 +189,13 @@ export default function MyWantsPage() {
                         {want.fulfilled_at
                           ? new Date(want.fulfilled_at).toLocaleDateString()
                           : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/my-wants/${want.id}/edit`}>
+                          <Button variant="ghost" size="sm">
+                            Edit Book Details
+                          </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -58,16 +58,20 @@ export function BookDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         {heroImageUrl ? (
-          <div className="flex max-h-[70vh] items-center justify-center overflow-hidden rounded-md border p-2">
-            <img
-              src={heroImageUrl}
-              alt={title}
-              className="max-h-[65vh] w-auto max-w-full object-contain"
-            />
+          <div className="mx-auto w-full max-w-[320px]">
+            <div className="aspect-[2/3] overflow-hidden rounded-md border bg-muted/30 p-3 shadow-sm">
+              <img
+                src={heroImageUrl}
+                alt={title}
+                className="h-full w-full object-contain"
+              />
+            </div>
           </div>
         ) : (
-          <div className="flex h-56 items-center justify-center rounded-md border bg-muted text-sm text-muted-foreground">
-            No cover image available
+          <div className="mx-auto w-full max-w-[320px]">
+            <div className="flex aspect-[2/3] items-center justify-center rounded-md border bg-muted text-sm text-muted-foreground">
+              No cover image available
+            </div>
           </div>
         )}
         <DialogHeader>

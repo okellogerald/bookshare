@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
-import { getOIDCConfig, getRedirectUri } from "@/features/auth/lib/oidc";
+import { getOIDCConfig } from "@/features/auth/lib/oidc";
 import { setSession } from "@/features/auth/lib/session";
-
-const FORCE_LOGIN_COOKIE = "bookshare_force_login";
 
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
-  const redirectUri = getRedirectUri();
 
   const codeVerifier = request.cookies.get("oidc_code_verifier")?.value;
   const expectedState = request.cookies.get("oidc_state")?.value;
@@ -50,7 +47,6 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL("/browse", request.url));
     response.cookies.delete("oidc_code_verifier");
     response.cookies.delete("oidc_state");
-    response.cookies.delete(FORCE_LOGIN_COOKIE);
 
     return response;
   } catch (error) {

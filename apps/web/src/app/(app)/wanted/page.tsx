@@ -1,17 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PgBrowseWant } from "@/shared/api";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
+import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { useCurrentUser } from "@/shared/providers/user-provider";
 import { useBrowseWants } from "@/shared/queries/wanted";
 import { WantCard } from "./want-card";
 
 export default function WantedPage() {
+  const currentUser = useCurrentUser();
   const [search, setSearch] = useState("");
+  const [includeMyWants, setIncludeMyWants] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedWant, setSelectedWant] = useState<PgBrowseWant | null>(null);
   const { data: wants, isLoading } = useBrowseWants({ search });
+  const filteredWants = useMemo(() => {
+    if (!wants) return [];
+    if (includeMyWants || !currentUser?.id) return wants;
+
+    return wants.filter(
+      (want) =>
+        !want.wanters.some((wanter) => wanter.user_id === currentUser.id)
+    );
+  }, [wants, includeMyWants, currentUser?.id]);
+
+  const selectedWantFromFiltered = selectedWant
+    ? filteredWants.find((want) => want.book_id === selectedWant.book_id) ?? null
+    : null;
+
+  useEffect(() => {
+    if (dialogOpen && selectedWant && !selectedWantFromFiltered) {
+      setDialogOpen(false);
+      setSelectedWant(null);
+    }
+  }, [dialogOpen, selectedWant, selectedWantFromFiltered]);
 
   function handleWantSelect(want: PgBrowseWant) {
     setSelectedWant(want);
@@ -27,22 +51,29 @@ export default function WantedPage() {
         </p>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4">
         <Input
           placeholder="Search by book title..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="max-w-sm"
         />
+        <Button
+          type="button"
+          variant={includeMyWants ? "default" : "outline"}
+          onClick={() => setIncludeMyWants((current) => !current)}
+        >
+          {includeMyWants ? "Hide My Wants" : "Show My Wants"}
+        </Button>
       </div>
 
       {isLoading ? (
         <p className="text-muted-foreground">Loading...</p>
-      ) : !wants?.length ? (
+      ) : !filteredWants.length ? (
         <p className="text-muted-foreground">No wanted books found.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {wants.map((want) => (
+          {filteredWants.map((want) => (
             <WantCard key={want.book_id} want={want} onSelect={handleWantSelect} />
           ))}
         </div>
@@ -51,17 +82,17 @@ export default function WantedPage() {
       <BookDetailsDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        bookId={selectedWant?.book_id ?? null}
-        fallbackTitle={selectedWant?.book_title}
-        fallbackSubtitle={selectedWant?.book_subtitle}
+        bookId={selectedWantFromFiltered?.book_id ?? null}
+        fallbackTitle={selectedWantFromFiltered?.book_title}
+        fallbackSubtitle={selectedWantFromFiltered?.book_subtitle}
       >
-        {selectedWant && (
+        {selectedWantFromFiltered && (
           <div className="space-y-3 rounded-md border p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Community wanters ({selectedWant.want_count})
+              Community wanters ({selectedWantFromFiltered.want_count})
             </p>
             <div className="space-y-2">
-              {selectedWant.wanters.map((wanter) => (
+              {selectedWantFromFiltered.wanters.map((wanter) => (
                 <div key={wanter.user_id} className="rounded border p-2">
                   <p className="text-sm font-medium">
                     @{wanter.username ?? "member"}

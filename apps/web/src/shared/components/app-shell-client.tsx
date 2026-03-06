@@ -8,13 +8,18 @@ import {
   BookOpen,
   Heart,
   Library,
-  LogOut,
   Search,
-  UserCircle2,
   Users,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { UserProvider } from "@/shared/providers/user-provider";
+import { useMyProfile } from "@/shared/queries/profile";
 import { cn } from "@/shared/lib/utils";
 
 interface User {
@@ -28,10 +33,21 @@ const navItems = [
   { href: "/browse", label: "Browse", icon: Search },
   { href: "/wanted", label: "Wanted", icon: Heart },
   { href: "/community", label: "Community", icon: Users },
-  { href: "/profile", label: "Profile", icon: UserCircle2 },
-  { href: "/my-library", label: "My Library", icon: Library },
-  { href: "/my-wants", label: "My Wants", icon: BookMarked },
 ];
+
+function getInitials(value: string): string {
+  const words = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+
+  const compact = words[0] ?? value.trim();
+  if (!compact) return "U";
+  return compact.slice(0, 2).toUpperCase();
+}
 
 export function AppShellClient({
   children,
@@ -42,6 +58,7 @@ export function AppShellClient({
 }) {
   const pathname = usePathname();
   const syncedProfile = useRef(false);
+  const { data: myProfile } = useMyProfile();
 
   useEffect(() => {
     if (!user || syncedProfile.current) return;
@@ -52,16 +69,27 @@ export function AppShellClient({
     });
   }, [user]);
 
-  const avatarInitial =
-    user?.name?.trim()?.charAt(0).toUpperCase() ||
-    user?.username?.trim()?.charAt(0).toUpperCase() ||
-    user?.email?.trim()?.charAt(0).toUpperCase() ||
+  const profileFullName = [myProfile?.firstName, myProfile?.lastName]
+    .filter((value): value is string => !!value && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  const displayName = profileFullName || user?.name?.trim() || "";
+  const effectiveUsername = myProfile?.username ?? user?.username ?? "";
+  const avatarLabel =
+    displayName ||
+    effectiveUsername ||
+    user?.email?.trim() ||
     "U";
+  const avatarInitials = getInitials(avatarLabel);
 
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside className="flex w-[var(--sidebar-width)] flex-col border-r bg-card">
+        <div className="flex h-14 items-center gap-2 border-b px-4">
+          <BookOpen className="h-5 w-5" />
+          <span className="text-lg font-semibold">BookShare</span>
+        </div>
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-2 pt-4">
           {navItems.map((item) => {
@@ -83,11 +111,7 @@ export function AppShellClient({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b bg-card px-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            <span className="text-lg font-semibold">BookShare</span>
-          </div>
+        <header className="flex h-14 items-center justify-end border-b bg-card px-4">
           {user && (
             <div className="flex items-center gap-1">
               <Link href="/my-library">
@@ -110,26 +134,30 @@ export function AppShellClient({
                   <span className="hidden md:inline">My Wants</span>
                 </Button>
               </Link>
-              <Link href="/profile">
-                <Button
-                  variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold">
-                    {avatarInitial}
-                  </span>
-                  <span className="hidden sm:inline">
-                    {user.username ? `@${user.username}` : "Profile"}
-                  </span>
-                </Button>
-              </Link>
-              <a href="/api/auth/logout">
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </Button>
-              </a>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold">
+                      {avatarInitials}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {effectiveUsername ? `@${effectiveUsername}` : "Account"}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile">View Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href="/api/auth/logout">Sign Out</a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </header>

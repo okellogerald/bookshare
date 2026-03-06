@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { useBrowseListings } from "@/shared/queries/browse";
-import { useCreateWant, useMyWants } from "@/shared/queries/my-wants";
+import { useCreateWant, useDeleteWant, useMyWants } from "@/shared/queries/my-wants";
 import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import { ListingCard } from "./listing-card";
@@ -54,11 +54,21 @@ export default function BrowsePage() {
   const { data: myActiveOwnedBookIds, isLoading: activeOwnedBooksLoading } =
     useMyActiveOwnedBookIds();
   const createWant = useCreateWant();
+  const deleteWant = useDeleteWant();
   const currentUser = useCurrentUser();
 
-  const wantedBookIds = useMemo(
-    () => new Set(myWants?.map((want) => want.book_id) ?? []),
+  const activeWantsByBookId = useMemo(
+    () =>
+      new Map(
+        (myWants ?? [])
+          .filter((want) => want.status === "active")
+          .map((want) => [want.book_id, want.id])
+      ),
     [myWants]
+  );
+  const wantedBookIds = useMemo(
+    () => new Set(activeWantsByBookId.keys()),
+    [activeWantsByBookId]
   );
   const activeOwnedBookIds = useMemo(
     () => new Set(myActiveOwnedBookIds ?? []),
@@ -75,6 +85,9 @@ export default function BrowsePage() {
   const alreadyInMyWants = selectedListing
     ? wantedBookIds.has(selectedListing.book_id)
     : false;
+  const selectedActiveWantId = selectedListing
+    ? activeWantsByBookId.get(selectedListing.book_id) ?? null
+    : null;
   const alreadyInMyLibrary = selectedListing
     ? activeOwnedBookIds.has(selectedListing.book_id)
     : false;
@@ -117,6 +130,25 @@ export default function BrowsePage() {
         },
       }
     );
+  }
+
+  function handleRemoveInterest() {
+    if (!selectedActiveWantId) return;
+
+    setAddWantError(null);
+    deleteWant.mutate(selectedActiveWantId, {
+      onSuccess: () => {
+        setAddWantError(null);
+        setDialogOpen(false);
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Could not remove your interest for this listing.";
+        setAddWantError(message);
+      },
+    });
   }
 
   return (
@@ -183,7 +215,7 @@ export default function BrowsePage() {
           onClick={() => setIncludeOwnListings((prev) => !prev)}
           type="button"
         >
-          {includeOwnListings ? "Including My Listings" : "Hide My Listings"}
+          {includeOwnListings ? "Hide My Listings" : "Show My Listings"}
         </Button>
       </div>
 
@@ -223,27 +255,44 @@ export default function BrowsePage() {
         }
         footer={
           <div className="w-full space-y-1">
-            <Button
-              onClick={handleAddToWants}
-              disabled={
-                !selectedListing ||
-                myWantsLoading ||
-                activeOwnedBooksLoading ||
-                alreadyInMyWants ||
-                alreadyInMyLibrary ||
-                createWant.isPending
-              }
-            >
-              {myWantsLoading || activeOwnedBooksLoading
-                ? "Checking..."
-                : alreadyInMyWants
-                ? "Already in My Wants"
-                : alreadyInMyLibrary
-                ? "Already in My Library"
-                : createWant.isPending
-                  ? "Adding..."
-                  : "Add to My Wants"}
-            </Button>
+            {alreadyInMyWants ? (
+              <Button
+                variant="outline"
+                onClick={handleRemoveInterest}
+                disabled={
+                  !selectedListing ||
+                  !selectedActiveWantId ||
+                  myWantsLoading ||
+                  deleteWant.isPending
+                }
+              >
+                {myWantsLoading
+                  ? "Checking..."
+                  : deleteWant.isPending
+                    ? "Removing..."
+                    : "Remove Interest"}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleAddToWants}
+                disabled={
+                  !selectedListing ||
+                  myWantsLoading ||
+                  activeOwnedBooksLoading ||
+                  alreadyInMyWants ||
+                  alreadyInMyLibrary ||
+                  createWant.isPending
+                }
+              >
+                {myWantsLoading || activeOwnedBooksLoading
+                  ? "Checking..."
+                  : alreadyInMyLibrary
+                  ? "Already in My Library"
+                  : createWant.isPending
+                    ? "Adding..."
+                    : "Add to My Wants"}
+              </Button>
+            )}
             {addWantError && (
               <p className="text-xs text-destructive">{addWantError}</p>
             )}

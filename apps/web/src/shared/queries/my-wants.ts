@@ -39,6 +39,7 @@ export function useCreateWant() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-wants"] });
       queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
     },
   });
 }
@@ -51,6 +52,7 @@ export function useConfirmWant() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-wants"] });
       queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
     },
   });
 }
@@ -63,6 +65,7 @@ export function useDeleteWant() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-wants"] });
       queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
     },
   });
 }

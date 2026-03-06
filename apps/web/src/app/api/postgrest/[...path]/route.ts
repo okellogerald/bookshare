@@ -15,6 +15,96 @@ const POSTGREST_URL =
   process.env.NEXT_PUBLIC_POSTGREST_URL ||
   "http://postgrest:3000";
 
+const DEFAULT_HIDDEN_USERNAMES = ["admin", "admin_booktrack_local"];
+
+function normalizeUsername(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getHiddenUsernames(): Set<string> {
+  const configured = (
+    process.env.HIDDEN_USERNAMES ??
+    process.env.NEXT_PUBLIC_HIDDEN_USERNAMES ??
+    ""
+  )
+    .split(",")
+    .map((value) => normalizeUsername(value))
+    .filter((value): value is string => !!value);
+
+  return new Set([...DEFAULT_HIDDEN_USERNAMES, ...configured]);
+}
+
+function isHiddenUsername(value: unknown, hiddenUsernames: Set<string>) {
+  const normalized = normalizeUsername(value);
+  return normalized ? hiddenUsernames.has(normalized) : false;
+}
+
+function sanitizePostgrestData(tablePath: string, data: unknown) {
+  if (!Array.isArray(data)) return data;
+  const hiddenUsernames = getHiddenUsernames();
+
+  if (tablePath === "member_profiles") {
+    return data.filter(
+      (row) =>
+        !isHiddenUsername((row as { username?: unknown })?.username, hiddenUsernames)
+    );
+  }
+
+  if (tablePath === "browse_listings") {
+    return data
+      .filter(
+        (row) =>
+          !isHiddenUsername(
+            (row as { owner_username?: unknown })?.owner_username,
+            hiddenUsernames
+          )
+      )
+      .map((row) => {
+        const typed = row as Record<string, unknown>;
+        if (!isHiddenUsername(typed.borrower_username, hiddenUsernames)) {
+          return typed;
+        }
+
+        return {
+          ...typed,
+          borrower_username: null,
+          borrower_display_name: null,
+        };
+      });
+  }
+
+  if (tablePath === "browse_wants") {
+    return data
+      .map((row) => {
+        const typed = row as Record<string, unknown>;
+        const wanters = Array.isArray(typed.wanters)
+          ? typed.wanters.filter(
+              (wanter) =>
+                !isHiddenUsername(
+                  (wanter as { username?: unknown })?.username,
+                  hiddenUsernames
+                )
+            )
+          : [];
+
+        return {
+          ...typed,
+          wanters,
+          want_count: wanters.length,
+        };
+      })
+      .filter(
+        (row) =>
+          typeof (row as { want_count?: unknown }).want_count === "number" &&
+          ((row as { want_count: number }).want_count > 0)
+      );
+  }
+
+  return data;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -59,12 +149,15 @@ export async function GET(
       );
     }
 
-    const data = await response.json();
+    const data = sanitizePostgrestData(tablePath, await response.json());
 
     // Extract and forward count
     const responseBody: Record<string, unknown> = { data };
+    if (Array.isArray(data)) {
+      responseBody.count = data.length;
+    }
     const contentRange = response.headers.get("Content-Range");
-    if (contentRange) {
+    if (contentRange && !Array.isArray(data)) {
       const total = contentRange.split("/")[1];
       if (total && total !== "*") {
         responseBody.count = parseInt(total, 10);

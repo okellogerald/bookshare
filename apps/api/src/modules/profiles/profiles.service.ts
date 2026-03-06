@@ -48,6 +48,7 @@ export class ProfilesService {
     const lastName = shouldSyncIdentityFromClaims
       ? (user.lastName ?? existing?.lastName ?? null)
       : (existing?.lastName ?? null);
+    const claimGender = this.normalizeGender(user.gender);
     const displayName = this.composeDisplayName(firstName, lastName, username);
 
     const identityUpdates = {
@@ -57,7 +58,7 @@ export class ProfilesService {
       lastName,
       nickname: null,
       gender: shouldSyncIdentityFromClaims
-        ? (this.normalizeGender(user.gender) ?? null)
+        ? (claimGender ?? existing?.gender ?? null)
         : (existing?.gender ?? null),
       identityUpdatedAt: shouldSyncIdentityFromClaims
         ? new Date()
@@ -293,6 +294,12 @@ export class ProfilesService {
     return "GENDER_UNSPECIFIED";
   }
 
+  private isZitadelNoopProfileUpdate(status: number, errorText: string) {
+    if (status !== 400) return false;
+    const normalizedError = errorText.toLowerCase();
+    return normalizedError.includes("profile not changed");
+  }
+
   private async updateZitadelMyProfile(
     token: string,
     payload: {
@@ -325,6 +332,10 @@ export class ProfilesService {
     if (response.ok) return;
 
     const primaryErrorText = await response.text();
+    if (this.isZitadelNoopProfileUpdate(response.status, primaryErrorText)) {
+      return;
+    }
+
     const fallbackResponse = await fetch(`${issuerInternal}/v2/users/me`, {
       method: "PATCH",
       headers,

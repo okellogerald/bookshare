@@ -48,12 +48,14 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
     >
       <Card className="cursor-pointer transition-colors hover:bg-accent/50">
         {listing.primary_image_url && (
-          <div className="overflow-hidden rounded-t-lg border-b">
-            <img
-              src={listing.primary_image_url}
-              alt={listing.book_title}
-              className="h-36 w-full object-cover"
-            />
+          <div className="overflow-hidden rounded-t-lg border-b bg-gradient-to-b from-muted/40 to-muted/10 p-3">
+            <div className="mx-auto aspect-[2/3] h-44 overflow-hidden rounded border bg-background/90 p-2 shadow-sm">
+              <img
+                src={listing.primary_image_url}
+                alt={listing.book_title}
+                className="h-full w-full object-contain"
+              />
+            </div>
           </div>
         )}
         <CardHeader className="pb-3">
