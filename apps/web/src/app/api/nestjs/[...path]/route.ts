@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/features/auth/lib/session";
+import { getAccessToken, getSession } from "@/features/auth/lib/session";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
@@ -8,6 +8,7 @@ const API_URL =
 
 async function proxyToNestJS(request: NextRequest, path: string[]) {
   const token = await getAccessToken();
+  const session = await getSession();
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -20,6 +21,9 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
+  if (session?.accessToken) {
+    headers["x-zitadel-access-token"] = session.accessToken;
+  }
 
   const fetchOptions: RequestInit = {
     method: request.method,

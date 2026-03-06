@@ -6,6 +6,8 @@ import type {
   AttachCopyImagesBody,
   CopyImagePresignBody,
   CopyImagePresignResponse,
+  EditionCoverPresignBody,
+  EditionCoverPresignResponse,
   CopyImageResponse,
   CreateCopyBody,
   UpdateCopyBody,
@@ -185,6 +187,17 @@ export function useCreateCopyImagePresign() {
   return useMutation({
     mutationFn: (body: CopyImagePresignBody) =>
       nestjsFetch<CopyImagePresignResponse>("upload/copy-image-presign", "POST", body),
+  });
+}
+
+export function useCreateEditionCoverPresign() {
+  return useMutation({
+    mutationFn: (body: EditionCoverPresignBody) =>
+      nestjsFetch<EditionCoverPresignResponse>(
+        "upload/edition-cover-presign",
+        "POST",
+        body
+      ),
   });
 }
 

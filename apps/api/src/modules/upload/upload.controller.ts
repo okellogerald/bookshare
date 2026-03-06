@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { UploadService } from "./upload.service";
-import { CreateCopyImagePresignDto } from "./dto";
+import {
+  CreateCopyImagePresignDto,
+  CreateEditionCoverPresignDto,
+} from "./dto";
 import { CurrentUser } from "../../common/decorators";
 
 @ApiTags("Upload")
@@ -21,5 +24,13 @@ export class UploadController {
     @CurrentUser("id") userId: string
   ) {
     return this.uploadService.createCopyImagePresign(dto, userId);
+  }
+
+  @Post("edition-cover-presign")
+  createEditionCoverPresign(
+    @Body() dto: CreateEditionCoverPresignDto,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.uploadService.createEditionCoverPresign(dto, userId);
   }
 }

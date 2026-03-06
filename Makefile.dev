@@ -13,12 +13,10 @@ DB_URL  := postgresql://booktrack:booktrack_dev@localhost:5434/booktrack
 .PHONY: up
 up: ## Start all services (detached)
 	$(COMPOSE) up -d
-	$(MAKE) -f Makefile.dev zitadel-fix-login
 
 .PHONY: up-build
 up-build: ## Start all services with image rebuild
 	$(COMPOSE) up -d --build
-	$(MAKE) -f Makefile.dev zitadel-fix-login
 
 .PHONY: down
 down: ## Stop all services
@@ -43,13 +41,6 @@ logs-%: ## Tail logs for a specific service (e.g. make -f Makefile.dev logs-api)
 .PHONY: shell-%
 shell-%: ## Open a shell in a running service container (e.g. make -f Makefile.dev shell-api)
 	$(COMPOSE) exec $* sh
-
-.PHONY: zitadel-fix-login
-zitadel-fix-login: ## Force Zitadel to use login v1 routes in dev
-	@until $(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -tAc "SELECT 1" >/dev/null 2>&1; do sleep 1; done
-	@until $(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='projections' AND table_name='instance_features5'" | grep -q 1; do sleep 1; done
-	@$(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -c "UPDATE projections.instance_features5 SET value=jsonb_build_object('required', false), change_date=NOW() WHERE key='login_v2';" >/dev/null
-	@$(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -c "UPDATE projections.apps7_oidc_configs SET login_version=0 WHERE login_version <> 0;" >/dev/null
 
 .PHONY: zitadel-client-ids
 zitadel-client-ids: ## List available Zitadel OIDC client IDs

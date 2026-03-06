@@ -27,6 +27,7 @@ import {
   useEditionByIsbn,
   useCreateCopy,
   useCreateCopyImagePresign,
+  useCreateEditionCoverPresign,
   useCreateBook,
   useCreateEdition,
   useCreateAuthor,
@@ -38,6 +39,16 @@ interface SelectedAuthor {
   id?: string;
   name: string;
 }
+
+const languageOptions = [
+  { value: "en", label: "English (en)" },
+  { value: "sw", label: "Swahili (sw)" },
+  { value: "fr", label: "French (fr)" },
+  { value: "es", label: "Spanish (es)" },
+  { value: "de", label: "German (de)" },
+  { value: "ar", label: "Arabic (ar)" },
+  { value: "other", label: "Other (custom code)" },
+];
 
 export default function AddCopyPage() {
   const router = useRouter();
@@ -55,9 +66,14 @@ export default function AddCopyPage() {
 
   // New edition fields
   const [newBookFormat, setNewBookFormat] = useState("paperback");
+  const [newBookLanguageMode, setNewBookLanguageMode] = useState("en");
+  const [newBookLanguageCustom, setNewBookLanguageCustom] = useState("");
+  const [languageError, setLanguageError] = useState<string | null>(null);
   const [newPublisher, setNewPublisher] = useState("");
   const [newPublishedYear, setNewPublishedYear] = useState("");
   const [newPageCount, setNewPageCount] = useState("");
+  const [selectedEditionCover, setSelectedEditionCover] = useState<File | null>(null);
+  const [editionCoverError, setEditionCoverError] = useState<string | null>(null);
 
   // Author fields
   const [authorInput, setAuthorInput] = useState("");
@@ -78,6 +94,7 @@ export default function AddCopyPage() {
 
   const createCopy = useCreateCopy();
   const createCopyImagePresign = useCreateCopyImagePresign();
+  const createEditionCoverPresign = useCreateEditionCoverPresign();
   const attachCopyImages = useAttachCopyImages();
   const createBook = useCreateBook();
   const createEdition = useCreateEdition();
@@ -157,6 +174,32 @@ export default function AddCopyPage() {
     setSelectedImages((prev) => [...prev, ...list].slice(0, 5));
   }
 
+  function handleEditionCoverSelection(files: FileList | null) {
+    if (!files?.[0]) return;
+    const file = files[0];
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setEditionCoverError("Only jpg, png, and webp images are supported.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setEditionCoverError("Edition cover image must be 5MB or less.");
+      return;
+    }
+
+    setEditionCoverError(null);
+    setSelectedEditionCover(file);
+  }
+
+  function resolveBookLanguage() {
+    if (newBookLanguageMode === "other") {
+      const custom = newBookLanguageCustom.trim().toLowerCase();
+      if (!custom) return null;
+      return custom;
+    }
+    return newBookLanguageMode;
+  }
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -179,14 +222,40 @@ export default function AddCopyPage() {
           }
         }
 
+        const resolvedLanguage = resolveBookLanguage();
+        if (!resolvedLanguage) {
+          setLanguageError("Language code is required when using custom language.");
+          return;
+        }
+        setLanguageError(null);
+
         // Create book
         if (!newBookTitle.trim()) return;
         const book = await createBook.mutateAsync({
           title: newBookTitle.trim(),
           subtitle: newBookSubtitle.trim() || undefined,
           description: newBookDescription.trim() || undefined,
+          language: resolvedLanguage,
           authorIds: authorIds.length > 0 ? authorIds : undefined,
         });
+
+        let coverImageUrl: string | undefined;
+        if (selectedEditionCover) {
+          const coverPresign = await createEditionCoverPresign.mutateAsync({
+            fileName: selectedEditionCover.name,
+            contentType: selectedEditionCover.type,
+            fileSize: selectedEditionCover.size,
+          });
+          const coverUploadRes = await fetch(coverPresign.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": selectedEditionCover.type },
+            body: selectedEditionCover,
+          });
+          if (!coverUploadRes.ok) {
+            throw new Error("Failed to upload edition cover image");
+          }
+          coverImageUrl = coverPresign.publicUrl;
+        }
 
         // Create edition
         const newEdition = await createEdition.mutateAsync({
@@ -198,6 +267,7 @@ export default function AddCopyPage() {
             ? Number(newPublishedYear)
             : undefined,
           pageCount: newPageCount ? Number(newPageCount) : undefined,
+          coverImageUrl,
         });
         editionId = newEdition.id;
       }
@@ -444,6 +514,40 @@ export default function AddCopyPage() {
               {/* Edition details */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
+                  <Label>Language</Label>
+                  <Select
+                    value={newBookLanguageMode}
+                    onValueChange={(value) => {
+                      setNewBookLanguageMode(value);
+                      if (value !== "other") {
+                        setLanguageError(null);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languageOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {newBookLanguageMode === "other" && (
+                    <Input
+                      placeholder="Enter language code, e.g. it"
+                      value={newBookLanguageCustom}
+                      onChange={(e) => setNewBookLanguageCustom(e.target.value)}
+                    />
+                  )}
+                  {languageError && (
+                    <p className="text-sm text-destructive">{languageError}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label>Format</Label>
                   <Select
                     value={newBookFormat}
@@ -495,6 +599,32 @@ export default function AddCopyPage() {
                     min={1}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Edition Cover</Label>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) =>
+                    handleEditionCoverSelection(event.target.files)
+                  }
+                />
+                {selectedEditionCover && (
+                  <div className="flex items-center justify-between rounded border px-2 py-1 text-sm text-muted-foreground">
+                    <span className="truncate">{selectedEditionCover.name}</span>
+                    <button
+                      type="button"
+                      className="text-destructive"
+                      onClick={() => setSelectedEditionCover(null)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                {editionCoverError && (
+                  <p className="text-sm text-destructive">{editionCoverError}</p>
+                )}
               </div>
             </div>
           )}

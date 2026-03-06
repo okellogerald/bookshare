@@ -58,6 +58,7 @@ export default function MyLibraryPage() {
     id: string;
     title?: string;
     subtitle?: string | null;
+    preferredImageUrl?: string | null;
   } | null>(null);
   const [statusDialog, setStatusDialog] = useState<{
     copyId: string;
@@ -89,6 +90,10 @@ export default function MyLibraryPage() {
       id: book.id,
       title: book.title,
       subtitle: book.subtitle,
+      preferredImageUrl:
+        copy.edition?.cover_image_url ??
+        copy.images?.[0]?.image_url ??
+        null,
     });
     setDialogOpen(true);
   }
@@ -303,6 +308,7 @@ export default function MyLibraryPage() {
         bookId={selectedBook?.id ?? null}
         fallbackTitle={selectedBook?.title}
         fallbackSubtitle={selectedBook?.subtitle}
+        preferredImageUrl={selectedBook?.preferredImageUrl}
       />
 
       <Dialog

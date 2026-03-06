@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, Put } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Post, Put } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
-import { UpdateProfileDto } from "./dto";
+import { UpdateIdentityProfileDto, UpdateProfileDto } from "./dto";
 import { ProfilesService } from "./profiles.service";
 
 @ApiTags("Profiles")
@@ -27,5 +27,20 @@ export class ProfilesController {
     @Body() dto: UpdateProfileDto
   ) {
     return this.profilesService.updateMe(user, dto);
+  }
+
+  @Put("me/identity")
+  updateMyIdentity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers("authorization") authorization: string | undefined,
+    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Body() dto: UpdateIdentityProfileDto
+  ) {
+    return this.profilesService.updateMyIdentity(
+      user,
+      authorization,
+      zitadelAccessToken,
+      dto
+    );
   }
 }

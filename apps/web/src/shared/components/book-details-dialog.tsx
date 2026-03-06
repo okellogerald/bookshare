@@ -27,6 +27,7 @@ interface BookDetailsDialogProps {
   bookId: string | null;
   fallbackTitle?: string;
   fallbackSubtitle?: string | null;
+  preferredImageUrl?: string | null;
   children?: ReactNode;
   footer?: ReactNode;
 }
@@ -37,6 +38,7 @@ export function BookDetailsDialog({
   bookId,
   fallbackTitle,
   fallbackSubtitle,
+  preferredImageUrl,
   children,
   footer,
 }: BookDetailsDialogProps) {
@@ -47,10 +49,26 @@ export function BookDetailsDialog({
   const title = book?.title ?? fallbackTitle ?? "Book details";
   const subtitle = book?.subtitle ?? fallbackSubtitle;
   const authors = book?.authors?.map((author) => author.name).join(", ");
+  const fallbackCoverImage =
+    editions?.find((edition) => edition.cover_image_url)?.cover_image_url ?? null;
+  const heroImageUrl = preferredImageUrl ?? fallbackCoverImage;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        {heroImageUrl ? (
+          <div className="overflow-hidden rounded-md border">
+            <img
+              src={heroImageUrl}
+              alt={title}
+              className="h-56 w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="flex h-56 items-center justify-center rounded-md border bg-muted text-sm text-muted-foreground">
+            No cover image available
+          </div>
+        )}
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {subtitle && <DialogDescription>{subtitle}</DialogDescription>}

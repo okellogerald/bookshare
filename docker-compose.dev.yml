@@ -19,11 +19,33 @@ services:
       retries: 5
 
   # ─── Authentication ───────────────────────────────────────────
+  zitadel-proxy:
+    image: traefik:v3.1
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --ping=true
+      - --ping.entrypoint=web
+    ports:
+      - "8085:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      zitadel:
+        condition: service_healthy
+      zitadel-login:
+        condition: service_healthy
+
   zitadel:
     image: ghcr.io/zitadel/zitadel:latest
     restart: unless-stopped
+    user: "0"
     command: start-from-init --masterkeyFile /masterkey --tlsMode disabled --steps /steps.yaml
     environment:
+      ZITADEL_PORT: 8080
+      ZITADEL_TLS_ENABLED: false
       ZITADEL_DATABASE_POSTGRES_HOST: postgres
       ZITADEL_DATABASE_POSTGRES_PORT: 5432
       ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
@@ -36,14 +58,70 @@ services:
       ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-false}
       ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-8085}
       ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN:-localhost}
-    ports:
-      - "8085:8080"
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Automatically Initialized IAM_LOGIN_CLIENT
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2030-01-01T00:00:00Z"
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://localhost:8085/ui/v2/login/
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: http://localhost:8085/ui/v2/login/login?authRequest=
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: http://localhost:8085/ui/v2/login/logout?post_logout_redirect=
+      ZITADEL_SAML_DEFAULTLOGINURLV2: http://localhost:8085/ui/v2/login/login?samlRequest=
     volumes:
       - ./infra/zitadel/masterkey:/masterkey:ro
       - ./infra/zitadel/steps.yaml:/steps.yaml:ro
+      - zitadel_bootstrap:/zitadel/bootstrap
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready"]
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.zitadel-api.loadbalancer.server.port=8080
+      - traefik.http.services.zitadel-api.loadbalancer.server.scheme=h2c
+      - traefik.http.routers.zitadel-api.rule=Host(`localhost`)
+      - traefik.http.routers.zitadel-api.entrypoints=web
+      - traefik.http.routers.zitadel-api.service=zitadel-api
+      - traefik.http.routers.zitadel-api.priority=10
+
+  zitadel-login:
+    image: ghcr.io/zitadel/zitadel-login:latest
+    restart: unless-stopped
+    user: "0"
+    environment:
+      ZITADEL_API_URL: http://zitadel:8080
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel/bootstrap/login-client.pat
+      CUSTOM_REQUEST_HEADERS: Host:localhost,X-Forwarded-Proto:http
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/ui/v2/login/healthy').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - zitadel_bootstrap:/zitadel/bootstrap:ro
+    depends_on:
+      zitadel:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.zitadel-login.loadbalancer.server.port=3000
+      - traefik.http.middlewares.zitadel-root-rewrite.replacepath.path=/ui/v2/login/
+      - traefik.http.routers.zitadel-root.rule=Host(`localhost`) && Path(`/`)
+      - traefik.http.routers.zitadel-root.entrypoints=web
+      - traefik.http.routers.zitadel-root.middlewares=zitadel-root-rewrite
+      - traefik.http.routers.zitadel-root.service=zitadel-login
+      - traefik.http.routers.zitadel-root.priority=400
+      - traefik.http.routers.zitadel-login.rule=Host(`localhost`) && PathPrefix(`/ui/v2/login`)
+      - traefik.http.routers.zitadel-login.entrypoints=web
+      - traefik.http.routers.zitadel-login.service=zitadel-login
+      - traefik.http.routers.zitadel-login.priority=250
 
   # ─── Read API (PostgREST) ─────────────────────────────────────
   postgrest:
@@ -92,7 +170,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktrack}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
-      MINIO_BUCKET: bookshare-media-dev
+      MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
     volumes:
       - ./infra/minio/init.sh:/init.sh:ro
     depends_on:
@@ -115,7 +193,7 @@ services:
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-booktrack}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
-      MINIO_BUCKET: bookshare-media-dev
+      MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
     ports:
@@ -142,7 +220,7 @@ services:
       NEXT_PUBLIC_POSTGREST_URL: ${PUBLIC_POSTGREST_URL:-http://localhost:3336}
       NEXT_PUBLIC_ZITADEL_URL: ${PUBLIC_ZITADEL_URL:-http://localhost:8085}
       ZITADEL_ISSUER_URL: ${ZITADEL_ISSUER_URL:-http://localhost:8085}
-      ZITADEL_INTERNAL_URL: ${ZITADEL_INTERNAL_URL:-http://host.docker.internal:8085}
+      ZITADEL_INTERNAL_URL: ${ZITADEL_INTERNAL_URL:-http://zitadel-proxy}
       ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID:-}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
     ports:
@@ -176,3 +254,4 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  zitadel_bootstrap:

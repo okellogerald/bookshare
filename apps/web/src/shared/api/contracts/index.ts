@@ -76,7 +76,7 @@ export interface UpdateEditionBody {
   publisher?: string;
   publishedYear?: number;
   pageCount?: number;
-  coverImageUrl?: string;
+  coverImageUrl?: string | null;
 }
 
 export interface EditionResponse {
@@ -482,17 +482,34 @@ export interface ProfileResponse {
   userId: string;
   username: string;
   displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  nickname: string | null;
+  gender: string | null;
   cityArea: string | null;
   contactHandle: string | null;
+  identityUpdatedAt: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface UpdateProfileBody {
-  username?: string;
-  displayName?: string;
   cityArea?: string;
   contactHandle?: string;
+}
+
+export type IdentityGender =
+  | "GENDER_UNSPECIFIED"
+  | "GENDER_FEMALE"
+  | "GENDER_MALE"
+  | "GENDER_DIVERSE";
+
+export interface UpdateProfileIdentityBody {
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  nickname?: string;
+  gender?: IdentityGender;
 }
 
 export interface CopyImagePresignBody {
@@ -502,6 +519,19 @@ export interface CopyImagePresignBody {
 }
 
 export interface CopyImagePresignResponse {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
+  expiresInSeconds: number;
+}
+
+export interface EditionCoverPresignBody {
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+}
+
+export interface EditionCoverPresignResponse {
   uploadUrl: string;
   objectKey: string;
   publicUrl: string;
@@ -526,6 +556,12 @@ export const profilesContract = c.router({
     body: c.type<UpdateProfileBody>(),
     responses: { 200: c.type<ProfileResponse>() },
   },
+  updateMyIdentity: {
+    method: "PUT",
+    path: "/api/nestjs/profiles/me/identity",
+    body: c.type<UpdateProfileIdentityBody>(),
+    responses: { 200: c.type<ProfileResponse>() },
+  },
 });
 
 export const uploadContract = c.router({
@@ -534,6 +570,12 @@ export const uploadContract = c.router({
     path: "/api/nestjs/upload/copy-image-presign",
     body: c.type<CopyImagePresignBody>(),
     responses: { 201: c.type<CopyImagePresignResponse>() },
+  },
+  createEditionCoverPresign: {
+    method: "POST",
+    path: "/api/nestjs/upload/edition-cover-presign",
+    body: c.type<EditionCoverPresignBody>(),
+    responses: { 201: c.type<EditionCoverPresignResponse>() },
   },
 });
 

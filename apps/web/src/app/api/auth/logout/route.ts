@@ -4,23 +4,40 @@ import {
   getOIDCConfig,
   getPostLogoutRedirectUri,
 } from "@/features/auth/lib/oidc";
-import { getSession, clearSession } from "@/features/auth/lib/session";
+import { getSession } from "@/features/auth/lib/session";
 
 export async function GET() {
+  const postLogoutRedirectUri = getPostLogoutRedirectUri();
   const config = await getOIDCConfig();
   const session = await getSession();
 
-  await clearSession();
+  // Always route through the IdP end-session endpoint so Zitadel's SSO
+  // user-agent session is terminated as well (not just local cookies).
+  const endSessionParams: {
+    post_logout_redirect_uri: string;
+    state: string;
+    id_token_hint?: string;
+    client_id?: string;
+  } = {
+    post_logout_redirect_uri: postLogoutRedirectUri,
+    state: crypto.randomUUID(),
+  };
 
-  // If we have an id_token, do a proper OIDC logout
   if (session?.idToken) {
-    const logoutUrl = client.buildEndSessionUrl(config, {
-      id_token_hint: session.idToken,
-      post_logout_redirect_uri: getPostLogoutRedirectUri(),
-    });
-
-    return NextResponse.redirect(logoutUrl.href);
+    endSessionParams.id_token_hint = session.idToken;
   }
 
-  return NextResponse.redirect(getPostLogoutRedirectUri());
+  if (process.env.ZITADEL_CLIENT_ID) {
+    endSessionParams.client_id = process.env.ZITADEL_CLIENT_ID;
+  }
+
+  const logoutUrl = client.buildEndSessionUrl(config, endSessionParams);
+  const response = NextResponse.redirect(logoutUrl.href);
+
+  response.cookies.delete("bookshare_session");
+  response.cookies.delete("bookshare_token");
+  response.cookies.delete("oidc_code_verifier");
+  response.cookies.delete("oidc_state");
+
+  return response;
 }

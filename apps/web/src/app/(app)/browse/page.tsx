@@ -201,6 +201,9 @@ export default function BrowsePage() {
         bookId={selectedListing?.book_id ?? null}
         fallbackTitle={selectedListing?.book_title}
         fallbackSubtitle={selectedListing?.book_subtitle}
+        preferredImageUrl={
+          selectedListing?.cover_image_url ?? selectedListing?.primary_image_url
+        }
         footer={
           <div className="w-full space-y-1">
             <Button

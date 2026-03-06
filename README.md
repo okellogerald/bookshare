@@ -60,24 +60,40 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    cp .env.example .env
    ```
 
-2. **Configure Zitadel** -- after first boot, set `ZITADEL_CLIENT_ID` and `ZITADEL_JWT_SECRET` in `.env` (use `make -f Makefile.dev zitadel-client-ids` to find client IDs).
-
-3. **Install dependencies**
+2. **Install dependencies**
    ```sh
    bun install
    ```
 
-4. **Start all services**
+3. **Start all services**
    ```sh
    make -f Makefile.dev up-build
    ```
 
-5. **Run database migrations**
+4. **Configure Zitadel client manually**
+   1. Open the Zitadel console at `http://localhost:8085/ui/console`.
+   2. Create an OIDC web application client for BookShare (Authorization Code + PKCE).
+   3. Set redirect URI to `http://localhost:3334/api/auth/callback`.
+   4. Set post-logout redirect URI to `http://localhost:3334`.
+   5. Put the client ID into `.env` as `ZITADEL_CLIENT_ID=<your_client_id>`.
+
+5. **Set PostgREST JWT keyset**
+   ```sh
+   docker run --rm --network library_default curlimages/curl:8.12.1 -sS -H 'Host: localhost' http://zitadel:8080/oauth/v2/keys
+   ```
+   Put the returned JSON in `.env` as `ZITADEL_JWT_SECRET=<jwks_json_single_line>`.
+
+6. **Reload auth consumers**
+   ```sh
+   docker compose -f docker-compose.dev.yml up -d --force-recreate web postgrest
+   ```
+
+7. **Run database migrations**
    ```sh
    make -f Makefile.dev db-migrate
    ```
 
-6. **Apply RLS policies and views**
+8. **Apply RLS policies and views**
    ```sh
    make -f Makefile.dev db-post-migrate
    ```
@@ -95,6 +111,7 @@ Run with `make -f Makefile.dev <target>`:
 | `down` | Stop all services |
 | `logs` | Tail all logs |
 | `logs-<svc>` | Tail logs for a service (e.g. `logs-api`) |
+| `zitadel-client-ids` | List available Zitadel OIDC client IDs |
 | `db-generate` | Generate Drizzle migrations from schema |
 | `db-migrate` | Run pending migrations |
 | `db-post-migrate` | Apply RLS, views, grants |

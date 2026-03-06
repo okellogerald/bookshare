@@ -103,8 +103,13 @@ export interface PgMemberProfile {
   user_id: string;
   username: string;
   display_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  nickname: string | null;
+  gender: string | null;
   city_area: string | null;
   contact_handle: string | null;
+  identity_updated_at: string;
   created_at: string;
   updated_at: string;
 }

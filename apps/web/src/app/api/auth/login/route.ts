@@ -10,9 +10,22 @@ export async function GET() {
   const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
   const state = client.randomState();
 
+  const baseScopes = ["openid", "profile", "email"];
+  const additionalScopes = (
+    process.env.ZITADEL_ADDITIONAL_SCOPES ||
+    "urn:zitadel:iam:org:project:id:zitadel:aud"
+  )
+    .split(" ")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+
+  const scope = Array.from(new Set([...baseScopes, ...additionalScopes])).join(
+    " "
+  );
+
   const parameters: Record<string, string> = {
     redirect_uri: redirectUri,
-    scope: "openid profile email",
+    scope,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
     state,

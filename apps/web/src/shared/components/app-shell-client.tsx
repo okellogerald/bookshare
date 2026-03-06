@@ -10,6 +10,7 @@ import {
   Library,
   LogOut,
   Search,
+  UserCircle2,
   Users,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/browse", label: "Browse", icon: Search },
   { href: "/wanted", label: "Wanted", icon: Heart },
   { href: "/community", label: "Community", icon: Users },
+  { href: "/profile", label: "Profile", icon: UserCircle2 },
   { href: "/my-library", label: "My Library", icon: Library },
   { href: "/my-wants", label: "My Wants", icon: BookMarked },
 ];
@@ -88,12 +90,12 @@ export function AppShellClient({
               <p className="truncate text-sm font-medium">
                 {user.name || user.email || "User"}
               </p>
-              <Link href="/api/auth/logout">
+              <a href="/api/auth/logout">
                 <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
                   <LogOut className="h-4 w-4" />
                   Sign Out
                 </Button>
-              </Link>
+              </a>
             </div>
           )}
         </div>

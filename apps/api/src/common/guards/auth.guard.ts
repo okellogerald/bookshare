@@ -19,6 +19,10 @@ interface ZitadelJwtPayload {
   email?: string;
   name?: string;
   preferred_username?: string;
+  given_name?: string;
+  family_name?: string;
+  nickname?: string;
+  gender?: string;
   "urn:zitadel:iam:org:id"?: string;
   "urn:zitadel:iam:user:resourceowner:id"?: string;
   "urn:zitadel:iam:org:project:roles"?: Record<
@@ -32,6 +36,11 @@ export interface AuthenticatedUser {
   email?: string;
   name?: string;
   username?: string;
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
+  gender?: string;
+  tokenIssuedAt?: number;
   roles: string[];
 }
 
@@ -127,6 +136,11 @@ export class AuthGuard implements CanActivate {
       email: payload.email,
       name: payload.name,
       username: payload.preferred_username,
+      firstName: payload.given_name,
+      lastName: payload.family_name,
+      nickname: payload.nickname,
+      gender: payload.gender,
+      tokenIssuedAt: payload.iat,
       roles,
     };
   }

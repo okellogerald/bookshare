@@ -93,8 +93,12 @@ export type {
   WantResponse,
   ProfileResponse,
   UpdateProfileBody,
+  UpdateProfileIdentityBody,
+  IdentityGender,
   CopyImagePresignBody,
   CopyImagePresignResponse,
+  EditionCoverPresignBody,
+  EditionCoverPresignResponse,
 } from "./contracts";
 
 // ─── NestJS client (ts-rest) ─────────────────────────────────
