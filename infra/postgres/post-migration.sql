@@ -323,6 +323,7 @@ JOIN (
           NULLIF(TRIM(CONCAT_WS(' ', mp.first_name, mp.last_name)), ''),
           mp.username
         ),
+        'avatar_url', mp.avatar_url,
         'notes', w.notes,
         'created_at', w.created_at,
         'last_confirmed_at', w.last_confirmed_at

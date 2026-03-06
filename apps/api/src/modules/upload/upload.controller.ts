@@ -4,6 +4,7 @@ import { UploadService } from "./upload.service";
 import {
   CreateCopyImagePresignDto,
   CreateEditionCoverPresignDto,
+  CreateProfileAvatarPresignDto,
 } from "./dto";
 import { CurrentUser } from "../../common/decorators";
 
@@ -32,5 +33,13 @@ export class UploadController {
     @CurrentUser("id") userId: string
   ) {
     return this.uploadService.createEditionCoverPresign(dto, userId);
+  }
+
+  @Post("profile-avatar-presign")
+  createProfileAvatarPresign(
+    @Body() dto: CreateProfileAvatarPresignDto,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.uploadService.createProfileAvatarPresign(dto, userId);
   }
 }

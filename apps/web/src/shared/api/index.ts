@@ -100,6 +100,8 @@ export type {
   CopyImagePresignResponse,
   EditionCoverPresignBody,
   EditionCoverPresignResponse,
+  ProfileAvatarPresignBody,
+  ProfileAvatarPresignResponse,
 } from "./contracts";
 
 // ─── NestJS client (ts-rest) ─────────────────────────────────

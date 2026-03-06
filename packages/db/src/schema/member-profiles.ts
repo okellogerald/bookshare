@@ -13,6 +13,7 @@ export const memberProfiles = pgTable("member_profiles", {
   gender: varchar("gender", { length: 100 }),
   cityArea: varchar("city_area", { length: 255 }),
   contactHandle: varchar("contact_handle", { length: 500 }),
+  avatarUrl: varchar("avatar_url", { length: 2000 }),
   identityUpdatedAt: timestamp("identity_updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

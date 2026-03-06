@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { PgMemberProfile } from "@/shared/api";
-import { isVisibleCommunityUsername } from "@/shared/lib/member-visibility";
 
 interface CommunityFilters {
   search?: string;
@@ -25,8 +24,7 @@ async function fetchCommunityMembers(
   const response = await fetch(`/api/postgrest/member_profiles?${params}`);
   if (!response.ok) throw new Error("Failed to fetch community members");
   const json = await response.json();
-  const members = json.data as PgMemberProfile[];
-  return members.filter((member) => isVisibleCommunityUsername(member.username));
+  return json.data as PgMemberProfile[];
 }
 
 export function useCommunityMembers(filters: CommunityFilters = {}) {

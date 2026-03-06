@@ -8,6 +8,13 @@
       "when": 1772692646882,
       "tag": "0000_dark_mysterio",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772797800000,
+      "tag": "0001_clean_avatar_profile",
+      "breakpoints": true
     }
   ]
 }

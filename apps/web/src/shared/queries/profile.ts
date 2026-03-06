@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  ProfileAvatarPresignBody,
+  ProfileAvatarPresignResponse,
   ProfileResponse,
   UpdateProfileBody,
   UpdateProfileIdentityBody,
@@ -51,5 +53,16 @@ export function useSyncMyProfile() {
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
       queryClient.invalidateQueries({ queryKey: ["community-members"] });
     },
+  });
+}
+
+export function useCreateProfileAvatarPresign() {
+  return useMutation({
+    mutationFn: (body: ProfileAvatarPresignBody) =>
+      nestjsFetch<ProfileAvatarPresignResponse>(
+        "upload/profile-avatar-presign",
+        "POST",
+        body
+      ),
   });
 }

@@ -7,6 +7,19 @@ import { useCommunityMembers } from "@/shared/queries/community";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 
+function getInitials(value: string): string {
+  const words = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  const compact = words[0] ?? value.trim();
+  if (!compact) return "U";
+  return compact.slice(0, 2).toUpperCase();
+}
+
 export default function CommunityPage() {
   const currentUser = useCurrentUser();
   const [search, setSearch] = useState("");
@@ -54,16 +67,30 @@ export default function CommunityPage() {
                   .filter((value): value is string => !!value && value.trim().length > 0)
                   .join(" ")
                   .trim();
+                const avatarLabel = fullName || member.username || "U";
                 return (
                   <div key={member.user_id} className="rounded-md border p-3">
-                    <div>
-                      <p className="font-medium">
-                        @{member.username}
-                        {isMe ? " (You)" : ""}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {fullName || "Name not set"}
-                      </p>
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold">
+                        {member.avatar_url ? (
+                          <img
+                            src={member.avatar_url}
+                            alt={`${avatarLabel} avatar`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span>{getInitials(avatarLabel)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          @{member.username}
+                          {isMe ? " (You)" : ""}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {fullName || "Name not set"}
+                        </p>
+                      </div>
                     </div>
                     <div className="mt-2 text-sm">
                       <p className="text-muted-foreground">

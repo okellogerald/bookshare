@@ -488,6 +488,7 @@ export interface ProfileResponse {
   gender: string | null;
   cityArea: string | null;
   contactHandle: string | null;
+  avatarUrl: string | null;
   identityUpdatedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -496,6 +497,7 @@ export interface ProfileResponse {
 export interface UpdateProfileBody {
   cityArea?: string;
   contactHandle?: string;
+  avatarUrl?: string | null;
 }
 
 export type IdentityGender =
@@ -531,6 +533,19 @@ export interface EditionCoverPresignBody {
 }
 
 export interface EditionCoverPresignResponse {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
+  expiresInSeconds: number;
+}
+
+export interface ProfileAvatarPresignBody {
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+}
+
+export interface ProfileAvatarPresignResponse {
   uploadUrl: string;
   objectKey: string;
   publicUrl: string;
@@ -575,6 +590,12 @@ export const uploadContract = c.router({
     path: "/api/nestjs/upload/edition-cover-presign",
     body: c.type<EditionCoverPresignBody>(),
     responses: { 201: c.type<EditionCoverPresignResponse>() },
+  },
+  createProfileAvatarPresign: {
+    method: "POST",
+    path: "/api/nestjs/upload/profile-avatar-presign",
+    body: c.type<ProfileAvatarPresignBody>(),
+    responses: { 201: c.type<ProfileAvatarPresignResponse>() },
   },
 });
 

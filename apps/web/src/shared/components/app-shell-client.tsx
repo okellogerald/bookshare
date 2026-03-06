@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -59,6 +59,7 @@ export function AppShellClient({
   const pathname = usePathname();
   const syncedProfile = useRef(false);
   const { data: myProfile } = useMyProfile();
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   useEffect(() => {
     if (!user || syncedProfile.current) return;
@@ -80,7 +81,12 @@ export function AppShellClient({
     effectiveUsername ||
     user?.email?.trim() ||
     "U";
+  const avatarUrl = myProfile?.avatarUrl?.trim() || null;
   const avatarInitials = getInitials(avatarLabel);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUrl]);
 
   return (
     <div className="flex min-h-screen">
@@ -141,9 +147,18 @@ export function AppShellClient({
                     size="sm"
                     className="gap-2"
                   >
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold">
-                      {avatarInitials}
-                    </span>
+                    {avatarUrl && !avatarLoadFailed ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Profile avatar"
+                        className="h-7 w-7 rounded-full border object-cover"
+                        onError={() => setAvatarLoadFailed(true)}
+                      />
+                    ) : (
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold">
+                        {avatarInitials}
+                      </span>
+                    )}
                     <span className="hidden sm:inline">
                       {effectiveUsername ? `@${effectiveUsername}` : "Account"}
                     </span>

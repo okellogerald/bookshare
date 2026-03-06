@@ -6,6 +6,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   CreateCopyImagePresignDto,
   CreateEditionCoverPresignDto,
+  CreateProfileAvatarPresignDto,
 } from "./dto";
 
 @Injectable()
@@ -61,6 +62,13 @@ export class UploadService {
     userId: string
   ) {
     return this.createImagePresign("edition-covers", dto, userId);
+  }
+
+  async createProfileAvatarPresign(
+    dto: CreateProfileAvatarPresignDto,
+    userId: string
+  ) {
+    return this.createImagePresign("profile-avatars", dto, userId);
   }
 
   private async createImagePresign(

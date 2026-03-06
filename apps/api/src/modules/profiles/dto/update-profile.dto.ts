@@ -13,4 +13,10 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(500)
   contactHandle?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  avatarUrl?: string | null;
 }

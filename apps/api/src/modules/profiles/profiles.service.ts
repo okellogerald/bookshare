@@ -106,6 +106,13 @@ export class ProfilesService {
     if (dto.contactHandle !== undefined) {
       updates.contactHandle = dto.contactHandle;
     }
+    if (dto.avatarUrl !== undefined) {
+      const normalizedAvatarUrl =
+        typeof dto.avatarUrl === "string" && dto.avatarUrl.trim().length > 0
+          ? dto.avatarUrl.trim()
+          : null;
+      updates.avatarUrl = normalizedAvatarUrl;
+    }
 
     if (Object.keys(updates).length === 0) return existing;
 

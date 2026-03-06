@@ -110,6 +110,7 @@ export interface PgMemberProfile {
   gender: string | null;
   city_area: string | null;
   contact_handle: string | null;
+  avatar_url: string | null;
   identity_updated_at: string;
   created_at: string;
   updated_at: string;
@@ -235,6 +236,7 @@ export interface PgBrowseWant {
     user_id: string;
     username: string | null;
     display_name: string | null;
+    avatar_url: string | null;
     notes: string | null;
     created_at: string;
     last_confirmed_at: string | null;

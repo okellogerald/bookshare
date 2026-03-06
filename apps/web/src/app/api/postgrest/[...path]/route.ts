@@ -16,10 +16,17 @@ const POSTGREST_URL =
   "http://postgrest:3000";
 
 const DEFAULT_HIDDEN_USERNAMES = ["admin", "admin_booktrack_local"];
+const DEFAULT_HIDDEN_USER_IDS: string[] = [];
 
 function normalizeUsername(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeUserId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
 }
 
@@ -36,19 +43,40 @@ function getHiddenUsernames(): Set<string> {
   return new Set([...DEFAULT_HIDDEN_USERNAMES, ...configured]);
 }
 
+function getHiddenUserIds(): Set<string> {
+  const configured = (
+    process.env.HIDDEN_USER_IDS ??
+    process.env.NEXT_PUBLIC_HIDDEN_USER_IDS ??
+    ""
+  )
+    .split(",")
+    .map((value) => normalizeUserId(value))
+    .filter((value): value is string => !!value);
+
+  return new Set([...DEFAULT_HIDDEN_USER_IDS, ...configured]);
+}
+
 function isHiddenUsername(value: unknown, hiddenUsernames: Set<string>) {
   const normalized = normalizeUsername(value);
   return normalized ? hiddenUsernames.has(normalized) : false;
 }
 
+function isHiddenUserId(value: unknown, hiddenUserIds: Set<string>) {
+  const normalized = normalizeUserId(value);
+  return normalized ? hiddenUserIds.has(normalized) : false;
+}
+
 function sanitizePostgrestData(tablePath: string, data: unknown) {
   if (!Array.isArray(data)) return data;
   const hiddenUsernames = getHiddenUsernames();
+  const hiddenUserIds = getHiddenUserIds();
 
   if (tablePath === "member_profiles") {
     return data.filter(
       (row) =>
-        !isHiddenUsername((row as { username?: unknown })?.username, hiddenUsernames)
+        !isHiddenUsername((row as { username?: unknown })?.username, hiddenUsernames) &&
+        !isHiddenUserId((row as { user_id?: unknown; userId?: unknown })?.user_id, hiddenUserIds) &&
+        !isHiddenUserId((row as { user_id?: unknown; userId?: unknown })?.userId, hiddenUserIds)
     );
   }
 
@@ -56,19 +84,22 @@ function sanitizePostgrestData(tablePath: string, data: unknown) {
     return data
       .filter(
         (row) =>
-          !isHiddenUsername(
-            (row as { owner_username?: unknown })?.owner_username,
-            hiddenUsernames
-          )
+          !isHiddenUsername((row as { owner_username?: unknown })?.owner_username, hiddenUsernames) &&
+          !isHiddenUserId((row as { user_id?: unknown })?.user_id, hiddenUserIds)
       )
       .map((row) => {
         const typed = row as Record<string, unknown>;
-        if (!isHiddenUsername(typed.borrower_username, hiddenUsernames)) {
+        const hiddenBorrower =
+          isHiddenUsername(typed.borrower_username, hiddenUsernames) ||
+          isHiddenUserId(typed.borrower_user_id, hiddenUserIds);
+
+        if (!hiddenBorrower) {
           return typed;
         }
 
         return {
           ...typed,
+          borrower_user_id: null,
           borrower_username: null,
           borrower_display_name: null,
         };
@@ -82,10 +113,8 @@ function sanitizePostgrestData(tablePath: string, data: unknown) {
         const wanters = Array.isArray(typed.wanters)
           ? typed.wanters.filter(
               (wanter) =>
-                !isHiddenUsername(
-                  (wanter as { username?: unknown })?.username,
-                  hiddenUsernames
-                )
+                !isHiddenUsername((wanter as { username?: unknown })?.username, hiddenUsernames) &&
+                !isHiddenUserId((wanter as { user_id?: unknown })?.user_id, hiddenUserIds)
             )
           : [];
 

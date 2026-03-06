@@ -12,9 +12,23 @@ interface WantCardProps {
   onSelect: (want: PgBrowseWant) => void;
 }
 
+function getInitials(value: string): string {
+  const words = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+  const compact = words[0] ?? value.trim();
+  if (!compact) return "U";
+  return compact.slice(0, 2).toUpperCase();
+}
+
 export function WantCard({ want, onSelect }: WantCardProps) {
   const authors = want.authors?.map((a) => a.name).join(", ");
-  const topWanters = want.wanters.slice(0, 3);
+  const topWanters = want.wanters.slice(0, 5);
+  const remainingWanters = Math.max(want.wanters.length - topWanters.length, 0);
 
   return (
     <button
@@ -43,15 +57,40 @@ export function WantCard({ want, onSelect }: WantCardProps) {
           </div>
 
           {topWanters.length > 0 && (
-            <div className="space-y-1 text-sm text-muted-foreground">
-              {topWanters.map((wanter) => (
-                <p key={wanter.user_id}>
-                  @{wanter.username ?? "member"} {wanter.display_name ? `• ${wanter.display_name}` : ""}
-                </p>
-              ))}
-              {want.wanters.length > topWanters.length && (
-                <p>+{want.wanters.length - topWanters.length} more</p>
-              )}
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Interested Members
+              </p>
+              <div className="flex items-center -space-x-2">
+                {topWanters.map((wanter) => {
+                  const label =
+                    wanter.display_name ||
+                    wanter.username ||
+                    "Member";
+                  return (
+                    <div
+                      key={wanter.user_id}
+                      className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-background bg-muted text-[10px] font-semibold text-muted-foreground shadow-sm"
+                      title={label}
+                    >
+                      {wanter.avatar_url ? (
+                        <img
+                          src={wanter.avatar_url}
+                          alt={label}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span>{getInitials(label)}</span>
+                      )}
+                    </div>
+                  );
+                })}
+                {remainingWanters > 0 && (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-secondary text-[10px] font-semibold text-secondary-foreground shadow-sm">
+                    +{remainingWanters}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
