@@ -13,6 +13,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO postgrest_auth;
 -- ─── Enable RLS on User-Scoped Tables ───────────────────────
 
 ALTER TABLE copies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE copy_loans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE copy_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_copies ENABLE ROW LEVEL SECURITY;
@@ -59,6 +60,18 @@ CREATE POLICY copy_events_anon_deny ON copy_events
 
 DROP POLICY IF EXISTS copy_events_auth_select ON copy_events;
 CREATE POLICY copy_events_auth_select ON copy_events
+  FOR SELECT TO postgrest_auth
+  USING (user_id = current_user_id());
+
+-- ─── RLS Policies: copy_loans ───────────────────────────────
+
+DROP POLICY IF EXISTS copy_loans_anon_deny ON copy_loans;
+CREATE POLICY copy_loans_anon_deny ON copy_loans
+  FOR SELECT TO postgrest_anon
+  USING (false);
+
+DROP POLICY IF EXISTS copy_loans_auth_select ON copy_loans;
+CREATE POLICY copy_loans_auth_select ON copy_loans
   FOR SELECT TO postgrest_auth
   USING (user_id = current_user_id());
 
@@ -215,7 +228,7 @@ CREATE OR REPLACE VIEW browse_listings AS
 SELECT
   c.id,
   c.user_id,
-  c.borrower_user_id,
+  active_loan.counterparty_user_id AS borrower_user_id,
   c.edition_id,
   c.condition,
   c.status,
@@ -256,7 +269,17 @@ FROM copies c
 JOIN editions e ON e.id = c.edition_id
 JOIN books b ON b.id = e.book_id
 LEFT JOIN member_profiles owner_profile ON owner_profile.user_id = c.user_id
-LEFT JOIN member_profiles borrower_profile ON borrower_profile.user_id = c.borrower_user_id
+LEFT JOIN LATERAL (
+  SELECT
+    cl.counterparty_user_id
+  FROM copy_loans cl
+  WHERE cl.copy_id = c.id
+    AND cl.returned_at IS NULL
+    AND cl.counterparty_type = 'member'
+  ORDER BY cl.started_at DESC
+  LIMIT 1
+) AS active_loan ON TRUE
+LEFT JOIN member_profiles borrower_profile ON borrower_profile.user_id = active_loan.counterparty_user_id
 LEFT JOIN LATERAL (
   SELECT ci.image_url
   FROM copy_images ci
@@ -274,6 +297,7 @@ GROUP BY
   owner_profile.username,
   owner_profile.first_name,
   owner_profile.last_name,
+  active_loan.counterparty_user_id,
   borrower_profile.username,
   borrower_profile.first_name,
   borrower_profile.last_name,

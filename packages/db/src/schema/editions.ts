@@ -13,6 +13,7 @@ import { bookFormatEnum } from "./enums";
 
 export { bookFormatEnum };
 
+// Edition-level metadata (ISBN, format, publisher, pagination).
 export const editions = pgTable("editions", {
   id: uuid("id").primaryKey().defaultRandom(),
   bookId: uuid("book_id")

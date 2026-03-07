@@ -3,6 +3,8 @@ import type {
   CopyCondition,
   CopyStatus,
   CopyEventType,
+  CopyLoanType,
+  CounterpartyType,
   ShareType,
   WantStatus,
 } from "../constants/enums";
@@ -54,7 +56,6 @@ export interface BookQuote {
 export interface Copy {
   id: string;
   userId: string;
-  borrowerUserId: string | null;
   editionId: string;
   condition: CopyCondition;
   status: CopyStatus;
@@ -75,11 +76,28 @@ export interface CopyEvent {
   fromStatus: CopyStatus | null;
   toStatus: CopyStatus | null;
   performedBy: string;
-  amount: string | null;
-  currency: string | null;
   notes: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
+}
+
+// ─── Copy Loan ───────────────────────────────────────────────
+export interface CopyLoan {
+  id: string;
+  userId: string;
+  copyId: string;
+  loanType: CopyLoanType;
+  counterpartyType: CounterpartyType;
+  counterpartyUserId: string | null;
+  externalName: string | null;
+  externalContact: string | null;
+  notes: string | null;
+  startedAt: Date;
+  dueAt: Date | null;
+  returnedAt: Date | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ─── Category ────────────────────────────────────────────────
@@ -106,6 +124,7 @@ export interface Want {
   id: string;
   userId: string;
   bookId: string;
+  editionId: string | null;
   notes: string | null;
   status: WantStatus;
   fulfilledAt: Date | null;

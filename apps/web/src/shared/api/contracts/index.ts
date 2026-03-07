@@ -119,8 +119,6 @@ export interface CreateCopyBody {
   condition: string;
   status?: string;
   notes?: string;
-  acquisitionAmount?: string;
-  acquisitionCurrency?: string;
   shareType?: string;
   contactNote?: string;
 }
@@ -134,10 +132,11 @@ export interface UpdateCopyBody {
 
 export interface UpdateCopyStatusBody {
   status: string;
-  amount?: string;
-  currency?: string;
   notes?: string;
+  counterpartyType?: string;
   counterpartyUserId?: string;
+  externalCounterpartyName?: string;
+  externalCounterpartyContact?: string;
 }
 
 export interface AttachCopyImagesBody {
@@ -161,7 +160,6 @@ export interface CopyImageResponse {
 export interface CopyResponse {
   id: string;
   userId: string;
-  borrowerUserId: string | null;
   editionId: string;
   condition: string;
   status: string;
@@ -209,8 +207,6 @@ export interface EventResponse {
   userId: string;
   eventType: string;
   notes: string | null;
-  amount: string | null;
-  currency: string | null;
   createdAt: string;
 }
 
@@ -454,6 +450,7 @@ export interface WantResponse {
   id: string;
   userId: string;
   bookId: string;
+  editionId: string | null;
   notes: string | null;
   status: "active" | "fulfilled" | "cancelled";
   fulfilledAt: string | null;

@@ -94,8 +94,9 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
 
           {listing.status === "lent" && (
             <p className="text-xs text-muted-foreground">
-              Borrowed by @{listing.borrower_username ?? "member"} from @
-              {listing.owner_username ?? "member"}
+              {listing.borrower_username
+                ? `Borrowed by @${listing.borrower_username} from @${listing.owner_username ?? "member"}`
+                : "Borrowed off-platform"}
             </p>
           )}
 

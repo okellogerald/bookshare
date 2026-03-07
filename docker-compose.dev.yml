@@ -4,16 +4,16 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-booktrack}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booktrack_dev}
-      POSTGRES_DB: booktrack
+      POSTGRES_USER: ${POSTGRES_USER:-bookshare}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookshare_dev}
+      POSTGRES_DB: bookshare
     ports:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-booktrack}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bookshare}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,11 +49,11 @@ services:
       ZITADEL_DATABASE_POSTGRES_HOST: postgres
       ZITADEL_DATABASE_POSTGRES_PORT: 5432
       ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
-      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: ${POSTGRES_USER:-booktrack}
-      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD:-booktrack_dev}
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: ${POSTGRES_USER:-bookshare}
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD:-bookshare_dev}
       ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
-      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER:-booktrack}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-booktrack_dev}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER:-bookshare}
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-bookshare_dev}
       ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
       ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-false}
       ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-8085}
@@ -128,7 +128,7 @@ services:
     image: postgrest/postgrest:latest
     restart: unless-stopped
     environment:
-      PGRST_DB_URI: postgresql://postgrest_authenticator:postgrest_dev@postgres:5432/booktrack
+      PGRST_DB_URI: postgresql://postgrest_authenticator:postgrest_dev@postgres:5432/bookshare
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: postgrest_auth
       PGRST_JWT_SECRET: ${ZITADEL_JWT_SECRET:-}
@@ -151,8 +151,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktrack}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bookshare}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bookshare_dev}
     ports:
       - "9002:9000"
       - "9003:9001"
@@ -168,8 +168,8 @@ services:
     image: minio/mc:latest
     entrypoint: /bin/sh /init.sh
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-booktrack}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bookshare}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bookshare_dev}
       MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
     volumes:
       - ./infra/minio/init.sh:/init.sh:ro
@@ -185,14 +185,14 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3333
-      DATABASE_URL: postgresql://${POSTGRES_USER:-booktrack}:${POSTGRES_PASSWORD:-booktrack_dev}@postgres:5432/booktrack
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
       ZITADEL_ISSUER: ${ZITADEL_ISSUER_URL:-http://localhost:8085}
       ZITADEL_ISSUER_INTERNAL: ${ZITADEL_ISSUER_INTERNAL:-http://zitadel:8080}
       ZITADEL_EXTERNAL_URL: ${ZITADEL_EXTERNAL_URL:-http://localhost:8085}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-booktrack}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-booktrack_dev}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bookshare}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-bookshare_dev}
       MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
@@ -246,7 +246,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3335
-      DATABASE_URL: postgresql://${POSTGRES_USER:-booktrack}:${POSTGRES_PASSWORD:-booktrack_dev}@postgres:5432/booktrack
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
       API_URL: http://api:3333/api
     ports:
       - "3335:3335"

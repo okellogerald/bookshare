@@ -15,7 +15,7 @@ const POSTGREST_URL =
   process.env.NEXT_PUBLIC_POSTGREST_URL ||
   "http://postgrest:3000";
 
-const DEFAULT_HIDDEN_USERNAMES = ["admin", "admin_booktrack_local"];
+const DEFAULT_HIDDEN_USERNAMES = ["admin", "admin_bookshare_local"];
 const DEFAULT_HIDDEN_USER_IDS: string[] = [];
 
 function normalizeUsername(value: unknown): string | null {

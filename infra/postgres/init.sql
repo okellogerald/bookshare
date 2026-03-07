@@ -3,13 +3,13 @@
 -- ═══════════════════════════════════════════════════════════════
 
 -- Create databases
-SELECT 'CREATE DATABASE booktrack'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'booktrack')\gexec
+SELECT 'CREATE DATABASE bookshare'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'bookshare')\gexec
 SELECT 'CREATE DATABASE zitadel'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'zitadel')\gexec
 
--- Switch to booktrack database for the rest of the setup
-\c booktrack;
+-- Switch to bookshare database for the rest of the setup
+\c bookshare;
 
 -- ─── PostgREST Roles ──────────────────────────────────────────
 

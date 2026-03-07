@@ -3,12 +3,10 @@ import { describe, expect, test } from "bun:test";
 import {
   books,
   createDb,
-  editions,
   importRunPayloads,
   importRuns,
   memberProfiles,
-  wants,
-} from "@booktrack/db";
+} from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import { runCommitCommand } from "../commands/commit";
 
@@ -28,13 +26,9 @@ describe("importer commit integration", () => {
     const actorUsername = `it_actor_${suffix}`;
     const ownerUsername = `it_owner_${suffix}`;
 
-    const existingBookTitle = `Rollback Existing ${suffix}`;
     const newBookTitle = `Rollback New ${suffix}`;
-    const existingEditionIsbn = "9780132350884";
     const newEditionIsbn = "9780306406157";
 
-    let existingBookId = "";
-    let existingEditionId = "";
     let runId = "";
 
     try {
@@ -50,31 +44,6 @@ describe("importer commit integration", () => {
           displayName: "Integration Owner",
         },
       ]);
-
-      const [existingBook] = await db
-        .insert(books)
-        .values({
-          title: existingBookTitle,
-          language: "en",
-        })
-        .returning({ id: books.id });
-      existingBookId = existingBook!.id;
-
-      const [existingEdition] = await db
-        .insert(editions)
-        .values({
-          bookId: existingBookId,
-          isbn: existingEditionIsbn,
-          format: "paperback",
-        })
-        .returning({ id: editions.id });
-      existingEditionId = existingEdition!.id;
-
-      await db.insert(wants).values({
-        userId: ownerUserId,
-        bookId: existingBookId,
-        status: "active",
-      });
 
       const [run] = await db
         .insert(importRuns)
@@ -124,7 +93,7 @@ describe("importer commit integration", () => {
           sourceRef: "e_new",
           payload: {
             sourceRef: "e_new",
-            bookRef: "b_new",
+            bookIdRef: "b_new",
             isbn: newEditionIsbn,
             format: "paperback",
             publisher: null,
@@ -140,16 +109,16 @@ describe("importer commit integration", () => {
           sourceRef: "w_new",
           payload: {
             sourceRef: "w_new",
-            editionIsbn: existingEditionIsbn,
+            editionIdRef: "missing_edition",
             username: ownerUsername,
             userId: ownerUserId,
-            notes: "should conflict",
+            notes: "should fail commit",
           },
         },
       ]);
 
       await expect(runCommitCommand({ runId })).rejects.toThrow(
-        "Create-only conflict: active want already exists"
+        "Cannot resolve edition_id 'missing_edition' for want 'w_new'"
       );
 
       const createdNewBook = await db.query.books.findFirst({
@@ -162,16 +131,8 @@ describe("importer commit integration", () => {
       });
       expect(stillValidated?.status).toBe("validated");
     } finally {
-      await db.delete(wants).where(eq(wants.userId, ownerUserId));
-
       if (runId) {
         await db.delete(importRuns).where(eq(importRuns.id, runId));
-      }
-      if (existingEditionId) {
-        await db.delete(editions).where(eq(editions.id, existingEditionId));
-      }
-      if (existingBookId) {
-        await db.delete(books).where(eq(books.id, existingBookId));
       }
       await db.delete(memberProfiles).where(eq(memberProfiles.userId, ownerUserId));
       await db.delete(memberProfiles).where(eq(memberProfiles.userId, actorUserId));

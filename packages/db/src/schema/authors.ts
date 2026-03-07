@@ -8,6 +8,7 @@ import {
 import { relations } from "drizzle-orm";
 import { books } from "./books";
 
+// Master author records.
 export const authors = pgTable("authors", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 500 }).notNull(),
@@ -20,6 +21,7 @@ export const authors = pgTable("authors", {
     .$onUpdate(() => new Date()),
 });
 
+// Many-to-many bridge between books and authors.
 export const bookAuthors = pgTable(
   "book_authors",
   {

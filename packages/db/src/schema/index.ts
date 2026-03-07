@@ -1,9 +1,11 @@
+// Central export barrel for all schema modules.
 export * from "./enums";
 export * from "./books";
 export * from "./authors";
 export * from "./editions";
 export * from "./quotes";
 export * from "./copies";
+export * from "./copy-loans";
 export * from "./copy-events";
 export * from "./categories";
 export * from "./collections";

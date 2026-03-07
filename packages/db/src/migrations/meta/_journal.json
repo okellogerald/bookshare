@@ -36,6 +36,20 @@
       "when": 1772872030000,
       "tag": "0004_high_hammerhead",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772873920535,
+      "tag": "0005_messy_marvel_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772880517013,
+      "tag": "0006_clear_glorian",
+      "breakpoints": true
     }
   ]
 }

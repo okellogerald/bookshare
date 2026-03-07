@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, collections, collectionCopies } from "@booktrack/db";
+import { type Database, collections, collectionCopies } from "@bookshare/db";
 import { eq, and } from "drizzle-orm";
 import { userAnd } from "../../common/tenant/tenant-scope";
 import { CreateCollectionDto, UpdateCollectionDto, ManageCollectionCopiesDto } from "./dto";

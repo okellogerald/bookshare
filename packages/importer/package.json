@@ -1,5 +1,5 @@
 {
-  "name": "@booktrack/importer",
+  "name": "@bookshare/importer",
   "version": "0.0.1",
   "private": true,
   "main": "./src/cli.ts",
@@ -12,8 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@booktrack/db": "workspace:*",
-    "@booktrack/shared": "workspace:*",
+    "@bookshare/db": "workspace:*",
+    "@bookshare/shared": "workspace:*",
     "csv-parse": "^5.6.0",
     "drizzle-orm": "^0.38.0",
     "jszip": "^3.10.1"

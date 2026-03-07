@@ -21,7 +21,7 @@ function issueToCsvRow(issue: ImportIssue): string {
 
 export function summaryIssuesToCsv(summary: ImportSummary): string {
   const lines = [
-    "file,row_number,column,source_ref,code,message",
+    "file,row_number,column,id,code,message",
     ...summary.issues.map(issueToCsvRow),
   ];
   return `${lines.join("\n")}\n`;

@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { copies } from "./copies";
 
+// Images uploaded for a specific copy listing.
 export const copyImages = pgTable("copy_images", {
   id: uuid("id").primaryKey().defaultRandom(),
   copyId: uuid("copy_id")

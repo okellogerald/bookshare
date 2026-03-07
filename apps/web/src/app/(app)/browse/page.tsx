@@ -323,8 +323,9 @@ export default function BrowsePage() {
             </p>
             {selectedListing.status === "lent" && (
               <p className="text-sm">
-                Borrowed by @{selectedListing.borrower_username ?? "member"} from @
-                {selectedListing.owner_username ?? "member"}
+                {selectedListing.borrower_username
+                  ? `Borrowed by @${selectedListing.borrower_username} from @${selectedListing.owner_username ?? "member"}`
+                  : "Borrowed off-platform"}
               </p>
             )}
           </div>

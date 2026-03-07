@@ -27,7 +27,7 @@ describe("summaryIssuesToCsv", () => {
     };
 
     const csv = summaryIssuesToCsv(summary);
-    expect(csv).toContain("file,row_number,column,source_ref,code,message");
+    expect(csv).toContain("file,row_number,column,id,code,message");
     expect(csv).toContain(
       "editions.csv,3,isbn,edition_001,invalid_isbn_checksum,Checksum failed"
     );

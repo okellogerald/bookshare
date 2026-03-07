@@ -65,7 +65,6 @@ export interface PgCategory {
 export interface PgCopy {
   id: string;
   user_id: string;
-  borrower_user_id: string | null;
   edition_id: string;
   condition: string;
   status: string;
@@ -83,9 +82,26 @@ export interface PgCopyEvent {
   user_id: string;
   event_type: string;
   notes: string | null;
-  amount: string | null;
-  currency: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
+}
+
+export interface PgCopyLoan {
+  id: string;
+  user_id: string;
+  copy_id: string;
+  loan_type: "lent" | "rented" | "checked_out";
+  counterparty_type: "member" | "external";
+  counterparty_user_id: string | null;
+  external_name: string | null;
+  external_contact: string | null;
+  notes: string | null;
+  started_at: string;
+  due_at: string | null;
+  returned_at: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PgCollection {
@@ -157,7 +173,7 @@ export interface PgCopyDetail extends PgCopy {
     book: PgBook;
   };
   images?: PgCopyImage[];
-  borrower_profile?: PgMemberProfile | null;
+  active_loan?: PgCopyLoan[];
 }
 
 export interface PgCopyEventDetail extends PgCopyEvent {
@@ -168,6 +184,7 @@ export interface PgCopyEventDetail extends PgCopyEvent {
 export interface PgBrowseListing {
   id: string;
   user_id: string;
+  borrower_user_id: string | null;
   edition_id: string;
   condition: string;
   status: string;
@@ -204,6 +221,7 @@ export interface PgWant {
   id: string;
   user_id: string;
   book_id: string;
+  edition_id: string | null;
   notes: string | null;
   status: "active" | "fulfilled" | "cancelled";
   fulfilled_at: string | null;

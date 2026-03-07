@@ -9,7 +9,7 @@
  * Output: stale_listings.report event
  */
 
-import { createDb, copies, wants } from "@booktrack/db";
+import { createDb, copies, wants } from "@bookshare/db";
 import { and, inArray, lt, isNotNull, count } from "drizzle-orm";
 
 export const config = {

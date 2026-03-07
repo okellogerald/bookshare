@@ -3,7 +3,6 @@ import {
   uuid,
   varchar,
   text,
-  numeric,
   timestamp,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -13,8 +12,11 @@ import { copyStatusEnum, copyEventTypeEnum } from "./enums";
 
 export { copyEventTypeEnum };
 
+// Immutable audit log for copy lifecycle and notes.
 export const copyEvents = pgTable("copy_events", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Owner/tenant scope: whose copy timeline this event belongs to.
+  // Used by RLS for visibility checks.
   userId: varchar("user_id", { length: 255 }).notNull(),
   copyId: uuid("copy_id")
     .notNull()
@@ -22,9 +24,8 @@ export const copyEvents = pgTable("copy_events", {
   eventType: copyEventTypeEnum("event_type").notNull(),
   fromStatus: copyStatusEnum("from_status"),
   toStatus: copyStatusEnum("to_status"),
+  // Actor: who performed the action (may differ from userId for imports/admin actions).
   performedBy: varchar("performed_by", { length: 255 }).notNull(),
-  amount: numeric("amount", { precision: 12, scale: 2 }),
-  currency: varchar("currency", { length: 3 }),
   notes: text("notes"),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true })

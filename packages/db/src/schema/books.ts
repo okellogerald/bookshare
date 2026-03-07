@@ -4,6 +4,7 @@ import { editions } from "./editions";
 import { bookAuthors } from "./authors";
 import { bookCategories } from "./categories";
 
+// Canonical work-level book records.
 export const books = pgTable("books", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 500 }).notNull(),

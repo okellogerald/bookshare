@@ -52,16 +52,6 @@ export class CreateCopyDto {
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional({ description: "Acquisition cost for the initial event" })
-  @IsOptional()
-  @IsString()
-  acquisitionAmount?: string;
-
-  @ApiPropertyOptional({ description: "Currency code (ISO 4217)", example: "USD" })
-  @IsOptional()
-  @IsString()
-  acquisitionCurrency?: string;
-
   @ApiPropertyOptional({ enum: ["lend", "sell", "give_away"] })
   @IsOptional()
   @IsEnum(["lend", "sell", "give_away"])

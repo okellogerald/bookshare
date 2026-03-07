@@ -1,4 +1,4 @@
-import { createDb, importRunPayloads, importRuns } from "@booktrack/db";
+import { createDb, importRunPayloads, importRuns } from "@bookshare/db";
 import type { ImportEntityType } from "../types";
 import { requireDatabaseUrl } from "../env";
 import { validateParsedInput } from "../validation";
@@ -24,15 +24,16 @@ export async function runValidateCommand(params: {
 }) {
   const databaseUrl = requireDatabaseUrl();
   const db = createDb(databaseUrl);
+  const actorIdentifier = params.actorUsername.trim();
 
   const parsedZip = await parseZipFile(params.zipPath);
-  const validation = await validateParsedInput(db, parsedZip, params.actorUsername);
+  const validation = await validateParsedInput(db, parsedZip, actorIdentifier);
 
   const now = new Date();
   const [run] = await db
     .insert(importRuns)
     .values({
-      actorUsername: params.actorUsername,
+      actorUsername: actorIdentifier,
       sourceZipName: parsedZip.zipName,
       sourceZipSha256: parsedZip.sha256,
       status: validation.status,

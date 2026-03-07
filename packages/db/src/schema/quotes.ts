@@ -2,6 +2,7 @@ import { pgTable, uuid, text, varchar, timestamp } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { editions } from "./editions";
 
+// User-added quotes tied to a specific edition.
 export const bookQuotes = pgTable("book_quotes", {
   id: uuid("id").primaryKey().defaultRandom(),
   editionId: uuid("edition_id")

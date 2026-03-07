@@ -9,6 +9,7 @@ import {
   editions,
   bookQuotes,
   copies,
+  copyLoans,
   copyEvents,
   collections,
   collectionCopies,
@@ -31,7 +32,7 @@ async function seed() {
 
   // ─── Truncate ───────────────────────────────────────────────
   await db.execute(
-    sql`TRUNCATE books, authors, categories, editions, book_authors, book_categories, book_quotes, copies, copy_events, copy_images, collections, collection_copies, wants, member_profiles CASCADE`
+    sql`TRUNCATE books, authors, categories, editions, book_authors, book_categories, book_quotes, copies, copy_loans, copy_events, copy_images, collections, collection_copies, wants, member_profiles CASCADE`
   );
 
   await db.insert(memberProfiles).values({
@@ -437,6 +438,23 @@ async function seed() {
     .returning();
 
   console.log(`  copies: 8`);
+
+  await db.insert(copyLoans).values([
+    {
+      userId: USER_ID,
+      copyId: copyMockingbird.id,
+      loanType: "rented",
+      counterpartyType: "external",
+      externalName: "Downtown Book Club",
+      externalContact: "Coordinator: +1-555-0100",
+      startedAt: tenDaysAgo,
+      dueAt: now,
+      createdBy: USER_ID,
+      notes: "Community club short-term rental",
+    },
+  ]);
+
+  console.log(`  copy_loans: 1`);
 
   // ─── Copy Events (initial "acquired" for each copy) ────────
   await db.insert(copyEvents).values([

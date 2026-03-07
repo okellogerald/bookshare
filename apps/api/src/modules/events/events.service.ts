@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, copyEvents } from "@booktrack/db";
+import { type Database, copyEvents } from "@bookshare/db";
 import { CreateEventNoteDto } from "./dto";
 
 @Injectable()

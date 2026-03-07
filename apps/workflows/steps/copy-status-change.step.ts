@@ -22,8 +22,6 @@ interface StatusChangeInput {
   toStatus: string;
   performedBy: string;
   eventType: string;
-  amount?: string;
-  currency?: string;
   notes?: string;
 }
 
@@ -35,8 +33,6 @@ export async function handler(input: StatusChangeInput, { enqueue, logger }: any
     toStatus,
     performedBy,
     eventType,
-    amount,
-    currency,
     notes,
   } = input;
 
@@ -53,8 +49,6 @@ export async function handler(input: StatusChangeInput, { enqueue, logger }: any
       fromStatus,
       toStatus,
       performedBy,
-      amount: amount ?? null,
-      currency: currency ?? null,
       notes: notes ?? null,
       metadata: null,
     },

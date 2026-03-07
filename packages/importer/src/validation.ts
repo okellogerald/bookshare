@@ -3,15 +3,14 @@ import {
   editions,
   importEntityRefs,
   memberProfiles,
-  wants,
-} from "@booktrack/db";
+} from "@bookshare/db";
 import {
   BookFormat,
   CopyCondition,
   CopyStatus,
   ShareType,
-} from "@booktrack/shared";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+} from "@bookshare/shared";
+import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { compactString, optionalString } from "./csv";
 import { isValidIsbn, normalizeIsbn } from "./isbn";
 import {
@@ -104,6 +103,22 @@ function parseInteger(
   return parsed;
 }
 
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isEmailIdentifier(value: string): boolean {
+  return value.includes("@");
+}
+
+function readUserIdentifier(row: Record<string, string>): string {
+  return compactString(row.email ?? row.username);
+}
+
+function userIdentifierColumn(row: Record<string, string>): "email" | "username" {
+  return row.email !== undefined ? "email" : "username";
+}
+
 async function existingRefsByEntity(
   db: Database,
   entityType: ImportEntityType,
@@ -185,7 +200,7 @@ function fileSourceRefRowIndex(
 
   for (const fileName of CSV_FILES) {
     parsed.files[fileName].rows.forEach((row, index) => {
-      const sourceRef = compactString(row.source_ref);
+      const sourceRef = compactString(row.id);
       if (!sourceRef) return;
       const rowsForRef = out[fileName].get(sourceRef) ?? [];
       rowsForRef.push(index + 2);
@@ -208,15 +223,20 @@ export async function validateParsedInput(
     requiredColumnsPresent(summary, fileName, parsed.files[fileName].headers);
   }
 
+  const actorIdentifier = compactString(actorUsername);
+  const actorEmail = normalizeEmail(actorIdentifier);
   const actor = await db.query.memberProfiles.findFirst({
-    where: eq(memberProfiles.username, actorUsername),
+    where: or(
+      and(isNotNull(memberProfiles.email), eq(memberProfiles.email, actorEmail)),
+      eq(memberProfiles.username, actorIdentifier)
+    ),
   });
   if (!actor) {
     addIssue(summary, {
       file: "run",
       code: "unknown_actor",
       column: "actor",
-      message: `Actor username '${actorUsername}' was not found in member_profiles`,
+      message: `Actor '${actorUsername}' was not found in member_profiles (checked email and username)`,
     });
   }
 
@@ -228,13 +248,13 @@ export async function validateParsedInput(
     "wants.csv": new Set<string>(),
   } as Record<CsvFileName, Set<string>>;
 
-  const validBookRefs = new Set<string>();
-  const editionBookRefByIsbn = new Map<string, string>();
+  const validBookIds = new Set<string>();
+  const seenEditionIsbns = new Set<string>();
 
   // ─── Books ─────────────────────────────────────────────────────
   parsed.files["books.csv"].rows.forEach((row, index) => {
     const rowNumber = index + 2;
-    const sourceRef = compactString(row.source_ref);
+    const sourceRef = compactString(row.id);
     let valid = true;
 
     if (!sourceRef) {
@@ -242,19 +262,19 @@ export async function validateParsedInput(
       addIssue(summary, {
         file: "books.csv",
         rowNumber,
-        column: "source_ref",
-        code: "missing_source_ref",
-        message: "source_ref is required",
+        column: "id",
+        code: "missing_id",
+        message: "id is required",
       });
     } else if (seenSourceRefsByFile["books.csv"].has(sourceRef)) {
       valid = false;
       addIssue(summary, {
         file: "books.csv",
         rowNumber,
-        column: "source_ref",
+        column: "id",
         sourceRef,
-        code: "duplicate_source_ref_in_file",
-        message: `Duplicate source_ref '${sourceRef}' in books.csv`,
+        code: "duplicate_id_in_file",
+        message: `Duplicate id '${sourceRef}' in books.csv`,
       });
     } else {
       seenSourceRefsByFile["books.csv"].add(sourceRef);
@@ -297,13 +317,13 @@ export async function validateParsedInput(
       authorNames: parseList(row.author_names),
     };
     payloads.books.push(payload);
-    validBookRefs.add(sourceRef);
+    validBookIds.add(sourceRef);
   });
 
   // ─── Editions ──────────────────────────────────────────────────
   parsed.files["editions.csv"].rows.forEach((row, index) => {
     const rowNumber = index + 2;
-    const sourceRef = compactString(row.source_ref);
+    const sourceRef = compactString(row.id);
     let valid = true;
 
     if (!sourceRef) {
@@ -311,44 +331,44 @@ export async function validateParsedInput(
       addIssue(summary, {
         file: "editions.csv",
         rowNumber,
-        column: "source_ref",
-        code: "missing_source_ref",
-        message: "source_ref is required",
+        column: "id",
+        code: "missing_id",
+        message: "id is required",
       });
     } else if (seenSourceRefsByFile["editions.csv"].has(sourceRef)) {
       valid = false;
       addIssue(summary, {
         file: "editions.csv",
         rowNumber,
-        column: "source_ref",
+        column: "id",
         sourceRef,
-        code: "duplicate_source_ref_in_file",
-        message: `Duplicate source_ref '${sourceRef}' in editions.csv`,
+        code: "duplicate_id_in_file",
+        message: `Duplicate id '${sourceRef}' in editions.csv`,
       });
     } else {
       seenSourceRefsByFile["editions.csv"].add(sourceRef);
     }
 
-    const bookRef = compactString(row.book_ref);
-    if (!bookRef) {
+    const bookIdRef = compactString(row.book_id);
+    if (!bookIdRef) {
       valid = false;
       addIssue(summary, {
         file: "editions.csv",
         rowNumber,
-        column: "book_ref",
+        column: "book_id",
         sourceRef: sourceRef || undefined,
-        code: "missing_book_ref",
-        message: "book_ref is required",
+        code: "missing_book_id",
+        message: "book_id is required",
       });
-    } else if (!validBookRefs.has(bookRef)) {
+    } else if (!validBookIds.has(bookIdRef)) {
       valid = false;
       addIssue(summary, {
         file: "editions.csv",
         rowNumber,
-        column: "book_ref",
+        column: "book_id",
         sourceRef: sourceRef || undefined,
-        code: "unknown_book_ref",
-        message: `book_ref '${bookRef}' does not match a valid book source_ref`,
+        code: "unknown_book_id",
+        message: `book_id '${bookIdRef}' does not match a valid books.id`,
       });
     }
 
@@ -383,7 +403,7 @@ export async function validateParsedInput(
         code: "invalid_isbn_checksum",
         message: `ISBN '${row.isbn}' failed checksum validation`,
       });
-    } else if (editionBookRefByIsbn.has(normalizedIsbn)) {
+    } else if (seenEditionIsbns.has(normalizedIsbn)) {
       valid = false;
       addIssue(summary, {
         file: "editions.csv",
@@ -434,12 +454,12 @@ export async function validateParsedInput(
       });
     }
 
-    if (!valid || !sourceRef || !bookRef || !normalizedIsbn) return;
+    if (!valid || !sourceRef || !bookIdRef || !normalizedIsbn) return;
 
-    editionBookRefByIsbn.set(normalizedIsbn, bookRef);
+    seenEditionIsbns.add(normalizedIsbn);
     const payload: NormalizedEditionRow = {
       sourceRef,
-      bookRef,
+      bookIdRef,
       isbn: normalizedIsbn,
       format: format as NormalizedEditionRow["format"],
       publisher: optionalString(row.publisher),
@@ -451,7 +471,9 @@ export async function validateParsedInput(
   });
 
   for (const book of payloads.books) {
-    const covered = payloads.editions.some((edition) => edition.bookRef === book.sourceRef);
+    const covered = payloads.editions.some(
+      (edition) => edition.bookIdRef === book.sourceRef
+    );
     if (!covered) {
       addIssue(summary, {
         file: "books.csv",
@@ -475,38 +497,79 @@ export async function validateParsedInput(
     }
   }
 
-  const usernamesNeeded = new Set<string>();
+  const userIdentifiersNeeded = new Set<string>();
   for (const row of parsed.files["copies.csv"].rows) {
-    const username = compactString(row.username);
-    if (username) usernamesNeeded.add(username);
+    const identifier = readUserIdentifier(row);
+    if (identifier) userIdentifiersNeeded.add(identifier);
   }
   for (const row of parsed.files["wants.csv"].rows) {
-    const username = compactString(row.username);
-    if (username) usernamesNeeded.add(username);
+    const identifier = readUserIdentifier(row);
+    if (identifier) userIdentifiersNeeded.add(identifier);
   }
 
-  const userRows =
-    usernamesNeeded.size === 0
-      ? []
-      : await db
-          .select({
-            userId: memberProfiles.userId,
-            username: memberProfiles.username,
-          })
-          .from(memberProfiles)
-          .where(inArray(memberProfiles.username, [...usernamesNeeded]));
-
-  const usersByUsername = new Map(
-    userRows.map((row) => [row.username, { userId: row.userId, username: row.username }])
+  const emailIdentifiers = [...userIdentifiersNeeded]
+    .filter((value) => isEmailIdentifier(value))
+    .map(normalizeEmail);
+  const usernameIdentifiers = [...userIdentifiersNeeded].filter(
+    (value) => !isEmailIdentifier(value)
   );
 
-  const wantsBookIdentity = new Set<string>();
-  const wantsAgainstExistingBooks = new Set<string>();
+  let userRows: Array<{ userId: string; username: string; email: string | null }> = [];
+  if (emailIdentifiers.length > 0 || usernameIdentifiers.length > 0) {
+    const whereClause =
+      emailIdentifiers.length > 0 && usernameIdentifiers.length > 0
+        ? or(
+            and(
+              isNotNull(memberProfiles.email),
+              inArray(memberProfiles.email, emailIdentifiers)
+            ),
+            inArray(memberProfiles.username, usernameIdentifiers)
+          )
+        : emailIdentifiers.length > 0
+          ? and(
+              isNotNull(memberProfiles.email),
+              inArray(memberProfiles.email, emailIdentifiers)
+            )
+          : inArray(memberProfiles.username, usernameIdentifiers);
+
+    userRows = await db
+      .select({
+        userId: memberProfiles.userId,
+        username: memberProfiles.username,
+        email: memberProfiles.email,
+      })
+      .from(memberProfiles)
+      .where(whereClause);
+  }
+
+  const usersByEmail = new Map<string, { userId: string; email: string }>();
+  const usersByUsername = new Map<string, { userId: string; username: string }>();
+  for (const row of userRows) {
+    usersByUsername.set(row.username, {
+      userId: row.userId,
+      username: row.username,
+    });
+    if (row.email) {
+      usersByEmail.set(normalizeEmail(row.email), {
+        userId: row.userId,
+        email: row.email,
+      });
+    }
+  }
+
+  function resolveUser(identifier: string) {
+    if (isEmailIdentifier(identifier)) {
+      return usersByEmail.get(normalizeEmail(identifier)) ?? null;
+    }
+    return usersByUsername.get(identifier) ?? null;
+  }
+
+  const wantsByUserEdition = new Set<string>();
 
   // ─── Copies ────────────────────────────────────────────────────
   parsed.files["copies.csv"].rows.forEach((row, index) => {
     const rowNumber = index + 2;
-    const sourceRef = compactString(row.source_ref);
+    const sourceRef = compactString(row.id);
     let valid = true;
 
     if (!sourceRef) {
@@ -514,80 +577,68 @@ export async function validateParsedInput(
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "source_ref",
-        code: "missing_source_ref",
-        message: "source_ref is required",
+        column: "id",
+        code: "missing_id",
+        message: "id is required",
       });
     } else if (seenSourceRefsByFile["copies.csv"].has(sourceRef)) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "source_ref",
+        column: "id",
         sourceRef,
-        code: "duplicate_source_ref_in_file",
-        message: `Duplicate source_ref '${sourceRef}' in copies.csv`,
+        code: "duplicate_id_in_file",
+        message: `Duplicate id '${sourceRef}' in copies.csv`,
       });
     } else {
       seenSourceRefsByFile["copies.csv"].add(sourceRef);
     }
 
-    const username = compactString(row.username);
-    if (!username) {
+    const userIdentifier = readUserIdentifier(row);
+    const identifierColumn = userIdentifierColumn(row);
+    if (!userIdentifier) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "username",
+        column: identifierColumn,
         sourceRef: sourceRef || undefined,
-        code: "missing_username",
-        message: "username is required",
+        code: "missing_user_identifier",
+        message: `${identifierColumn} is required`,
       });
-    } else if (!usersByUsername.has(username)) {
+    } else if (!resolveUser(userIdentifier)) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "username",
+        column: identifierColumn,
         sourceRef: sourceRef || undefined,
-        code: "unknown_username",
-        message: `username '${username}' was not found in member_profiles`,
+        code: "unknown_user_identifier",
+        message: `Identifier '${userIdentifier}' was not found in member_profiles (checked email and username)`,
       });
     }
 
-    const normalizedIsbn = normalizeIsbn(row.edition_isbn ?? "");
-    if (!normalizedIsbn) {
+    const editionIdRef = compactString(row.edition_id);
+    if (!editionIdRef) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "edition_isbn",
+        column: "edition_id",
         sourceRef: sourceRef || undefined,
-        code: "missing_edition_isbn",
-        message: "edition_isbn is required",
+        code: "missing_edition_id",
+        message: "edition_id is required",
       });
-    } else if (!isValidIsbn(normalizedIsbn)) {
+    } else if (!seenSourceRefsByFile["editions.csv"].has(editionIdRef)) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "edition_isbn",
+        column: "edition_id",
         sourceRef: sourceRef || undefined,
-        code: "invalid_edition_isbn",
-        message: `edition_isbn '${row.edition_isbn}' failed checksum validation`,
-      });
-    } else if (
-      !editionBookRefByIsbn.has(normalizedIsbn) &&
-      !existingEditionsByIsbn.has(normalizedIsbn)
-    ) {
-      valid = false;
-      addIssue(summary, {
-        file: "copies.csv",
-        rowNumber,
-        column: "edition_isbn",
-        sourceRef: sourceRef || undefined,
-        code: "unknown_edition_isbn",
-        message: `edition_isbn '${normalizedIsbn}' does not match imported or existing editions`,
+        code: "unknown_edition_id",
+        message: `edition_id '${editionIdRef}' does not match a valid editions.id`,
       });
     }
 
@@ -630,13 +681,16 @@ export async function validateParsedInput(
       });
     }
 
-    if (!valid || !sourceRef || !username || !normalizedIsbn) return;
+    if (!valid || !sourceRef || !userIdentifier || !editionIdRef) return;
+
+    const resolvedUser = resolveUser(userIdentifier);
+    if (!resolvedUser) return;
 
     payloads.copies.push({
       sourceRef,
-      editionIsbn: normalizedIsbn,
-      username,
-      userId: usersByUsername.get(username)!.userId,
+      editionIdRef,
+      username: userIdentifier,
+      userId: resolvedUser.userId,
       condition: condition as NormalizedCopyRow["condition"],
       notes: optionalString(row.notes),
       shareType: shareType
@@ -650,7 +704,7 @@ export async function validateParsedInput(
   // ─── Wants ─────────────────────────────────────────────────────
   parsed.files["wants.csv"].rows.forEach((row, index) => {
     const rowNumber = index + 2;
-    const sourceRef = compactString(row.source_ref);
+    const sourceRef = compactString(row.id);
     let valid = true;
 
     if (!sourceRef) {
@@ -658,164 +712,100 @@ export async function validateParsedInput(
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
-        column: "source_ref",
-        code: "missing_source_ref",
-        message: "source_ref is required",
+        column: "id",
+        code: "missing_id",
+        message: "id is required",
       });
     } else if (seenSourceRefsByFile["wants.csv"].has(sourceRef)) {
       valid = false;
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
-        column: "source_ref",
+        column: "id",
         sourceRef,
-        code: "duplicate_source_ref_in_file",
-        message: `Duplicate source_ref '${sourceRef}' in wants.csv`,
+        code: "duplicate_id_in_file",
+        message: `Duplicate id '${sourceRef}' in wants.csv`,
       });
     } else {
       seenSourceRefsByFile["wants.csv"].add(sourceRef);
     }
 
-    const username = compactString(row.username);
-    if (!username) {
+    const userIdentifier = readUserIdentifier(row);
+    const identifierColumn = userIdentifierColumn(row);
+    if (!userIdentifier) {
       valid = false;
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
-        column: "username",
+        column: identifierColumn,
         sourceRef: sourceRef || undefined,
-        code: "missing_username",
-        message: "username is required",
+        code: "missing_user_identifier",
+        message: `${identifierColumn} is required`,
       });
-    } else if (!usersByUsername.has(username)) {
+    } else if (!resolveUser(userIdentifier)) {
       valid = false;
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
-        column: "username",
+        column: identifierColumn,
         sourceRef: sourceRef || undefined,
-        code: "unknown_username",
-        message: `username '${username}' was not found in member_profiles`,
-      });
-    }
-
-    const normalizedIsbn = normalizeIsbn(row.edition_isbn ?? "");
-    if (!normalizedIsbn) {
-      valid = false;
-      addIssue(summary, {
-        file: "wants.csv",
-        rowNumber,
-        column: "edition_isbn",
-        sourceRef: sourceRef || undefined,
-        code: "missing_edition_isbn",
-        message: "edition_isbn is required",
-      });
-    } else if (!isValidIsbn(normalizedIsbn)) {
-      valid = false;
-      addIssue(summary, {
-        file: "wants.csv",
-        rowNumber,
-        column: "edition_isbn",
-        sourceRef: sourceRef || undefined,
-        code: "invalid_edition_isbn",
-        message: `edition_isbn '${row.edition_isbn}' failed checksum validation`,
-      });
-    } else if (
-      !editionBookRefByIsbn.has(normalizedIsbn) &&
-      !existingEditionsByIsbn.has(normalizedIsbn)
-    ) {
-      valid = false;
-      addIssue(summary, {
-        file: "wants.csv",
-        rowNumber,
-        column: "edition_isbn",
-        sourceRef: sourceRef || undefined,
-        code: "unknown_edition_isbn",
-        message: `edition_isbn '${normalizedIsbn}' does not match imported or existing editions`,
+        code: "unknown_user_identifier",
+        message: `Identifier '${userIdentifier}' was not found in member_profiles (checked email and username)`,
       });
     }
 
-    if (!valid || !sourceRef || !username || !normalizedIsbn) return;
+    const editionIdRef = compactString(row.edition_id);
+    if (!editionIdRef) {
+      valid = false;
+      addIssue(summary, {
+        file: "wants.csv",
+        rowNumber,
+        column: "edition_id",
+        sourceRef: sourceRef || undefined,
+        code: "missing_edition_id",
+        message: "edition_id is required",
+      });
+    } else if (!seenSourceRefsByFile["editions.csv"].has(editionIdRef)) {
+      valid = false;
+      addIssue(summary, {
+        file: "wants.csv",
+        rowNumber,
+        column: "edition_id",
+        sourceRef: sourceRef || undefined,
+        code: "unknown_edition_id",
+        message: `edition_id '${editionIdRef}' does not match a valid editions.id`,
+      });
+    }
 
-    const userId = usersByUsername.get(username)!.userId;
-    const bookIdentity = editionBookRefByIsbn.has(normalizedIsbn)
-      ? `new:${editionBookRefByIsbn.get(normalizedIsbn)!}`
-      : `db:${existingEditionsByIsbn.get(normalizedIsbn)!.bookId}`;
+    if (!valid || !sourceRef || !userIdentifier || !editionIdRef) return;
 
-    const duplicateKey = `${userId}::${bookIdentity}`;
-    if (wantsBookIdentity.has(duplicateKey)) {
+    const resolvedUser = resolveUser(userIdentifier);
+    if (!resolvedUser) return;
+    const userId = resolvedUser.userId;
+    const duplicateKey = `${userId}::${editionIdRef}`;
+    if (wantsByUserEdition.has(duplicateKey)) {
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
         sourceRef,
         code: "duplicate_want_in_batch",
         message:
-          "Duplicate active want for the same user/book combination in this batch",
+          "Duplicate active want for the same user/edition combination in this batch",
       });
       return;
     }
-    wantsBookIdentity.add(duplicateKey);
-
-    if (bookIdentity.startsWith("db:")) {
-      wantsAgainstExistingBooks.add(duplicateKey);
-    }
+    wantsByUserEdition.add(duplicateKey);
 
     payloads.wants.push({
       sourceRef,
-      editionIsbn: normalizedIsbn,
-      username,
+      editionIdRef,
+      username: userIdentifier,
       userId,
       notes: optionalString(row.notes),
     });
   });
 
-  // Existing active want conflicts (create-only)
-  if (wantsAgainstExistingBooks.size > 0) {
-    const userIds = new Set<string>();
-    const bookIds = new Set<string>();
-    for (const pair of wantsAgainstExistingBooks) {
-      const [userId, bookIdentity] = pair.split("::");
-      if (!userId || !bookIdentity) continue;
-      userIds.add(userId);
-      bookIds.add(bookIdentity.replace(/^db:/, ""));
-    }
-
-    if (userIds.size > 0 && bookIds.size > 0) {
-      const existingActiveWants = await db
-        .select({ userId: wants.userId, bookId: wants.bookId })
-        .from(wants)
-        .where(
-          and(
-            inArray(wants.userId, [...userIds]),
-            inArray(wants.bookId, [...bookIds]),
-            eq(wants.status, "active")
-          )
-        );
-
-      const existingPairs = new Set(
-        existingActiveWants.map((row) => `${row.userId}::db:${row.bookId}`)
-      );
-
-      payloads.wants = payloads.wants.filter((want) => {
-        const existingEdition = existingEditionsByIsbn.get(want.editionIsbn);
-        if (!existingEdition) return true;
-
-        const key = `${want.userId}::db:${existingEdition.bookId}`;
-        if (!existingPairs.has(key)) return true;
-
-        addIssue(summary, {
-          file: "wants.csv",
-          sourceRef: want.sourceRef,
-          code: "active_want_exists",
-          message:
-            "An active want already exists in the database for this user/book pair",
-        });
-        return false;
-      });
-    }
-  }
-
-  // Historical source_ref create-only checks
+  // Historical id (source_ref storage key) create-only checks
   for (const fileName of CSV_FILES) {
     const entityType = ENTITY_FROM_FILE[fileName];
     const sourceRefs = [...seenSourceRefsByFile[fileName]];
@@ -828,10 +818,10 @@ export async function validateParsedInput(
         addIssue(summary, {
           file: fileName,
           rowNumber,
-          column: "source_ref",
+          column: "id",
           sourceRef,
-          code: "source_ref_already_imported",
-          message: `source_ref '${sourceRef}' was already imported for '${entityType}'`,
+          code: "id_already_imported",
+          message: `id '${sourceRef}' was already imported for '${entityType}'`,
         });
       }
     }

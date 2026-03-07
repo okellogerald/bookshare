@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, categories } from "@booktrack/db";
+import { type Database, categories } from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import { CreateCategoryDto, UpdateCategoryDto } from "./dto";
 

@@ -13,7 +13,7 @@ import {
   copies,
   editions,
   wants,
-} from "@booktrack/db";
+} from "@bookshare/db";
 import {
   and,
   asc,

@@ -8,6 +8,7 @@ import {
 import { relations } from "drizzle-orm";
 import { books } from "./books";
 
+// Hierarchical taxonomy for books.
 export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -28,6 +29,7 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   bookCategories: many(bookCategories),
 }));
 
+// Many-to-many bridge between books and categories.
 export const bookCategories = pgTable(
   "book_categories",
   {

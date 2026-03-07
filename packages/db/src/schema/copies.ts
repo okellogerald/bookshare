@@ -23,13 +23,10 @@ export {
   shareTypeEnum,
 };
 
+// User-owned copy listings and their current lifecycle state.
 export const copies = pgTable("copies", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: varchar("user_id", { length: 255 }).notNull(),
-  borrowerUserId: varchar("borrower_user_id", { length: 255 }).references(
-    () => memberProfiles.userId,
-    { onDelete: "set null" }
-  ),
   editionId: uuid("edition_id")
     .notNull()
     .references(() => editions.id, { onDelete: "restrict" }),
@@ -57,11 +54,6 @@ export const copiesRelations = relations(copies, ({ one, many }) => ({
     fields: [copies.userId],
     references: [memberProfiles.userId],
     relationName: "ownerProfile",
-  }),
-  borrowerProfile: one(memberProfiles, {
-    fields: [copies.borrowerUserId],
-    references: [memberProfiles.userId],
-    relationName: "borrowerProfile",
   }),
   events: many(copyEvents),
   collectionCopies: many(collectionCopies),

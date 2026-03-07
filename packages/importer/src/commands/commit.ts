@@ -11,7 +11,7 @@ import {
   importRuns,
   memberProfiles,
   wants,
-} from "@booktrack/db";
+} from "@bookshare/db";
 import type {
   NormalizedBookRow,
   NormalizedCopyRow,
@@ -19,7 +19,7 @@ import type {
   NormalizedWantRow,
 } from "../types";
 import { requireDatabaseUrl } from "../env";
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 interface GroupedPayloads {
   books: NormalizedBookRow[];
@@ -148,12 +148,19 @@ export async function runCommitCommand(params: { runId: string }) {
       throw new Error("Run is no longer in validated state");
     }
 
+    const actorIdentifier = run.actorUsername.trim();
     const actor = await tx.query.memberProfiles.findFirst({
-      where: eq(memberProfiles.username, run.actorUsername),
+      where: or(
+        and(
+          isNotNull(memberProfiles.email),
+          eq(memberProfiles.email, actorIdentifier.toLowerCase())
+        ),
+        eq(memberProfiles.username, actorIdentifier)
+      ),
     });
     if (!actor) {
       throw new Error(
-        `Actor '${run.actorUsername}' was not found in member_profiles at commit time`
+        `Actor '${run.actorUsername}' was not found in member_profiles at commit time (checked email and username)`
       );
     }
 
@@ -244,12 +251,12 @@ export async function runCommitCommand(params: { runId: string }) {
       }
     }
 
-    const editionByIsbn = new Map<string, { editionId: string; bookId: string }>();
+    const editionBySourceRef = new Map<string, { editionId: string; bookId: string }>();
     for (const row of payloads.editions) {
-      const bookId = bookIdBySourceRef.get(row.bookRef);
+      const bookId = bookIdBySourceRef.get(row.bookIdRef);
       if (!bookId) {
         throw new Error(
-          `Cannot resolve book_ref '${row.bookRef}' for edition '${row.sourceRef}'`
+          `Cannot resolve book_id '${row.bookIdRef}' for edition '${row.sourceRef}'`
         );
       }
 
@@ -271,20 +278,10 @@ export async function runCommitCommand(params: { runId: string }) {
         );
       }
 
-      editionByIsbn.set(row.isbn, {
+      editionBySourceRef.set(row.sourceRef, {
         editionId: createdEdition.id,
         bookId: createdEdition.bookId,
       });
-    }
-
-    // Merge existing editions after creation for copy/want resolution.
-    for (const [isbn, edition] of existingEditionsByIsbn) {
-      if (!editionByIsbn.has(isbn)) {
-        editionByIsbn.set(isbn, {
-          editionId: edition.id,
-          bookId: edition.bookId,
-        });
-      }
     }
 
     const now = new Date();
@@ -307,7 +304,7 @@ export async function runCommitCommand(params: { runId: string }) {
     }
 
     for (const row of payloads.editions) {
-      const edition = editionByIsbn.get(row.isbn);
+      const edition = editionBySourceRef.get(row.sourceRef);
       if (!edition) {
         throw new Error(`Missing committed ID for edition '${row.sourceRef}'`);
       }
@@ -319,10 +316,10 @@ export async function runCommitCommand(params: { runId: string }) {
     }
 
     for (const row of payloads.copies) {
-      const edition = editionByIsbn.get(row.editionIsbn);
+      const edition = editionBySourceRef.get(row.editionIdRef);
       if (!edition) {
         throw new Error(
-          `Cannot resolve edition_isbn '${row.editionIsbn}' for copy '${row.sourceRef}'`
+          `Cannot resolve edition_id '${row.editionIdRef}' for copy '${row.sourceRef}'`
         );
       }
 
@@ -336,7 +333,6 @@ export async function runCommitCommand(params: { runId: string }) {
           notes: row.notes,
           shareType: row.shareType as any,
           contactNote: row.contactNote,
-          borrowerUserId: null,
           lastConfirmedAt: now,
         })
         .returning({ id: copies.id });
@@ -362,16 +358,17 @@ export async function runCommitCommand(params: { runId: string }) {
     }
 
     const candidateWantRows = payloads.wants.map((row) => {
-      const edition = editionByIsbn.get(row.editionIsbn);
+      const edition = editionBySourceRef.get(row.editionIdRef);
       if (!edition) {
         throw new Error(
-          `Cannot resolve edition_isbn '${row.editionIsbn}' for want '${row.sourceRef}'`
+          `Cannot resolve edition_id '${row.editionIdRef}' for want '${row.sourceRef}'`
         );
       }
 
       return {
         sourceRef: row.sourceRef,
         userId: row.userId,
+        editionId: edition.editionId,
         bookId: edition.bookId,
         notes: row.notes,
       };
@@ -406,6 +403,7 @@ export async function runCommitCommand(params: { runId: string }) {
         .values({
           userId: row.userId,
           bookId: row.bookId,
+          editionId: row.editionId,
           notes: row.notes,
           status: "active",
           lastConfirmedAt: now,

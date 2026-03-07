@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════
 
 COMPOSE := docker compose -f docker-compose.prod.yml
-DB_NAME := booktrack
+DB_NAME := bookshare
 
 .DEFAULT_GOAL := help
 
@@ -46,11 +46,11 @@ build: ## Build all images without starting services
 
 .PHONY: db-post-migrate
 db-post-migrate: ## Apply RLS policies, views, and grants inside the postgres container
-	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-booktrack} -d $(DB_NAME) < infra/postgres/post-migration.sql
+	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-bookshare} -d $(DB_NAME) < infra/postgres/post-migration.sql
 
 .PHONY: db-psql
 db-psql: ## Open an interactive psql shell inside the postgres container
-	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-booktrack} -d $(DB_NAME)
+	$(COMPOSE) exec postgres psql -U $${POSTGRES_USER:-bookshare} -d $(DB_NAME)
 
 # ─── Cleanup ──────────────────────────────────────────────────
 

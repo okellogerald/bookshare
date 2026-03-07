@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, books, bookAuthors, bookCategories } from "@booktrack/db";
+import { type Database, books, bookAuthors, bookCategories } from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import { CreateBookDto, UpdateBookDto } from "./dto";
 

@@ -1,4 +1,4 @@
-import { createDb, type Database } from "@booktrack/db";
+import { createDb, type Database } from "@bookshare/db";
 
 export const DRIZZLE = Symbol("DRIZZLE");
 

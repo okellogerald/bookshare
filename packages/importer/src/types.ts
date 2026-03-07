@@ -1,4 +1,4 @@
-import type { BookFormat, CopyCondition, CopyStatus, ShareType } from "@booktrack/shared";
+import type { BookFormat, CopyCondition, CopyStatus, ShareType } from "@bookshare/shared";
 
 export const CSV_FILES = [
   "books.csv",
@@ -20,7 +20,7 @@ export const ENTITY_FROM_FILE: Record<CsvFileName, ImportEntityType> = {
 
 export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
   "books.csv": [
-    "source_ref",
+    "id",
     "title",
     "subtitle",
     "description",
@@ -28,8 +28,8 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "author_names",
   ],
   "editions.csv": [
-    "source_ref",
-    "book_ref",
+    "id",
+    "book_id",
     "isbn",
     "format",
     "publisher",
@@ -38,8 +38,8 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "verification_override_note",
   ],
   "copies.csv": [
-    "source_ref",
-    "edition_isbn",
+    "id",
+    "edition_id",
     "username",
     "condition",
     "notes",
@@ -47,7 +47,7 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "contact_note",
     "status",
   ],
-  "wants.csv": ["source_ref", "edition_isbn", "username", "notes"],
+  "wants.csv": ["id", "edition_id", "username", "notes"],
 };
 
 export interface ImportIssue {
@@ -90,7 +90,7 @@ export interface NormalizedBookRow {
 
 export interface NormalizedEditionRow {
   sourceRef: string;
-  bookRef: string;
+  bookIdRef: string;
   isbn: string;
   format: BookFormat;
   publisher: string | null;
@@ -101,7 +101,7 @@ export interface NormalizedEditionRow {
 
 export interface NormalizedCopyRow {
   sourceRef: string;
-  editionIsbn: string;
+  editionIdRef: string;
   username: string;
   userId: string;
   condition: CopyCondition;
@@ -113,7 +113,7 @@ export interface NormalizedCopyRow {
 
 export interface NormalizedWantRow {
   sourceRef: string;
-  editionIsbn: string;
+  editionIdRef: string;
   username: string;
   userId: string;
   notes: string | null;

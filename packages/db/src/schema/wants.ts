@@ -9,9 +9,11 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { books } from "./books";
 import { copies } from "./copies";
+import { editions } from "./editions";
 import { wantStatusEnum } from "./enums";
 import { memberProfiles } from "./member-profiles";
 
+// User want-list entries for books they are seeking.
 export const wants = pgTable(
   "wants",
   {
@@ -20,6 +22,9 @@ export const wants = pgTable(
     bookId: uuid("book_id")
       .notNull()
       .references(() => books.id, { onDelete: "restrict" }),
+    editionId: uuid("edition_id").references(() => editions.id, {
+      onDelete: "set null",
+    }),
     notes: text("notes"),
     status: wantStatusEnum("status").notNull().default("active"),
     fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
@@ -48,6 +53,10 @@ export const wantsRelations = relations(wants, ({ one }) => ({
   book: one(books, {
     fields: [wants.bookId],
     references: [books.id],
+  }),
+  edition: one(editions, {
+    fields: [wants.editionId],
+    references: [editions.id],
   }),
   userProfile: one(memberProfiles, {
     fields: [wants.userId],

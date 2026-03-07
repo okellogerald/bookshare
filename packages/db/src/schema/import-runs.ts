@@ -23,6 +23,7 @@ export const importEntityTypeEnum = pgEnum("import_entity_type", [
   "wants",
 ]);
 
+// High-level record for each importer execution.
 export const importRuns = pgTable("import_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
   actorUsername: varchar("actor_username", { length: 255 }).notNull(),
@@ -39,6 +40,7 @@ export const importRuns = pgTable("import_runs", {
   committedAt: timestamp("committed_at", { withTimezone: true }),
 });
 
+// Normalized raw rows accepted during validation for a run.
 export const importRunPayloads = pgTable(
   "import_run_payloads",
   {
@@ -63,6 +65,7 @@ export const importRunPayloads = pgTable(
   ]
 );
 
+// Mapping from source references to committed entity IDs.
 export const importEntityRefs = pgTable(
   "import_entity_refs",
   {
@@ -85,6 +88,7 @@ export const importEntityRefs = pgTable(
   ]
 );
 
+// Relation graph for importer tables.
 export const importRunsRelations = relations(importRuns, ({ many }) => ({
   payloads: many(importRunPayloads),
   entityRefs: many(importEntityRefs),

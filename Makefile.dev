@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════
 
 COMPOSE := docker compose -f docker-compose.dev.yml
-DB_URL  := postgresql://booktrack:booktrack_dev@localhost:5434/booktrack
+DB_URL  := postgresql://bookshare:bookshare_dev@localhost:5434/bookshare
 
 .DEFAULT_GOAL := help
 
@@ -44,7 +44,7 @@ shell-%: ## Open a shell in a running service container (e.g. make -f Makefile.d
 
 .PHONY: zitadel-client-ids
 zitadel-client-ids: ## List available Zitadel OIDC client IDs
-	$(COMPOSE) exec -T postgres psql -U booktrack -d zitadel -c "SELECT a.name, c.client_id, c.redirect_uris FROM projections.apps7 a JOIN projections.apps7_oidc_configs c ON c.app_id = a.id WHERE a.state = 1 ORDER BY a.name;"
+	$(COMPOSE) exec -T postgres psql -U bookshare -d zitadel -c "SELECT a.name, c.client_id, c.redirect_uris FROM projections.apps7 a JOIN projections.apps7_oidc_configs c ON c.app_id = a.id WHERE a.state = 1 ORDER BY a.name;"
 
 # ─── Database ─────────────────────────────────────────────────
 

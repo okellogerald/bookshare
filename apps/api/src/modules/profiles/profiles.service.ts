@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, memberProfiles } from "@booktrack/db";
+import { type Database, memberProfiles } from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import type { AuthenticatedUser } from "../../common/guards";
 import {

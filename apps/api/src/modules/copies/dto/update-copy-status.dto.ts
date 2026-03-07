@@ -30,16 +30,6 @@ export class UpdateCopyStatusDto {
   ])
   status!: string;
 
-  @ApiPropertyOptional({ description: "Amount for financial events (e.g. sale price)" })
-  @IsOptional()
-  @IsString()
-  amount?: string;
-
-  @ApiPropertyOptional({ description: "Currency code (ISO 4217)", example: "USD" })
-  @IsOptional()
-  @IsString()
-  currency?: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -47,9 +37,34 @@ export class UpdateCopyStatusDto {
 
   @ApiPropertyOptional({
     description:
-      "Required for lent/sold/given_away to identify the receiving community member",
+      "Required for lent/rented/checked_out/sold/given_away",
+    enum: ["member", "external"],
+  })
+  @IsOptional()
+  @IsEnum(["member", "external"])
+  counterpartyType?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Required when counterpartyType=member",
   })
   @IsOptional()
   @IsString()
   counterpartyUserId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Required when counterpartyType=external",
+  })
+  @IsOptional()
+  @IsString()
+  externalCounterpartyName?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Optional contact detail when counterpartyType=external",
+  })
+  @IsOptional()
+  @IsString()
+  externalCounterpartyContact?: string;
 }

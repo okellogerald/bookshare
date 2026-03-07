@@ -22,7 +22,7 @@ async function bootstrap() {
   });
 
   const config = new DocumentBuilder()
-    .setTitle("BookTrack API")
+    .setTitle("Bookshare API")
     .setDescription("Book inventory management API")
     .setVersion("0.1.0")
     .addBearerAuth()
@@ -33,7 +33,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3333;
   await app.listen(port);
-  console.log(`BookTrack API running on http://localhost:${port}/api`);
+  console.log(`Bookshare API running on http://localhost:${port}/api`);
   console.log(`Swagger docs at http://localhost:${port}/api/docs`);
 }
 

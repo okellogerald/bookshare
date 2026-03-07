@@ -1,4 +1,4 @@
-const defaultHiddenUsernames = ["admin", "admin_booktrack_local"];
+const defaultHiddenUsernames = ["admin", "admin_bookshare_local"];
 
 function normalizeUsername(value: string | null | undefined): string | null {
   if (!value) return null;

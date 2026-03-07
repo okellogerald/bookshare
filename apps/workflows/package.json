@@ -1,5 +1,5 @@
 {
-  "name": "@booktrack/workflows",
+  "name": "@bookshare/workflows",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -11,8 +11,8 @@
   "dependencies": {
     "motia": "latest",
     "drizzle-orm": "^0.38.0",
-    "@booktrack/db": "workspace:*",
-    "@booktrack/shared": "workspace:*"
+    "@bookshare/db": "workspace:*",
+    "@bookshare/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

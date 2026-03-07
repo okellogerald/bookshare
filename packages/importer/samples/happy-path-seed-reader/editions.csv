@@ -1,0 +1,3 @@
+id,book_id,isbn,format,publisher,published_year,page_count,verification_override_note
+edition_20260307_001,book_20260307_001,9780988262591,paperback,IT Revolution,2018,432,
+edition_20260307_002,book_20260307_002,9780201485677,paperback,Addison-Wesley,1999,464,

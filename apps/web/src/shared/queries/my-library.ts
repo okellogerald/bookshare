@@ -34,7 +34,10 @@ import { nestjsFetch } from "./fetch";
 
 async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const params = new URLSearchParams();
-  params.set("select", "*,edition:editions(*,book:books(*)),images:copy_images(*)");
+  params.set(
+    "select",
+    "*,edition:editions(*,book:books(*)),images:copy_images(*),active_loan:copy_loans(*)"
+  );
   params.set("order", "created_at.desc");
 
   const response = await fetch(`/api/postgrest/copies?${params}`);
@@ -46,7 +49,7 @@ async function fetchMyCopies(): Promise<PgCopyDetail[]> {
 async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
   const params = new URLSearchParams();
   params.set("select", "edition:editions(book_id)");
-  params.set("status", "in.(available,reserved,lent,checked_out)");
+  params.set("status", "in.(available,reserved,lent,rented,checked_out)");
 
   const response = await fetch(`/api/postgrest/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch active owned books");

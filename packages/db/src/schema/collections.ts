@@ -9,6 +9,7 @@ import {
 import { relations } from "drizzle-orm";
 import { copies } from "./copies";
 
+// User-defined collections that group copy listings.
 export const collections = pgTable("collections", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: varchar("user_id", { length: 255 }).notNull(),
@@ -27,6 +28,7 @@ export const collectionsRelations = relations(collections, ({ many }) => ({
   collectionCopies: many(collectionCopies),
 }));
 
+// Many-to-many bridge between collections and copies.
 export const collectionCopies = pgTable(
   "collection_copies",
   {

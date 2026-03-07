@@ -1,0 +1,3 @@
+id,edition_id,username,condition,notes,share_type,contact_note,status
+copy_20260307_001,edition_20260307_001,seed_reader,good,First importer test copy,lend,DM @seed_reader,available
+copy_20260307_002,edition_20260307_002,seed_reader,like_new,Second importer test copy,sell,Message before pickup,available

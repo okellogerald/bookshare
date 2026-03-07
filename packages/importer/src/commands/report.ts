@@ -1,4 +1,4 @@
-import { createDb, importRuns } from "@booktrack/db";
+import { createDb, importRuns } from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import { requireDatabaseUrl } from "../env";
 import { summaryIssuesToCsv } from "../reporter";

@@ -8,7 +8,7 @@ import { runValidateCommand } from "./commands/validate";
 function usage() {
   return [
     "Usage:",
-    "  bun run src/cli.ts validate --zip <path-to-zip> --actor <username>",
+    "  bun run src/cli.ts validate --zip <path-to-zip> --actor <admin-email-or-username>",
     "  bun run src/cli.ts commit --run-id <uuid>",
     "  bun run src/cli.ts report --run-id <uuid> --format json|csv",
   ].join("\n");

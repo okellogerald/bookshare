@@ -1,5 +1,5 @@
 {
-  "name": "booktrack",
+  "name": "bookshare",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -12,10 +12,10 @@
     "prod": "docker compose -f docker-compose.prod.yml up",
     "prod:build": "docker compose -f docker-compose.prod.yml up --build",
     "prod:down": "docker compose -f docker-compose.prod.yml down",
-    "db:generate": "bun --filter @booktrack/db run generate",
-    "db:migrate": "bun --filter @booktrack/db run migrate",
-    "db:push": "bun --filter @booktrack/db run push",
-    "db:studio": "bun --filter @booktrack/db run studio",
+    "db:generate": "bun --filter @bookshare/db run generate",
+    "db:migrate": "bun --filter @bookshare/db run migrate",
+    "db:push": "bun --filter @bookshare/db run push",
+    "db:studio": "bun --filter @bookshare/db run studio",
     "import:validate": "bun run --cwd packages/importer src/cli.ts validate",
     "import:commit": "bun run --cwd packages/importer src/cli.ts commit",
     "import:report": "bun run --cwd packages/importer src/cli.ts report"

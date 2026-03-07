@@ -1,11 +1,11 @@
 # Importer CLI
 
-Atomic CSV ingestion tool for BookTrack.
+Atomic CSV ingestion tool for Bookshare.
 
 ## Commands
 
 ```bash
-bun run import:validate --zip /path/to/import.zip --actor your_username
+bun run import:validate --zip /path/to/import.zip --actor admin@your-org.local
 bun run import:commit --run-id <run-id>
 bun run import:report --run-id <run-id> --format json
 bun run import:report --run-id <run-id> --format csv
@@ -25,24 +25,25 @@ The ZIP must contain exactly these files:
 ## CSV Contract
 
 ### `books.csv`
-`source_ref,title,subtitle,description,language,author_names`
+`id,title,subtitle,description,language,author_names`
 
 ### `editions.csv`
-`source_ref,book_ref,isbn,format,publisher,published_year,page_count,verification_override_note`
+`id,book_id,isbn,format,publisher,published_year,page_count,verification_override_note`
 
 ### `copies.csv`
-`source_ref,edition_isbn,username,condition,notes,share_type,contact_note,status`
+`id,edition_id,username,condition,notes,share_type,contact_note,status`
 
 ### `wants.csv`
-`source_ref,edition_isbn,username,notes`
+`id,edition_id,username,notes`
 
 ## Validation Highlights
 
-- Strict create-only mode (`source_ref` collisions in history are rejected).
+- Strict create-only mode (`id` collisions in history are rejected).
 - ISBNs are normalized to digits/`X`, must be 10 or 13 chars, and must pass checksum.
 - Every imported book must have at least one imported ISBN edition.
-- Usernames in `copies.csv` / `wants.csv` must exist in `member_profiles`.
-- `book_ref` and `edition_isbn` links are resolved deterministically.
+- `--actor` resolves against `member_profiles.email` (preferred) or `member_profiles.username`.
+- `copies.csv` / `wants.csv` user identifiers resolve against `member_profiles.email` (preferred) or `member_profiles.username`.
+- `book_id` and `edition_id` links are resolved deterministically.
 - Existing edition ISBNs and existing active wants are treated as conflicts.
 
 ## Commit Behavior

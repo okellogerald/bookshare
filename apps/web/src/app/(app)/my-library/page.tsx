@@ -23,6 +23,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Label } from "@/shared/components/ui/label";
+import { Input } from "@/shared/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import {
@@ -65,7 +66,12 @@ export default function MyLibraryPage() {
     copyId: string;
     status: "lent" | "sold" | "given_away";
   } | null>(null);
+  const [counterpartyType, setCounterpartyType] = useState<"member" | "external">(
+    "member"
+  );
   const [counterpartyUserId, setCounterpartyUserId] = useState("");
+  const [externalCounterpartyName, setExternalCounterpartyName] = useState("");
+  const [externalCounterpartyContact, setExternalCounterpartyContact] = useState("");
 
   const { data: copies, isLoading } = useMyCopies();
   const { data: members } = useCommunityMembers();
@@ -108,6 +114,8 @@ export default function MyLibraryPage() {
   const selectedCounterpartyIsEligible = eligibleWanters.some(
     (wanter) => wanter.user_id === counterpartyUserId
   );
+  const isMemberCounterparty = counterpartyType === "member";
+  const externalCounterpartyNameValue = externalCounterpartyName.trim();
 
   function handleOpenBookDetails(copy: NonNullable<typeof copies>[number]) {
     const book = copy.edition?.book;
@@ -128,21 +136,37 @@ export default function MyLibraryPage() {
     copyId: string,
     status: "lent" | "sold" | "given_away"
   ) {
+    setCounterpartyType("member");
     setCounterpartyUserId("");
+    setExternalCounterpartyName("");
+    setExternalCounterpartyContact("");
     setStatusDialog({ copyId, status });
   }
 
   function submitStatusDialog() {
-    if (!statusDialog || !counterpartyUserId) return;
+    if (!statusDialog) return;
+    if (isMemberCounterparty && !counterpartyUserId) return;
+    if (!isMemberCounterparty && !externalCounterpartyNameValue) return;
+
     statusMutation.mutate({
       id: statusDialog.copyId,
       body: {
         status: statusDialog.status,
-        counterpartyUserId,
+        counterpartyType,
+        counterpartyUserId: isMemberCounterparty ? counterpartyUserId : undefined,
+        externalCounterpartyName: !isMemberCounterparty
+          ? externalCounterpartyNameValue
+          : undefined,
+        externalCounterpartyContact: !isMemberCounterparty
+          ? externalCounterpartyContact.trim() || undefined
+          : undefined,
       },
     });
     setStatusDialog(null);
+    setCounterpartyType("member");
     setCounterpartyUserId("");
+    setExternalCounterpartyName("");
+    setExternalCounterpartyContact("");
   }
 
   return (
@@ -217,11 +241,26 @@ export default function MyLibraryPage() {
                   >
                     {statusLabels[copy.status] ?? copy.status}
                   </Badge>
-                  {copy.status === "lent" && copy.borrower_user_id && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Borrowed by {memberNameById.get(copy.borrower_user_id) ?? "member"}
-                    </p>
-                  )}
+                  {(() => {
+                    const activeLoan =
+                      copy.active_loan?.find((loan) => loan.returned_at === null) ?? null;
+                    if (!activeLoan) return null;
+                    if (!["lent", "rented", "checked_out"].includes(copy.status)) {
+                      return null;
+                    }
+
+                    const borrowerLabel =
+                      activeLoan.counterparty_type === "member"
+                        ? memberNameById.get(activeLoan.counterparty_user_id ?? "") ??
+                          "member"
+                        : activeLoan.external_name ?? "external borrower";
+
+                    return (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Borrowed by {borrowerLabel}
+                      </p>
+                    );
+                  })()}
                 </TableCell>
                 <TableCell>
                   {copy.share_type ? (
@@ -342,48 +381,94 @@ export default function MyLibraryPage() {
         onOpenChange={(open) => {
           if (!open) {
             setStatusDialog(null);
+            setCounterpartyType("member");
             setCounterpartyUserId("");
+            setExternalCounterpartyName("");
+            setExternalCounterpartyContact("");
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Select Community Member</DialogTitle>
+            <DialogTitle>Set Counterparty</DialogTitle>
             <DialogDescription>
-              Choose who received this copy.
+              Track who received this copy, including off-platform borrowers.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="counterparty">Member</Label>
-            <Select
-              value={counterpartyUserId}
-              onValueChange={setCounterpartyUserId}
-              disabled={activeWantersLoading || !hasEligibleWanters}
-            >
-              <SelectTrigger id="counterparty">
-                <SelectValue
-                  placeholder={
-                    activeWantersLoading
-                      ? "Loading wanters..."
-                      : hasEligibleWanters
-                        ? "Select member..."
-                        : "No active wanters"
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="counterparty-type">Counterparty Type</Label>
+              <Select
+                value={counterpartyType}
+                onValueChange={(value) =>
+                  setCounterpartyType(value as "member" | "external")
+                }
+              >
+                <SelectTrigger id="counterparty-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Community Member</SelectItem>
+                  <SelectItem value="external">External Person</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isMemberCounterparty ? (
+              <div className="space-y-2">
+                <Label htmlFor="counterparty">Member</Label>
+                <Select
+                  value={counterpartyUserId}
+                  onValueChange={setCounterpartyUserId}
+                  disabled={activeWantersLoading || !hasEligibleWanters}
+                >
+                  <SelectTrigger id="counterparty">
+                    <SelectValue
+                      placeholder={
+                        activeWantersLoading
+                          ? "Loading wanters..."
+                          : hasEligibleWanters
+                            ? "Select member..."
+                            : "No active wanters"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eligibleWanters.map((wanter) => (
+                      <SelectItem key={wanter.user_id} value={wanter.user_id}>
+                        @{wanter.username ?? "member"}
+                        {wanter.display_name ? ` (${wanter.display_name})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!activeWantersLoading && !hasEligibleWanters && (
+                  <p className="text-sm text-destructive">
+                    No active wanters for this book. Choose External Person if this is off-platform.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="external-name">External Name</Label>
+                <Input
+                  id="external-name"
+                  placeholder="e.g. Alice (neighbor)"
+                  value={externalCounterpartyName}
+                  onChange={(event) =>
+                    setExternalCounterpartyName(event.target.value)
                   }
                 />
-              </SelectTrigger>
-              <SelectContent>
-                {eligibleWanters.map((wanter) => (
-                  <SelectItem key={wanter.user_id} value={wanter.user_id}>
-                    @{wanter.username ?? "member"}
-                    {wanter.display_name ? ` (${wanter.display_name})` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!activeWantersLoading && !hasEligibleWanters && (
-              <p className="text-sm text-destructive">
-                No active wanters for this book. You can only mark this copy as lent, sold, or given away to someone who currently wants it.
-              </p>
+                <Label htmlFor="external-contact">External Contact (optional)</Label>
+                <Input
+                  id="external-contact"
+                  placeholder="e.g. +1 555 0100"
+                  value={externalCounterpartyContact}
+                  onChange={(event) =>
+                    setExternalCounterpartyContact(event.target.value)
+                  }
+                />
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -391,7 +476,10 @@ export default function MyLibraryPage() {
               variant="outline"
               onClick={() => {
                 setStatusDialog(null);
+                setCounterpartyType("member");
                 setCounterpartyUserId("");
+                setExternalCounterpartyName("");
+                setExternalCounterpartyContact("");
               }}
             >
               Cancel
@@ -399,8 +487,9 @@ export default function MyLibraryPage() {
             <Button
               onClick={submitStatusDialog}
               disabled={
-                !counterpartyUserId ||
-                !selectedCounterpartyIsEligible ||
+                (isMemberCounterparty &&
+                  (!counterpartyUserId || !selectedCounterpartyIsEligible)) ||
+                (!isMemberCounterparty && !externalCounterpartyNameValue) ||
                 statusMutation.isPending
               }
             >
