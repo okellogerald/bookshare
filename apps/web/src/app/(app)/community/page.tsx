@@ -6,6 +6,14 @@ import { useCurrentUser } from "@/shared/providers/user-provider";
 import { useCommunityMembers } from "@/shared/queries/community";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
 
 function getInitials(value: string): string {
   const words = value
@@ -60,50 +68,57 @@ export default function CommunityPage() {
           ) : sortedMembers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No members found.</p>
           ) : (
-            <div className="space-y-3">
-              {sortedMembers.map((member) => {
-                const isMe = currentUser?.id === member.user_id;
-                const fullName = [member.first_name, member.last_name]
-                  .filter((value): value is string => !!value && value.trim().length > 0)
-                  .join(" ")
-                  .trim();
-                const avatarLabel = fullName || member.username || "U";
-                return (
-                  <div key={member.user_id} className="rounded-md border p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold">
-                        {member.avatar_url ? (
-                          <img
-                            src={member.avatar_url}
-                            alt={`${avatarLabel} avatar`}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <span>{getInitials(avatarLabel)}</span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Avatar</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Area</TableHead>
+                  <TableHead>Contact</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedMembers.map((member) => {
+                  const fullName = [member.first_name, member.last_name]
+                    .filter((value): value is string => !!value && value.trim().length > 0)
+                    .join(" ")
+                    .trim();
+                  const label = fullName || member.username || "U";
+                  const isMe = currentUser?.id === member.user_id;
+
+                  return (
+                    <TableRow key={member.user_id}>
+                      <TableCell>
+                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold">
+                          {member.avatar_url ? (
+                            <img
+                              src={member.avatar_url}
+                              alt={`${label} avatar`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span>{getInitials(label)}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium">{fullName || "Name not set"}</p>
+                        <p className="text-xs text-muted-foreground">
                           @{member.username}
                           {isMe ? " (You)" : ""}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {fullName || "Name not set"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-sm">
-                      <p className="text-muted-foreground">
-                        Area: {member.city_area || "Not shared"}
-                      </p>
-                      <p className="text-muted-foreground">
-                        Contact: {member.contact_handle || "Not shared"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {member.city_area || "Not shared"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {member.contact_handle || "Not shared"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

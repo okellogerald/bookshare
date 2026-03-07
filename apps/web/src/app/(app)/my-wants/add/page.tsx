@@ -1,18 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, Search } from "lucide-react";
+import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Textarea } from "@/shared/components/ui/textarea";
-import { Label } from "@/shared/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 import {
   Card,
   CardContent,
@@ -20,411 +12,342 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import { useEditionByIsbn, useCreateWant } from "@/shared/queries/my-wants";
-import {
-  useCreateBook,
-  useCreateEdition,
-  useCreateEditionCoverPresign,
-  useMyActiveOwnedBookIds,
-} from "@/shared/queries/my-library";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { useCreateWant, useMyWants, useWantSearchResults } from "@/shared/queries/my-wants";
+import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
+import { useSubmitMissingWantRequest } from "@/shared/queries/submissions";
 
-const languageOptions = [
-  { value: "en", label: "English (en)" },
-  { value: "sw", label: "Swahili (sw)" },
-  { value: "fr", label: "French (fr)" },
-  { value: "es", label: "Spanish (es)" },
-  { value: "de", label: "German (de)" },
-  { value: "ar", label: "Arabic (ar)" },
-  { value: "other", label: "Other (custom code)" },
-];
-
-const formatOptions = [
-  { value: "hardcover", label: "Hardcover" },
-  { value: "paperback", label: "Paperback" },
-  { value: "mass_market", label: "Mass Market" },
-  { value: "ebook", label: "eBook" },
-  { value: "audiobook", label: "Audiobook" },
-];
+function parseAuthors(rawValue: string) {
+  return Array.from(
+    new Set(
+      rawValue
+        .split(/[\n,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
 
 export default function AddWantPage() {
   const router = useRouter();
-  const [isbn, setIsbn] = useState("");
-  const [notes, setNotes] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const [foundBookNotes, setFoundBookNotes] = useState("");
   const [manualTitle, setManualTitle] = useState("");
-  const [manualSubtitle, setManualSubtitle] = useState("");
-  const [manualDescription, setManualDescription] = useState("");
-  const [languageMode, setLanguageMode] = useState("en");
-  const [languageCustom, setLanguageCustom] = useState("");
-  const [manualFormat, setManualFormat] = useState("paperback");
-  const [selectedCover, setSelectedCover] = useState<File | null>(null);
-  const [coverError, setCoverError] = useState<string | null>(null);
-  const [manualError, setManualError] = useState<string | null>(null);
+  const [manualAuthorsInput, setManualAuthorsInput] = useState("");
+  const [manualIsbn, setManualIsbn] = useState("");
+  const [manualLanguage, setManualLanguage] = useState("");
+  const [manualBookDescriptionNotes, setManualBookDescriptionNotes] = useState("");
+  const [manualWantNotes, setManualWantNotes] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const { data: edition, isLoading: searchingEdition } =
-    useEditionByIsbn(isbn);
-  const { data: myActiveOwnedBookIds, isLoading: activeOwnedBooksLoading } =
-    useMyActiveOwnedBookIds();
+  const { data: results, isLoading: searching } = useWantSearchResults(search);
+  const { data: myWants } = useMyWants();
+  const { data: myActiveOwnedBookIds } = useMyActiveOwnedBookIds();
   const createWant = useCreateWant();
-  const createBook = useCreateBook();
-  const createEdition = useCreateEdition();
-  const createEditionCoverPresign = useCreateEditionCoverPresign();
+  const submitMissingWantRequest = useSubmitMissingWantRequest();
 
-  // The edition query returns PgEdition with embedded book
-  const book = edition ? (edition as any).book : null;
-  const alreadyInMyLibrary = !!book?.id && (myActiveOwnedBookIds ?? []).includes(book.id);
-  const noEditionFound = isbn.length >= 10 && !searchingEdition && !edition;
-  const showManualForm = noEditionFound;
+  const activeWantBookIds = useMemo(
+    () =>
+      new Set(
+        (myWants ?? [])
+          .filter((want) => want.status === "active")
+          .map((want) => want.book_id)
+      ),
+    [myWants]
+  );
 
-  useEffect(() => {
-    if (edition) {
-      setManualError(null);
-    }
-  }, [edition]);
+  const activeOwnedBookIds = useMemo(
+    () => new Set(myActiveOwnedBookIds ?? []),
+    [myActiveOwnedBookIds]
+  );
 
-  function resolveLanguage() {
-    if (languageMode === "other") {
-      const custom = languageCustom.trim().toLowerCase();
-      if (!custom) return null;
-      return custom;
-    }
-    return languageMode;
-  }
+  const selectedResult = (results ?? []).find((result) => result.bookId === selectedBookId) ?? null;
+  const alreadyInMyWants = selectedResult
+    ? activeWantBookIds.has(selectedResult.bookId)
+    : false;
+  const alreadyInMyLibrary = selectedResult
+    ? activeOwnedBookIds.has(selectedResult.bookId)
+    : false;
 
-  function handleCoverSelection(files: FileList | null) {
-    if (!files?.[0]) {
-      setSelectedCover(null);
-      setCoverError(null);
-      return;
-    }
-    const file = files[0];
+  async function handleAddExistingWant() {
+    if (!selectedResult) return;
+    setErrorMessage(null);
+    setSuccessMessage(null);
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setSelectedCover(null);
-      setCoverError("Only jpg, png, and webp images are supported.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setSelectedCover(null);
-      setCoverError("Cover image must be 5MB or less.");
+    if (alreadyInMyWants) {
+      setErrorMessage("This book is already in your wants list.");
       return;
     }
 
-    setCoverError(null);
-    setSelectedCover(file);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setManualError(null);
+    if (alreadyInMyLibrary) {
+      setErrorMessage("This book is already in your library.");
+      return;
+    }
 
     try {
-      let targetBookId: string | null = null;
-
-      if (book?.id) {
-        if (alreadyInMyLibrary) return;
-        targetBookId = book.id;
-      } else {
-        const title = manualTitle.trim();
-        if (!title) {
-          setManualError("Book title is required when adding manually.");
-          return;
-        }
-
-        const language = resolveLanguage();
-        if (!language) {
-          setManualError("Language code is required when using custom language.");
-          return;
-        }
-
-        const createdBook = await createBook.mutateAsync({
-          title,
-          subtitle: manualSubtitle.trim() || undefined,
-          description: manualDescription.trim() || undefined,
-          language,
-        });
-
-        if (selectedCover) {
-          const presign = await createEditionCoverPresign.mutateAsync({
-            fileName: selectedCover.name,
-            contentType: selectedCover.type,
-            fileSize: selectedCover.size,
-          });
-          const uploadResponse = await fetch(presign.uploadUrl, {
-            method: "PUT",
-            headers: { "Content-Type": selectedCover.type },
-            body: selectedCover,
-          });
-          if (!uploadResponse.ok) {
-            throw new Error("Failed to upload cover image.");
-          }
-
-          await createEdition.mutateAsync({
-            bookId: createdBook.id,
-            isbn: isbn.trim() || undefined,
-            format: manualFormat,
-            coverImageUrl: presign.publicUrl,
-          });
-        }
-
-        targetBookId = createdBook.id;
-      }
-
-      if (!targetBookId) return;
-
       await createWant.mutateAsync({
-        bookId: targetBookId,
-        notes: notes || undefined,
+        bookId: selectedResult.bookId,
+        notes: foundBookNotes.trim() || undefined,
       });
       router.push("/my-wants");
     } catch (error) {
-      if (error instanceof Error) {
-        setManualError(error.message);
-      } else {
-        setManualError("Could not post want.");
-      }
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not add this want."
+      );
     }
   }
 
+  async function handleSubmitMissingWant() {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const title = manualTitle.trim();
+    const authors = parseAuthors(manualAuthorsInput);
+
+    if (!title) {
+      setErrorMessage("Book title is required.");
+      return;
+    }
+
+    if (authors.length === 0) {
+      setErrorMessage("At least one author is required.");
+      return;
+    }
+
+    try {
+      await submitMissingWantRequest.mutateAsync({
+        title,
+        authors,
+        isbn: manualIsbn.trim() || undefined,
+        language: manualLanguage.trim() || undefined,
+        bookDescriptionNotes: manualBookDescriptionNotes.trim() || undefined,
+        wantNotes: manualWantNotes.trim() || undefined,
+      });
+
+      setSuccessMessage(
+        "Want request sent. You will receive a confirmation email shortly."
+      );
+      setManualTitle("");
+      setManualAuthorsInput("");
+      setManualIsbn("");
+      setManualLanguage("");
+      setManualBookDescriptionNotes("");
+      setManualWantNotes("");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not submit the missing-book request."
+      );
+    }
+  }
+
+  const showManualForm =
+    search.trim().length >= 2 && !searching && (results?.length ?? 0) === 0;
+
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Add a Want</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Add Want</h1>
         <p className="text-muted-foreground">
-          Search by ISBN, or add book details manually if it is not yet in the catalog.
+          Search books already in the system first. If not found, submit a manual request.
         </p>
       </div>
 
-      {/* Step 1: ISBN search */}
-      <div className="space-y-2">
-        <Label htmlFor="isbn">ISBN</Label>
-        <Input
-          id="isbn"
-          placeholder="Enter ISBN (10 or 13 digits)"
-          value={isbn}
-          onChange={(e) => setIsbn(e.target.value.trim())}
-        />
-        {searchingEdition && (
-          <p className="text-sm text-muted-foreground">Searching...</p>
-        )}
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Find Existing Book</CardTitle>
+          <CardDescription>
+            Search by title, author, or ISBN.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setSelectedBookId(null);
+                setFoundBookNotes("");
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className="pl-9"
+              placeholder="Type at least 2 characters..."
+            />
+          </div>
 
-      {/* Step 2: Show book if found */}
-      {edition && book && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{book.title}</CardTitle>
-            {book.subtitle && (
-              <CardDescription>{book.subtitle}</CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm text-muted-foreground">
-            <p>ISBN: {edition.isbn}</p>
-            {edition.publisher && <p>Publisher: {edition.publisher}</p>}
-            {edition.published_year && <p>Year: {edition.published_year}</p>}
-          </CardContent>
-        </Card>
-      )}
+          {search.trim().length < 2 ? (
+            <p className="text-sm text-muted-foreground">
+              Enter at least 2 characters to search.
+            </p>
+          ) : searching ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Searching...
+            </p>
+          ) : results && results.length > 0 ? (
+            <div className="grid gap-3">
+              {results.map((result) => {
+                const isSelected = selectedBookId === result.bookId;
+                const isAlreadyWanted = activeWantBookIds.has(result.bookId);
+                const isAlreadyOwned = activeOwnedBookIds.has(result.bookId);
+                return (
+                  <button
+                    key={result.bookId}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBookId(result.bookId);
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                    }}
+                    className={`rounded-md border p-3 text-left transition-colors ${
+                      isSelected ? "border-primary bg-accent/40" : "hover:bg-accent/20"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{result.title}</p>
+                      {result.hasCommunityCopy ? (
+                        <Badge>Community copy exists</Badge>
+                      ) : result.hasEdition ? (
+                        <Badge variant="secondary">Edition in catalog</Badge>
+                      ) : (
+                        <Badge variant="outline">Catalog record</Badge>
+                      )}
+                      {isAlreadyWanted && <Badge variant="outline">Already wanted</Badge>}
+                      {isAlreadyOwned && <Badge variant="outline">In your library</Badge>}
+                    </div>
+                    {result.subtitle && (
+                      <p className="text-sm text-muted-foreground">{result.subtitle}</p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {result.authors.length
+                        ? result.authors.map((author) => author.name).join(", ")
+                        : "No authors listed"}
+                    </p>
+                    {result.primaryIsbn && (
+                      <p className="text-xs text-muted-foreground">
+                        ISBN: {result.primaryIsbn}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
-      {noEditionFound && (
-        <p className="text-sm text-muted-foreground">
-          No book found for this ISBN. Add it manually below to post your want.
-        </p>
-      )}
+          {selectedResult && (
+            <div className="space-y-3 rounded-md border p-3">
+              <p className="text-sm font-medium">Add selected book to your wants</p>
+              <div className="space-y-2">
+                <Label>Notes (optional)</Label>
+                <Textarea
+                  value={foundBookNotes}
+                  onChange={(event) => setFoundBookNotes(event.target.value)}
+                  placeholder="Anything to tell lenders or sellers"
+                />
+              </div>
+              <Button
+                onClick={handleAddExistingWant}
+                disabled={
+                  createWant.isPending || alreadyInMyWants || alreadyInMyLibrary
+                }
+              >
+                {createWant.isPending ? "Adding..." : "Add to My Wants"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {showManualForm && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Book Details</CardTitle>
+            <CardTitle>Book Not Found</CardTitle>
             <CardDescription>
-              Create a minimal catalog book so you can post your want.
+              Submit details and the admin will add the edition and want on your behalf.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="manual-title">
+              <Label>
                 Book Title <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="manual-title"
-                placeholder="Enter book title..."
                 value={manualTitle}
                 onChange={(event) => setManualTitle(event.target.value)}
+                placeholder="Book title"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="manual-subtitle">Subtitle</Label>
-              <Input
-                id="manual-subtitle"
-                placeholder="Enter subtitle (optional)..."
-                value={manualSubtitle}
-                onChange={(event) => setManualSubtitle(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="manual-description">Description</Label>
+              <Label>
+                Author(s) <span className="text-destructive">*</span>
+              </Label>
               <Textarea
-                id="manual-description"
-                placeholder="Optional description..."
-                value={manualDescription}
-                onChange={(event) => setManualDescription(event.target.value)}
+                value={manualAuthorsInput}
+                onChange={(event) => setManualAuthorsInput(event.target.value)}
+                placeholder="One per line or comma-separated"
+                rows={3}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Language</Label>
-              <Select
-                value={languageMode}
-                onValueChange={(value) => {
-                  setLanguageMode(value);
-                  if (value !== "other") setManualError(null);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {languageOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {languageMode === "other" && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>ISBN</Label>
                 <Input
-                  placeholder="Enter language code, e.g. it"
-                  value={languageCustom}
-                  onChange={(event) => setLanguageCustom(event.target.value)}
+                  value={manualIsbn}
+                  onChange={(event) => setManualIsbn(event.target.value)}
+                  placeholder="Optional ISBN"
                 />
-              )}
+              </div>
+              <div className="space-y-2">
+                <Label>Language</Label>
+                <Input
+                  value={manualLanguage}
+                  onChange={(event) => setManualLanguage(event.target.value)}
+                  placeholder="e.g. en, sw"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Format (for cover image edition)</Label>
-              <Select value={manualFormat} onValueChange={setManualFormat}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {formatOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Cover Image (optional)</Label>
-              <Input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => handleCoverSelection(event.target.files)}
+              <Label>Book Description Notes</Label>
+              <Textarea
+                value={manualBookDescriptionNotes}
+                onChange={(event) => setManualBookDescriptionNotes(event.target.value)}
+                placeholder="Any other identifiers"
+                rows={3}
               />
-              {selectedCover && (
-                <div className="flex items-center justify-between rounded border px-2 py-1 text-sm text-muted-foreground">
-                  <span className="truncate">{selectedCover.name}</span>
-                  <button
-                    type="button"
-                    className="text-destructive"
-                    onClick={() => {
-                      setSelectedCover(null);
-                      setCoverError(null);
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-              {coverError && (
-                <p className="text-sm text-destructive">{coverError}</p>
-              )}
             </div>
+
+            <div className="space-y-2">
+              <Label>Want Notes</Label>
+              <Textarea
+                value={manualWantNotes}
+                onChange={(event) => setManualWantNotes(event.target.value)}
+                placeholder="Anything to say to lenders or sellers"
+                rows={3}
+              />
+            </div>
+
+            <Button
+              onClick={handleSubmitMissingWant}
+              disabled={submitMissingWantRequest.isPending}
+            >
+              {submitMissingWantRequest.isPending ? "Submitting..." : "Submit Want Request"}
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 3: Notes + submit */}
-      {(book || showManualForm) && (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {book && alreadyInMyLibrary && (
-            <p className="text-sm text-muted-foreground">
-              This book is already in your active library, so it cannot be added to wants.
-            </p>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
-            <Textarea
-              id="notes"
-              placeholder="e.g. Looking for any edition in good condition, preferably hardcover"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              type="submit"
-              disabled={
-                createWant.isPending ||
-                createBook.isPending ||
-                createEdition.isPending ||
-                createEditionCoverPresign.isPending ||
-                activeOwnedBooksLoading ||
-                (!!book && alreadyInMyLibrary) ||
-                (!book && !showManualForm)
-              }
-            >
-              {createWant.isPending ||
-              createBook.isPending ||
-              createEdition.isPending ||
-              createEditionCoverPresign.isPending
-                ? "Posting..."
-                : "Post Want"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/my-wants")}
-            >
-              Cancel
-            </Button>
-          </div>
-
-          {createWant.isError && (
-            <p className="text-sm text-destructive">
-              {createWant.error.message}
-            </p>
-          )}
-          {createBook.isError && (
-            <p className="text-sm text-destructive">
-              {createBook.error instanceof Error
-                ? createBook.error.message
-                : "Failed to create book entry."}
-            </p>
-          )}
-          {createEdition.isError && (
-            <p className="text-sm text-destructive">
-              {createEdition.error instanceof Error
-                ? createEdition.error.message
-                : "Failed to create edition."}
-            </p>
-          )}
-          {createEditionCoverPresign.isError && (
-            <p className="text-sm text-destructive">
-              {createEditionCoverPresign.error instanceof Error
-                ? createEditionCoverPresign.error.message
-                : "Failed to prepare cover image upload."}
-            </p>
-          )}
-          {manualError && (
-            <p className="text-sm text-destructive">{manualError}</p>
-          )}
-        </form>
-      )}
+      {successMessage && <p className="text-sm text-emerald-700">{successMessage}</p>}
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
     </div>
   );
 }

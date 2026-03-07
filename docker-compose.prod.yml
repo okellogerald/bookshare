@@ -124,6 +124,13 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET_PROD:-bookshare-media-prod}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
       CORS_ORIGIN: ${CORS_ORIGIN}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO}
     depends_on:
       postgres:
         condition: service_healthy

@@ -2,7 +2,12 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PgWantWithBook } from "@/shared/api";
-import type { CreateWantBody, WantResponse } from "@/shared/api";
+import type {
+  CreateWantBody,
+  UpdateWantBody,
+  WantResponse,
+  WantSearchResult,
+} from "@/shared/api";
 import { nestjsFetch } from "./fetch";
 
 // ─── Queries ────────────────────────────────────────────────
@@ -26,8 +31,22 @@ export function useMyWants() {
   });
 }
 
-// Re-export for the add want page (ISBN → book lookup)
-export { useEditionByIsbn } from "./my-library";
+async function fetchWantSearchResults(query: string): Promise<WantSearchResult[]> {
+  const response = await fetch(
+    `/api/nestjs/wants/search?q=${encodeURIComponent(query.trim())}`
+  );
+  if (!response.ok) throw new Error("Failed to search books for wants");
+  return response.json();
+}
+
+export function useWantSearchResults(query: string) {
+  const normalized = query.trim();
+  return useQuery({
+    queryKey: ["want-search-results", normalized],
+    queryFn: () => fetchWantSearchResults(normalized),
+    enabled: normalized.length >= 2,
+  });
+}
 
 // ─── Mutations ──────────────────────────────────────────────
 
@@ -57,15 +76,30 @@ export function useConfirmWant() {
   });
 }
 
-export function useDeleteWant() {
+export function useUpdateWant() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      nestjsFetch<WantResponse>(`wants/${id}`, "DELETE"),
+    mutationFn: ({ id, body }: { id: string; body: UpdateWantBody }) =>
+      nestjsFetch<WantResponse>(`wants/${id}`, "PATCH", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-wants"] });
       queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
       queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
+      queryClient.invalidateQueries({ queryKey: ["want"] });
+    },
+  });
+}
+
+export function useDeleteWant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      nestjsFetch<{ deleted: boolean }>(`wants/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
+      queryClient.invalidateQueries({ queryKey: ["want"] });
     },
   });
 }

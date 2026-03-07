@@ -49,6 +49,7 @@ export {
   eventsContract,
   categoriesContract,
   wantsContract,
+  submissionsContract,
   profilesContract,
   uploadContract,
 } from "./contracts";
@@ -91,7 +92,13 @@ export type {
   CategoryResponse,
   // Wants
   CreateWantBody,
+  UpdateWantBody,
+  WantSearchResult,
   WantResponse,
+  // Submissions
+  CreateCopySubmissionBody,
+  CreateMissingWantSubmissionBody,
+  SubmissionResponse,
   ProfileResponse,
   UpdateProfileBody,
   UpdateProfileIdentityBody,

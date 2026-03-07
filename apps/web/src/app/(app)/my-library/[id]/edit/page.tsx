@@ -115,7 +115,6 @@ export default function EditCopyPage() {
   // Copy fields
   const [condition, setCondition] = useState("");
   const [shareType, setShareType] = useState("");
-  const [contactNote, setContactNote] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -137,7 +136,6 @@ export default function EditCopyPage() {
     if (copy) {
       setCondition(copy.condition ?? "good");
       setShareType(copy.share_type ?? "");
-      setContactNote(copy.contact_note ?? "");
       setLocation(copy.location ?? "");
       setNotes(copy.notes ?? "");
 
@@ -364,7 +362,6 @@ export default function EditCopyPage() {
         body: {
           condition: condition || undefined,
           shareType: shareType || undefined,
-          contactNote: contactNote || undefined,
           location: location || undefined,
           notes: notes || undefined,
         },
@@ -763,15 +760,6 @@ export default function EditCopyPage() {
                 onChange={(e) => setLocation(e.target.value)}
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Contact Note</Label>
-            <Input
-              placeholder="How can others reach you about this book?"
-              value={contactNote}
-              onChange={(e) => setContactNote(e.target.value)}
-            />
           </div>
 
           <div className="space-y-2">

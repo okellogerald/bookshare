@@ -133,7 +133,7 @@ export default function MyWantsPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
                                 <Link href={`/my-wants/${want.id}/edit`}>
-                                  Edit Book Details
+                                  Edit Want
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem
@@ -193,7 +193,7 @@ export default function MyWantsPage() {
                       <TableCell>
                         <Link href={`/my-wants/${want.id}/edit`}>
                           <Button variant="ghost" size="sm">
-                            Edit Book Details
+                            Edit Want
                           </Button>
                         </Link>
                       </TableCell>

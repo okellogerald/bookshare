@@ -1,0 +1,26 @@
+{
+  "name": "@booktrack/importer",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/cli.ts",
+  "types": "./src/cli.ts",
+  "scripts": {
+    "import:validate": "bun run src/cli.ts validate",
+    "import:commit": "bun run src/cli.ts commit",
+    "import:report": "bun run src/cli.ts report",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@booktrack/db": "workspace:*",
+    "@booktrack/shared": "workspace:*",
+    "csv-parse": "^5.6.0",
+    "drizzle-orm": "^0.38.0",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "bun-types": "^1.3.8",
+    "typescript": "^5.7.0"
+  }
+}

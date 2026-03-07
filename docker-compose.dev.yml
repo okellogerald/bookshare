@@ -196,6 +196,13 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-}
     ports:
       - "3333:3333"
     volumes:

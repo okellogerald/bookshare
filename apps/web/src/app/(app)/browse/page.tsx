@@ -332,9 +332,6 @@ export default function BrowsePage() {
                 {selectedListing.owner_username ?? "member"}
               </p>
             )}
-            {selectedListing.contact_note && (
-              <p className="text-sm">{selectedListing.contact_note}</p>
-            )}
           </div>
         )}
       </BookDetailsDialog>

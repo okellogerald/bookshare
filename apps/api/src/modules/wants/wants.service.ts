@@ -5,10 +5,46 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, copies, editions, wants } from "@booktrack/db";
-import { eq, and, inArray } from "drizzle-orm";
+import {
+  type Database,
+  authors,
+  bookAuthors,
+  books,
+  copies,
+  editions,
+  wants,
+} from "@booktrack/db";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
-import { CreateWantDto } from "./dto";
+import { CreateWantDto, UpdateWantDto } from "./dto";
+
+const activeCopyStatuses = [
+  "available",
+  "reserved",
+  "lent",
+  "rented",
+  "checked_out",
+] as const;
+
+interface WantSearchResult {
+  bookId: string;
+  title: string;
+  subtitle: string | null;
+  authors: Array<{ id: string; name: string }>;
+  primaryIsbn: string | null;
+  hasEdition: boolean;
+  hasCommunityCopy: boolean;
+}
 
 @Injectable()
 export class WantsService {
@@ -30,6 +66,120 @@ export class WantsService {
 
     if (!want) throw new NotFoundException(`Want with ID ${id} not found`);
     return want;
+  }
+
+  async search(query: string): Promise<WantSearchResult[]> {
+    const normalized = query.trim();
+    if (normalized.length < 2) return [];
+    const term = `%${normalized}%`;
+
+    const matchedBooks = await this.db
+      .select({
+        id: books.id,
+        title: books.title,
+        subtitle: books.subtitle,
+      })
+      .from(books)
+      .where(
+        or(
+          ilike(books.title, term),
+          ilike(books.subtitle, term),
+          exists(
+            this.db
+              .select({ id: bookAuthors.bookId })
+              .from(bookAuthors)
+              .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+              .where(
+                and(eq(bookAuthors.bookId, books.id), ilike(authors.name, term))
+              )
+          ),
+          exists(
+            this.db
+              .select({ id: editions.bookId })
+              .from(editions)
+              .where(
+                and(eq(editions.bookId, books.id), ilike(editions.isbn, term))
+              )
+          )
+        )
+      )
+      .orderBy(asc(books.title), asc(books.subtitle))
+      .limit(30);
+
+    if (matchedBooks.length === 0) return [];
+    const bookIds = matchedBooks.map((book) => book.id);
+
+    const authorRows = await this.db
+      .select({
+        bookId: bookAuthors.bookId,
+        authorId: authors.id,
+        authorName: authors.name,
+      })
+      .from(bookAuthors)
+      .innerJoin(authors, eq(bookAuthors.authorId, authors.id))
+      .where(inArray(bookAuthors.bookId, bookIds))
+      .orderBy(asc(authors.name));
+
+    const editionSummaryRows = await this.db
+      .select({
+        bookId: editions.bookId,
+        editionCount: count(editions.id),
+        primaryIsbn: sql<string | null>`MIN(${editions.isbn})`,
+      })
+      .from(editions)
+      .where(inArray(editions.bookId, bookIds))
+      .groupBy(editions.bookId);
+
+    const copySummaryRows = await this.db
+      .select({
+        bookId: editions.bookId,
+        copyCount: count(copies.id),
+      })
+      .from(copies)
+      .innerJoin(editions, eq(copies.editionId, editions.id))
+      .where(
+        and(
+          inArray(editions.bookId, bookIds),
+          inArray(copies.status, [...activeCopyStatuses] as any[])
+        )
+      )
+      .groupBy(editions.bookId);
+
+    const authorsByBookId = new Map<string, Array<{ id: string; name: string }>>();
+    for (const row of authorRows) {
+      const existing = authorsByBookId.get(row.bookId) ?? [];
+      existing.push({ id: row.authorId, name: row.authorName });
+      authorsByBookId.set(row.bookId, existing);
+    }
+
+    const editionsByBookId = new Map<
+      string,
+      { editionCount: number; primaryIsbn: string | null }
+    >();
+    for (const row of editionSummaryRows) {
+      editionsByBookId.set(row.bookId, {
+        editionCount: Number(row.editionCount),
+        primaryIsbn: row.primaryIsbn,
+      });
+    }
+
+    const copiesByBookId = new Map<string, number>();
+    for (const row of copySummaryRows) {
+      copiesByBookId.set(row.bookId, Number(row.copyCount));
+    }
+
+    return matchedBooks.map((book) => {
+      const editionSummary = editionsByBookId.get(book.id);
+      return {
+        bookId: book.id,
+        title: book.title,
+        subtitle: book.subtitle,
+        authors: authorsByBookId.get(book.id) ?? [],
+        primaryIsbn: editionSummary?.primaryIsbn ?? null,
+        hasEdition: (editionSummary?.editionCount ?? 0) > 0,
+        hasCommunityCopy: (copiesByBookId.get(book.id) ?? 0) > 0,
+      };
+    });
   }
 
   async create(dto: CreateWantDto, userId: string) {
@@ -96,13 +246,26 @@ export class WantsService {
     return updated;
   }
 
+  async update(id: string, dto: UpdateWantDto, userId: string) {
+    const existing = await this.findOne(id, userId);
+    if (dto.notes === undefined) return existing;
+
+    await this.db
+      .update(wants)
+      .set({ notes: dto.notes })
+      .where(and(eq(wants.id, id), eq(wants.userId, userId)));
+
+    return this.findOne(id, userId);
+  }
+
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);
-    const [updated] = await this.db
-      .update(wants)
-      .set({ status: "cancelled" })
+    const [deleted] = await this.db
+      .delete(wants)
       .where(and(eq(wants.id, id), eq(wants.userId, userId)))
-      .returning();
-    return updated;
+      .returning({ id: wants.id });
+
+    if (!deleted) throw new NotFoundException(`Want with ID ${id} not found`);
+    return { deleted: true };
   }
 }

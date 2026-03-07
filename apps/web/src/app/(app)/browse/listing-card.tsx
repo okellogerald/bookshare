@@ -85,10 +85,6 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
             </p>
           )}
 
-          {listing.contact_note && (
-            <p className="text-sm">{listing.contact_note}</p>
-          )}
-
           <p className="text-xs text-muted-foreground">
             Listed by @{listing.owner_username ?? "member"}
             {listing.owner_display_name

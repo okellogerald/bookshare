@@ -213,9 +213,6 @@ export default function BookDetailPage() {
                         {listing.owner_username ?? "member"}
                       </p>
                     )}
-                    {listing.contact_note && (
-                      <p className="text-sm">{listing.contact_note}</p>
-                    )}
                     {listing.location && (
                       <p className="text-xs text-muted-foreground">
                         Location: {listing.location}

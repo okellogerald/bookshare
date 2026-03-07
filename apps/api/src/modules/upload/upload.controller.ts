@@ -27,6 +27,14 @@ export class UploadController {
     return this.uploadService.createCopyImagePresign(dto, userId);
   }
 
+  @Post("submission-copy-image-presign")
+  createSubmissionCopyImagePresign(
+    @Body() dto: CreateCopyImagePresignDto,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.uploadService.createSubmissionCopyImagePresign(dto, userId);
+  }
+
   @Post("edition-cover-presign")
   createEditionCoverPresign(
     @Body() dto: CreateEditionCoverPresignDto,

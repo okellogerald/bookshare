@@ -46,6 +46,7 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
 - **Copy lifecycle** -- status field + `CopyEvent` audit log
 - **Browse** -- a cross-user PostgREST view (`browse_listings`) shows all available copies
 - **Wants** -- users post books they're looking for; others browse the wanted board
+- **Submission intake** -- `Add Copy` and missing-book wants submit to admin email for manual processing in v1
 
 ## Prerequisites
 
@@ -59,6 +60,10 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    ```sh
    cp .env.example .env
    ```
+
+   Configure SMTP + submissions inbox variables in `.env` before using add-copy or missing-want submissions:
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`
+   - `SMTP_FROM`, `SUBMISSIONS_EMAIL_TO`
 
 2. **Install dependencies**
    ```sh
@@ -99,6 +104,13 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    ```
 
 The app is available at `http://localhost:3334`.
+
+## Submission Behavior (V1)
+
+- `My Library → Add Copy` sends a copy submission email (with MinIO image links) to admin and a confirmation email to the submitting user.
+- `My Wants → Add Want` first searches existing catalog books; selecting a match creates a normal want.
+- If no match is found, `Add Want` sends a missing-book request email to admin (including user ID) and a confirmation email to the user.
+- These submission flows do not create pending database records; admin performs manual entry.
 
 ## Makefile Targets
 

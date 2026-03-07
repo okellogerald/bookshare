@@ -443,6 +443,20 @@ export interface CreateWantBody {
   notes?: string;
 }
 
+export interface UpdateWantBody {
+  notes?: string;
+}
+
+export interface WantSearchResult {
+  bookId: string;
+  title: string;
+  subtitle: string | null;
+  authors: Array<{ id: string; name: string }>;
+  primaryIsbn: string | null;
+  hasEdition: boolean;
+  hasCommunityCopy: boolean;
+}
+
 export interface WantResponse {
   id: string;
   userId: string;
@@ -458,6 +472,11 @@ export interface WantResponse {
 }
 
 export const wantsContract = c.router({
+  search: {
+    method: "GET",
+    path: "/api/nestjs/wants/search",
+    responses: { 200: c.type<WantSearchResult[]>() },
+  },
   create: {
     method: "POST",
     path: "/api/nestjs/wants",
@@ -470,13 +489,44 @@ export const wantsContract = c.router({
     body: null,
     responses: { 200: c.type<WantResponse>() },
   },
+  update: {
+    method: "PATCH",
+    path: "/api/nestjs/wants/:id",
+    body: c.type<UpdateWantBody>(),
+    responses: { 200: c.type<WantResponse>() },
+  },
   remove: {
     method: "DELETE",
     path: "/api/nestjs/wants/:id",
     body: null,
-    responses: { 200: c.type<WantResponse>() },
+    responses: { 200: c.type<{ deleted: boolean }>() },
   },
 });
+
+export interface CreateCopySubmissionBody {
+  title: string;
+  authors: string[];
+  isbn?: string;
+  language?: string;
+  bookDescriptionNotes?: string;
+  condition?: string;
+  shareType?: string;
+  notes?: string;
+  imageUrls?: string[];
+}
+
+export interface CreateMissingWantSubmissionBody {
+  title: string;
+  authors: string[];
+  isbn?: string;
+  language?: string;
+  bookDescriptionNotes?: string;
+  wantNotes?: string;
+}
+
+export interface SubmissionResponse {
+  submitted: true;
+}
 
 export interface ProfileResponse {
   userId: string;
@@ -585,6 +635,12 @@ export const uploadContract = c.router({
     body: c.type<CopyImagePresignBody>(),
     responses: { 201: c.type<CopyImagePresignResponse>() },
   },
+  createSubmissionCopyImagePresign: {
+    method: "POST",
+    path: "/api/nestjs/upload/submission-copy-image-presign",
+    body: c.type<CopyImagePresignBody>(),
+    responses: { 201: c.type<CopyImagePresignResponse>() },
+  },
   createEditionCoverPresign: {
     method: "POST",
     path: "/api/nestjs/upload/edition-cover-presign",
@@ -596,6 +652,21 @@ export const uploadContract = c.router({
     path: "/api/nestjs/upload/profile-avatar-presign",
     body: c.type<ProfileAvatarPresignBody>(),
     responses: { 201: c.type<ProfileAvatarPresignResponse>() },
+  },
+});
+
+export const submissionsContract = c.router({
+  submitCopy: {
+    method: "POST",
+    path: "/api/nestjs/submissions/copy",
+    body: c.type<CreateCopySubmissionBody>(),
+    responses: { 201: c.type<SubmissionResponse>() },
+  },
+  submitMissingWant: {
+    method: "POST",
+    path: "/api/nestjs/submissions/want-missing",
+    body: c.type<CreateMissingWantSubmissionBody>(),
+    responses: { 201: c.type<SubmissionResponse>() },
   },
 });
 
@@ -611,6 +682,7 @@ export const apiContract = c.router({
   events: eventsContract,
   categories: categoriesContract,
   wants: wantsContract,
+  submissions: submissionsContract,
   profiles: profilesContract,
   upload: uploadContract,
 });

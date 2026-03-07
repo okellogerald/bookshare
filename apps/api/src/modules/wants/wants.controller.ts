@@ -6,10 +6,11 @@ import {
   Delete,
   Body,
   Param,
+  Query,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { WantsService } from "./wants.service";
-import { CreateWantDto } from "./dto";
+import { CreateWantDto, UpdateWantDto } from "./dto";
 import { CurrentUser } from "../../common/decorators";
 
 @ApiTags("Wants")
@@ -21,6 +22,23 @@ export class WantsController {
   @Get()
   findAll(@CurrentUser("id") userId: string) {
     return this.wantsService.findAll(userId);
+  }
+
+  @Get("search")
+  search(
+    @Query("q") query: string
+  ): Promise<
+    Array<{
+      bookId: string;
+      title: string;
+      subtitle: string | null;
+      authors: Array<{ id: string; name: string }>;
+      primaryIsbn: string | null;
+      hasEdition: boolean;
+      hasCommunityCopy: boolean;
+    }>
+  > {
+    return this.wantsService.search(query ?? "");
   }
 
   @Get(":id")
@@ -36,6 +54,15 @@ export class WantsController {
   @Patch(":id/confirm")
   confirm(@Param("id") id: string, @CurrentUser("id") userId: string) {
     return this.wantsService.confirm(id, userId);
+  }
+
+  @Patch(":id")
+  update(
+    @Param("id") id: string,
+    @Body() dto: UpdateWantDto,
+    @CurrentUser("id") userId: string
+  ) {
+    return this.wantsService.update(id, dto, userId);
   }
 
   @Delete(":id")

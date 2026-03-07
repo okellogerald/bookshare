@@ -57,6 +57,13 @@ export class UploadService {
     return this.createImagePresign("copies", dto, userId);
   }
 
+  async createSubmissionCopyImagePresign(
+    dto: CreateCopyImagePresignDto,
+    userId: string
+  ) {
+    return this.createImagePresign("submissions/copy-requests", dto, userId);
+  }
+
   async createEditionCoverPresign(
     dto: CreateEditionCoverPresignDto,
     userId: string
