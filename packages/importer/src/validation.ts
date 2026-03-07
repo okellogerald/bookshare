@@ -510,28 +510,9 @@ export async function validateParsedInput(
   const emailIdentifiers = [...userIdentifiersNeeded]
     .filter((value) => isEmailIdentifier(value))
     .map(normalizeEmail);
-  const usernameIdentifiers = [...userIdentifiersNeeded].filter(
-    (value) => !isEmailIdentifier(value)
-  );
 
-  let userRows: Array<{ userId: string; username: string; email: string | null }> = [];
-  if (emailIdentifiers.length > 0 || usernameIdentifiers.length > 0) {
-    const whereClause =
-      emailIdentifiers.length > 0 && usernameIdentifiers.length > 0
-        ? or(
-            and(
-              isNotNull(memberProfiles.email),
-              inArray(memberProfiles.email, emailIdentifiers)
-            ),
-            inArray(memberProfiles.username, usernameIdentifiers)
-          )
-        : emailIdentifiers.length > 0
-          ? and(
-              isNotNull(memberProfiles.email),
-              inArray(memberProfiles.email, emailIdentifiers)
-            )
-          : inArray(memberProfiles.username, usernameIdentifiers);
-
+  let userRows: Array<{ userId: string; username: string; email: string }> = [];
+  if (emailIdentifiers.length > 0) {
     userRows = await db
       .select({
         userId: memberProfiles.userId,
@@ -539,29 +520,19 @@ export async function validateParsedInput(
         email: memberProfiles.email,
       })
       .from(memberProfiles)
-      .where(whereClause);
+      .where(inArray(memberProfiles.email, emailIdentifiers));
   }
 
   const usersByEmail = new Map<string, { userId: string; email: string }>();
-  const usersByUsername = new Map<string, { userId: string; username: string }>();
   for (const row of userRows) {
-    usersByUsername.set(row.username, {
+    usersByEmail.set(normalizeEmail(row.email), {
       userId: row.userId,
-      username: row.username,
+      email: row.email,
     });
-    if (row.email) {
-      usersByEmail.set(normalizeEmail(row.email), {
-        userId: row.userId,
-        email: row.email,
-      });
-    }
   }
 
   function resolveUser(identifier: string) {
-    if (isEmailIdentifier(identifier)) {
-      return usersByEmail.get(normalizeEmail(identifier)) ?? null;
-    }
-    return usersByUsername.get(identifier) ?? null;
+    return usersByEmail.get(normalizeEmail(identifier)) ?? null;
   }
 
   const wantsByUserEdition = new Set<string>();

@@ -382,3 +382,7 @@ FROM book_quotes bq
 JOIN editions e ON e.id = bq.edition_id;
 
 GRANT SELECT ON book_quotes_with_book TO postgrest_auth;
+
+-- Refresh PostgREST schema cache so newly created/updated views are exposed
+-- immediately when this script is applied while PostgREST is already running.
+NOTIFY pgrst, 'reload schema';
