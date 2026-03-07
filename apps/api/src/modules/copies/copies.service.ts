@@ -76,11 +76,6 @@ export class CopiesService {
           editionId: dto.editionId,
           condition: dto.condition as any,
           status: (dto.status as any) ?? "available",
-          acquisitionType: dto.acquisitionType as any,
-          acquisitionDate: dto.acquisitionDate
-            ? new Date(dto.acquisitionDate)
-            : null,
-          location: dto.location,
           notes: dto.notes,
           shareType: dto.shareType as any,
           contactNote: dto.contactNote,
@@ -98,7 +93,7 @@ export class CopiesService {
         performedBy: userId,
         amount: dto.acquisitionAmount,
         currency: dto.acquisitionCurrency,
-        notes: `Copy acquired via ${dto.acquisitionType}`,
+        notes: "Copy added to library",
       });
 
       return copy.id;

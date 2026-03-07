@@ -100,7 +100,9 @@ CREATE POLICY member_profiles_anon_deny ON member_profiles
 DROP POLICY IF EXISTS member_profiles_auth_select ON member_profiles;
 CREATE POLICY member_profiles_auth_select ON member_profiles
   FOR SELECT TO postgrest_auth
-  USING (true);
+  -- Hide bootstrap/admin account from community-facing reads.
+  -- Prefer the dedicated email column and fall back to username for legacy rows.
+  USING (lower(coalesce(email, username, '')) <> 'admin@bookshare.local');
 
 -- ─── RLS Policies: copy_images ─────────────────────────────
 
@@ -220,7 +222,6 @@ SELECT
   c.share_type,
   c.contact_note,
   c.last_confirmed_at,
-  c.location,
   c.created_at,
   c.updated_at,
   e.isbn,

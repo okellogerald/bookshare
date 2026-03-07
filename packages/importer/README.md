@@ -31,7 +31,7 @@ The ZIP must contain exactly these files:
 `source_ref,book_ref,isbn,format,publisher,published_year,page_count,verification_override_note`
 
 ### `copies.csv`
-`source_ref,edition_isbn,username,condition,acquisition_type,acquisition_date,location,notes,share_type,contact_note,status`
+`source_ref,edition_isbn,username,condition,notes,share_type,contact_note,status`
 
 ### `wants.csv`
 `source_ref,edition_isbn,username,notes`

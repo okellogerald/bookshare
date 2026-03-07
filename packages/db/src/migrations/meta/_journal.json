@@ -22,6 +22,20 @@
       "when": 1772865999810,
       "tag": "0002_material_mystique",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772871038491,
+      "tag": "0003_stiff_shooting_star",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772872030000,
+      "tag": "0004_high_hammerhead",
+      "breakpoints": true
     }
   ]
 }

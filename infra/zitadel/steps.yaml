@@ -3,22 +3,19 @@
 #
 # After Zitadel starts, you will need to:
 # 1. Log in to the Zitadel console at http://localhost:8085
-# 2. Create a Project called "BookTrack"
-# 3. Create two Applications:
-#    - "BookTrack Web" (Web app, PKCE/Authorization Code, redirect: http://localhost:3334/api/auth/callback)
-#    - "BookTrack API" (API app, JWT profile)
-# 4. Define Project Roles: owner, manager, staff, viewer
-# 5. Create Organizations for your bookstores/booksellers
+# 2. Create a Project called "Bookshare"
+# 3. Create one Application:
+#    - "Bookshare Web" (Web app, PKCE/Authorization Code, redirect: http://localhost:3334/api/auth/callback)
 #
 # The steps below configure the default admin user.
 
 FirstInstance:
   Org:
     Human:
-      UserName: "admin@booktrack.local"
+      UserName: "admin@bookshare.local"
       Profile:
-        FirstName: "BookTrack"
+        FirstName: "Bookshare"
         LastName: "Admin"
-      Password: "BookTrack-Admin-2024!"
-  InstanceName: "BookTrack"
+      Password: "Bookshare-Admin-2024!"
+  InstanceName: "Bookshare"
   DefaultLanguage: "en"

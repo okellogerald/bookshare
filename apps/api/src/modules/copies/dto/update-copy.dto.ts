@@ -9,11 +9,6 @@ export class UpdateCopyDto {
   @IsEnum(["new", "like_new", "good", "fair", "poor"])
   condition?: string;
 
-  @ApiPropertyOptional({ maxLength: 500 })
-  @IsOptional()
-  @IsString()
-  location?: string;
-
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -1,7 +1,7 @@
 FROM oven/bun:1 AS base
 WORKDIR /app
 
-ARG III_VERSION=v0.7.0
+ARG III_VERSION=v0.8.0
 ARG TARGETARCH
 
 # Install iii engine binary used by Motia runtime.
@@ -23,6 +23,7 @@ RUN set -eux; \
 COPY package.json bun.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/db/package.json ./packages/db/
+COPY packages/importer/package.json ./packages/importer/
 COPY apps/workflows/package.json ./apps/workflows/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/

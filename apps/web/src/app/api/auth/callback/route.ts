@@ -3,6 +3,14 @@ import * as client from "openid-client";
 import { getOIDCConfig } from "@/features/auth/lib/oidc";
 import { setSession } from "@/features/auth/lib/session";
 
+function sanitizeReturnTo(value: string | null): string {
+  if (!value) return "/browse";
+  if (!value.startsWith("/")) return "/browse";
+  if (value.startsWith("//")) return "/browse";
+  if (value.startsWith("/api/auth")) return "/browse";
+  return value;
+}
+
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
 
@@ -43,10 +51,15 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Clean up OIDC cookies and redirect to browse
-    const response = NextResponse.redirect(new URL("/browse", request.url));
+    const returnTo = sanitizeReturnTo(
+      request.cookies.get("oidc_return_to")?.value ?? null
+    );
+
+    // Clean up OIDC cookies and redirect back to requested route
+    const response = NextResponse.redirect(new URL(returnTo, request.url));
     response.cookies.delete("oidc_code_verifier");
     response.cookies.delete("oidc_state");
+    response.cookies.delete("oidc_return_to");
 
     return response;
   } catch (error) {

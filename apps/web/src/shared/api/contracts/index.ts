@@ -118,9 +118,6 @@ export interface CreateCopyBody {
   editionId: string;
   condition: string;
   status?: string;
-  acquisitionType: string;
-  acquisitionDate?: string;
-  location?: string;
   notes?: string;
   acquisitionAmount?: string;
   acquisitionCurrency?: string;
@@ -130,7 +127,6 @@ export interface CreateCopyBody {
 
 export interface UpdateCopyBody {
   condition?: string;
-  location?: string;
   notes?: string;
   shareType?: string;
   contactNote?: string;
@@ -169,9 +165,6 @@ export interface CopyResponse {
   editionId: string;
   condition: string;
   status: string;
-  acquisitionType: string;
-  acquisitionDate: string | null;
-  location: string | null;
   notes: string | null;
   shareType: string | null;
   contactNote: string | null;

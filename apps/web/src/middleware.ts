@@ -2,17 +2,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * All routes except landing (/) and auth routes require authentication.
- * BookShare is a closed platform.
+ * Auth-gated app routes. Keep this aligned with pages under `app/(app)`.
  */
-const protectedPrefixes = [
+const protectedPagePrefixes = [
   "/browse",
   "/wanted",
   "/community",
   "/my-library",
   "/my-wants",
-  "/api/postgrest",
-  "/api/nestjs",
+  "/profile",
+  "/books",
 ];
 
 const authPaths = ["/api/auth/login", "/api/auth/callback", "/api/auth/logout"];
@@ -26,7 +25,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Check if this is a protected route
-  const isProtected = protectedPrefixes.some((prefix) =>
+  const isProtected = protectedPagePrefixes.some((prefix) =>
     pathname.startsWith(prefix)
   );
 
@@ -36,24 +35,27 @@ export function middleware(request: NextRequest) {
 
   // Protected route — require session
   const session = request.cookies.get("bookshare_session");
+  const loginUrl = new URL("/api/auth/login", request.url);
+  loginUrl.searchParams.set(
+    "returnTo",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`
+  );
 
   if (!session?.value) {
-    return NextResponse.redirect(new URL("/api/auth/login", request.url));
+    return NextResponse.redirect(loginUrl);
   }
 
   try {
     const sessionData = JSON.parse(session.value);
 
     if (Date.now() > sessionData.expiresAt * 1000) {
-      const response = NextResponse.redirect(
-        new URL("/api/auth/login", request.url)
-      );
+      const response = NextResponse.redirect(loginUrl);
       response.cookies.delete("bookshare_session");
       response.cookies.delete("bookshare_token");
       return response;
     }
   } catch {
-    return NextResponse.redirect(new URL("/api/auth/login", request.url));
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

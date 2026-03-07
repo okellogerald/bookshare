@@ -14,14 +14,12 @@ import { copyImages } from "./copy-images";
 import {
   copyConditionEnum,
   copyStatusEnum,
-  acquisitionTypeEnum,
   shareTypeEnum,
 } from "./enums";
 
 export {
   copyConditionEnum,
   copyStatusEnum,
-  acquisitionTypeEnum,
   shareTypeEnum,
 };
 
@@ -37,9 +35,6 @@ export const copies = pgTable("copies", {
     .references(() => editions.id, { onDelete: "restrict" }),
   condition: copyConditionEnum("condition").notNull(),
   status: copyStatusEnum("status").notNull().default("available"),
-  acquisitionType: acquisitionTypeEnum("acquisition_type").notNull(),
-  acquisitionDate: timestamp("acquisition_date", { withTimezone: true }),
-  location: varchar("location", { length: 500 }),
   notes: text("notes"),
   shareType: shareTypeEnum("share_type"),
   contactNote: text("contact_note"),

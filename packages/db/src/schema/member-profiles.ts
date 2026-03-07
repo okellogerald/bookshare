@@ -6,6 +6,7 @@ import { wants } from "./wants";
 export const memberProfiles = pgTable("member_profiles", {
   userId: varchar("user_id", { length: 255 }).primaryKey(),
   username: varchar("username", { length: 255 }).notNull().unique(),
+  email: varchar("email", { length: 320 }),
   displayName: varchar("display_name", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),

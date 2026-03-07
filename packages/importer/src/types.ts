@@ -1,10 +1,4 @@
-import type {
-  AcquisitionType,
-  BookFormat,
-  CopyCondition,
-  CopyStatus,
-  ShareType,
-} from "@booktrack/shared";
+import type { BookFormat, CopyCondition, CopyStatus, ShareType } from "@booktrack/shared";
 
 export const CSV_FILES = [
   "books.csv",
@@ -48,9 +42,6 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "edition_isbn",
     "username",
     "condition",
-    "acquisition_type",
-    "acquisition_date",
-    "location",
     "notes",
     "share_type",
     "contact_note",
@@ -114,9 +105,6 @@ export interface NormalizedCopyRow {
   username: string;
   userId: string;
   condition: CopyCondition;
-  acquisitionType: AcquisitionType;
-  acquisitionDate: string | null;
-  location: string | null;
   notes: string | null;
   shareType: ShareType | null;
   contactNote: string | null;

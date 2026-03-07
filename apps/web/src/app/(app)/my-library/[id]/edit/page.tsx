@@ -115,7 +115,6 @@ export default function EditCopyPage() {
   // Copy fields
   const [condition, setCondition] = useState("");
   const [shareType, setShareType] = useState("");
-  const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -136,7 +135,6 @@ export default function EditCopyPage() {
     if (copy) {
       setCondition(copy.condition ?? "good");
       setShareType(copy.share_type ?? "");
-      setLocation(copy.location ?? "");
       setNotes(copy.notes ?? "");
 
       // Edition fields
@@ -362,7 +360,6 @@ export default function EditCopyPage() {
         body: {
           condition: condition || undefined,
           shareType: shareType || undefined,
-          location: location || undefined,
           notes: notes || undefined,
         },
       });
@@ -752,14 +749,6 @@ export default function EditCopyPage() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <Input
-                placeholder="e.g. Downtown, Shelf 3..."
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-            </div>
           </div>
 
           <div className="space-y-2">

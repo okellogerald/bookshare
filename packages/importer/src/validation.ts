@@ -6,7 +6,6 @@ import {
   wants,
 } from "@booktrack/db";
 import {
-  AcquisitionType,
   BookFormat,
   CopyCondition,
   CopyStatus,
@@ -34,7 +33,6 @@ import {
 
 const BOOK_FORMAT_VALUES = new Set<string>(Object.values(BookFormat));
 const COPY_CONDITION_VALUES = new Set<string>(Object.values(CopyCondition));
-const ACQUISITION_TYPE_VALUES = new Set<string>(Object.values(AcquisitionType));
 const SHARE_TYPE_VALUES = new Set<string>(Object.values(ShareType));
 const COPY_STATUS_VALUES = new Set<string>(Object.values(CopyStatus));
 
@@ -104,15 +102,6 @@ function parseInteger(
   if (context.max !== undefined && parsed > context.max) return Number.NaN;
 
   return parsed;
-}
-
-function parseIsoDate(value: string | undefined): string | null {
-  const trimmed = compactString(value);
-  if (!trimmed) return null;
-
-  const date = new Date(trimmed);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
 }
 
 async function existingRefsByEntity(
@@ -615,19 +604,6 @@ export async function validateParsedInput(
       });
     }
 
-    const acquisitionType = compactString(row.acquisition_type);
-    if (!ACQUISITION_TYPE_VALUES.has(acquisitionType)) {
-      valid = false;
-      addIssue(summary, {
-        file: "copies.csv",
-        rowNumber,
-        column: "acquisition_type",
-        sourceRef: sourceRef || undefined,
-        code: "invalid_acquisition_type",
-        message: `acquisition_type must be one of: ${[...ACQUISITION_TYPE_VALUES].join(", ")}`,
-      });
-    }
-
     const shareType = compactString(row.share_type);
     if (shareType && !SHARE_TYPE_VALUES.has(shareType)) {
       valid = false;
@@ -654,21 +630,6 @@ export async function validateParsedInput(
       });
     }
 
-    const acquisitionDateRaw = compactString(row.acquisition_date);
-    const acquisitionDate =
-      acquisitionDateRaw.length === 0 ? null : parseIsoDate(acquisitionDateRaw);
-    if (acquisitionDateRaw && acquisitionDate === null) {
-      valid = false;
-      addIssue(summary, {
-        file: "copies.csv",
-        rowNumber,
-        column: "acquisition_date",
-        sourceRef: sourceRef || undefined,
-        code: "invalid_acquisition_date",
-        message: "acquisition_date must be parseable as a date",
-      });
-    }
-
     if (!valid || !sourceRef || !username || !normalizedIsbn) return;
 
     payloads.copies.push({
@@ -677,9 +638,6 @@ export async function validateParsedInput(
       username,
       userId: usersByUsername.get(username)!.userId,
       condition: condition as NormalizedCopyRow["condition"],
-      acquisitionType: acquisitionType as NormalizedCopyRow["acquisitionType"],
-      acquisitionDate,
-      location: optionalString(row.location),
       notes: optionalString(row.notes),
       shareType: shareType
         ? (shareType as NormalizedCopyRow["shareType"])

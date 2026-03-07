@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
-  IsDateString,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -47,22 +46,6 @@ export class CreateCopyDto {
     "damaged",
   ])
   status?: string;
-
-  @ApiProperty({
-    enum: ["purchased", "donated", "consigned", "other"],
-  })
-  @IsEnum(["purchased", "donated", "consigned", "other"])
-  acquisitionType!: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsDateString()
-  acquisitionDate?: string;
-
-  @ApiPropertyOptional({ maxLength: 500 })
-  @IsOptional()
-  @IsString()
-  location?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

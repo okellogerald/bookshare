@@ -1,10 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
 import { getOIDCConfig, getRedirectUri } from "@/features/auth/lib/oidc";
 
-export async function GET() {
+function sanitizeReturnTo(value: string | null): string {
+  if (!value) return "/browse";
+  if (!value.startsWith("/")) return "/browse";
+  if (value.startsWith("//")) return "/browse";
+  if (value.startsWith("/api/auth")) return "/browse";
+  return value;
+}
+
+export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
   const redirectUri = getRedirectUri();
+  const returnTo = sanitizeReturnTo(
+    request.nextUrl.searchParams.get("returnTo")
+  );
 
   const codeVerifier = client.randomPKCECodeVerifier();
   const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
@@ -47,6 +58,14 @@ export async function GET() {
   });
 
   response.cookies.set("oidc_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+
+  response.cookies.set("oidc_return_to", returnTo, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

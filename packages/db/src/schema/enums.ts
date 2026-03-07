@@ -21,13 +21,6 @@ export const copyStatusEnum = pgEnum("copy_status", [
   "damaged",
 ]);
 
-export const acquisitionTypeEnum = pgEnum("acquisition_type", [
-  "purchased",
-  "donated",
-  "consigned",
-  "other",
-]);
-
 export const shareTypeEnum = pgEnum("share_type", [
   "lend",
   "sell",

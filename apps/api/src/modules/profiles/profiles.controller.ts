@@ -12,21 +12,36 @@ export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   @Post("sync")
-  sync(@CurrentUser() user: AuthenticatedUser) {
-    return this.profilesService.sync(user);
+  sync(
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers("authorization") authorization: string | undefined,
+    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined
+  ) {
+    return this.profilesService.sync(user, authorization, zitadelAccessToken);
   }
 
   @Get("me")
-  findMe(@CurrentUser() user: AuthenticatedUser) {
-    return this.profilesService.findMe(user);
+  findMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Headers("authorization") authorization: string | undefined,
+    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined
+  ) {
+    return this.profilesService.findMe(user, authorization, zitadelAccessToken);
   }
 
   @Put("me")
   updateMe(
     @CurrentUser() user: AuthenticatedUser,
+    @Headers("authorization") authorization: string | undefined,
+    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
     @Body() dto: UpdateProfileDto
   ) {
-    return this.profilesService.updateMe(user, dto);
+    return this.profilesService.updateMe(
+      user,
+      dto,
+      authorization,
+      zitadelAccessToken
+    );
   }
 
   @Put("me/identity")

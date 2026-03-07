@@ -213,11 +213,6 @@ export default function BookDetailPage() {
                         {listing.owner_username ?? "member"}
                       </p>
                     )}
-                    {listing.location && (
-                      <p className="text-xs text-muted-foreground">
-                        Location: {listing.location}
-                      </p>
-                    )}
                   </div>
                   {listing.isbn && (
                     <p className="text-xs text-muted-foreground">

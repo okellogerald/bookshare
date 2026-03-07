@@ -45,17 +45,6 @@ export const CopyStatus = {
 
 export type CopyStatus = (typeof CopyStatus)[keyof typeof CopyStatus];
 
-// ─── Acquisition Type ────────────────────────────────────────
-export const AcquisitionType = {
-  PURCHASED: "purchased",
-  DONATED: "donated",
-  CONSIGNED: "consigned",
-  OTHER: "other",
-} as const;
-
-export type AcquisitionType =
-  (typeof AcquisitionType)[keyof typeof AcquisitionType];
-
 // ─── Copy Event Type ─────────────────────────────────────────
 export const CopyEventType = {
   ACQUIRED: "acquired",

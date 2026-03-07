@@ -315,11 +315,6 @@ export default function BrowsePage() {
               </Badge>
               <Badge variant="outline">{selectedListing.format}</Badge>
             </div>
-            {selectedListing.location && (
-              <p className="text-sm text-muted-foreground">
-                Location: {selectedListing.location}
-              </p>
-            )}
             <p className="text-sm text-muted-foreground">
               Listed by @{selectedListing.owner_username ?? "member"}
               {selectedListing.owner_display_name

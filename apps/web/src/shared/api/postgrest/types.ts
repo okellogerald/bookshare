@@ -69,9 +69,6 @@ export interface PgCopy {
   edition_id: string;
   condition: string;
   status: string;
-  acquisition_type: string;
-  acquisition_date: string | null;
-  location: string | null;
   notes: string | null;
   share_type: string | null;
   contact_note: string | null;
@@ -177,7 +174,6 @@ export interface PgBrowseListing {
   share_type: string | null;
   contact_note: string | null;
   last_confirmed_at: string | null;
-  location: string | null;
   created_at: string;
   updated_at: string;
   isbn: string | null;

@@ -2,7 +2,6 @@ import type {
   BookFormat,
   CopyCondition,
   CopyStatus,
-  AcquisitionType,
   CopyEventType,
   ShareType,
   WantStatus,
@@ -59,9 +58,6 @@ export interface Copy {
   editionId: string;
   condition: CopyCondition;
   status: CopyStatus;
-  acquisitionType: AcquisitionType;
-  acquisitionDate: Date | null;
-  location: string | null;
   notes: string | null;
   shareType: ShareType | null;
   contactNote: string | null;

@@ -99,12 +99,6 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
             </p>
           )}
 
-          {listing.location && (
-            <p className="text-xs text-muted-foreground">
-              Location: {listing.location}
-            </p>
-          )}
-
           {stale && (
             <p className="text-xs text-destructive">
               Not confirmed recently

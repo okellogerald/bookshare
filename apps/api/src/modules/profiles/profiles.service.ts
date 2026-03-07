@@ -24,7 +24,11 @@ export class ProfilesService {
     private readonly configService: ConfigService
   ) {}
 
-  async sync(user: AuthenticatedUser) {
+  async sync(
+    user: AuthenticatedUser,
+    authorization?: string,
+    zitadelAccessToken?: string
+  ) {
     const existing = await this.db.query.memberProfiles.findFirst({
       where: eq(memberProfiles.userId, user.id),
     });
@@ -50,9 +54,16 @@ export class ProfilesService {
       : (existing?.lastName ?? null);
     const claimGender = this.normalizeGender(user.gender);
     const displayName = this.composeDisplayName(firstName, lastName, username);
+    const email = await this.resolveEmailForSync(
+      user,
+      existing?.email ?? null,
+      authorization,
+      zitadelAccessToken
+    );
 
     const identityUpdates = {
       username,
+      email,
       displayName,
       firstName,
       lastName,
@@ -87,17 +98,26 @@ export class ProfilesService {
     return updated;
   }
 
-  async findMe(user: AuthenticatedUser) {
+  async findMe(
+    user: AuthenticatedUser,
+    authorization?: string,
+    zitadelAccessToken?: string
+  ) {
     const profile = await this.db.query.memberProfiles.findFirst({
       where: eq(memberProfiles.userId, user.id),
     });
 
     if (profile) return profile;
-    return this.sync(user);
+    return this.sync(user, authorization, zitadelAccessToken);
   }
 
-  async updateMe(user: AuthenticatedUser, dto: UpdateProfileDto) {
-    const existing = await this.findMe(user);
+  async updateMe(
+    user: AuthenticatedUser,
+    dto: UpdateProfileDto,
+    authorization?: string,
+    zitadelAccessToken?: string
+  ) {
+    const existing = await this.findMe(user, authorization, zitadelAccessToken);
     const updates: Record<string, unknown> = {};
 
     if (dto.cityArea !== undefined) {
@@ -134,7 +154,7 @@ export class ProfilesService {
   ) {
     this.extractBearerToken(authorization);
     const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
-    const existing = await this.findMe(user);
+    const existing = await this.findMe(user, authorization, zitadelAccessToken);
 
     const usernameInput = (dto.username ?? existing.username ?? "").trim();
     const firstName = (dto.firstName ?? existing.firstName ?? "").trim();
@@ -181,10 +201,11 @@ export class ProfilesService {
   }
 
   private getBaseUsername(user: AuthenticatedUser) {
+    const emailLocalPart = this.normalizeEmail(user.email)?.split("@")[0];
     const preferred =
       user.nickname ||
       user.username ||
-      user.email?.split("@")[0] ||
+      emailLocalPart ||
       user.name ||
       `user_${user.id.slice(0, 8)}`;
     return this.normalizeUsername(preferred);
@@ -211,6 +232,27 @@ export class ProfilesService {
 
     if (!normalized) return fallback;
     return normalized.slice(0, 50);
+  }
+
+  private normalizeEmail(value: string | null | undefined) {
+    if (!value) return null;
+    const normalized = value.trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private async resolveEmailForSync(
+    user: AuthenticatedUser,
+    existingEmail: string | null,
+    authorization: string | undefined,
+    zitadelAccessToken: string | undefined
+  ) {
+    const emailFromClaims = this.normalizeEmail(user.email);
+    if (emailFromClaims) return emailFromClaims;
+
+    const emailFromProfile = this.normalizeEmail(existingEmail);
+    if (emailFromProfile) return emailFromProfile;
+
+    return this.fetchEmailFromUserInfo(authorization, zitadelAccessToken);
   }
 
   private async getUniqueUsername(base: string, userId?: string) {
@@ -271,6 +313,17 @@ export class ProfilesService {
     return token;
   }
 
+  private extractBearerTokenIfPresent(authorization: string | undefined) {
+    if (!authorization) return null;
+
+    const [type, token] = authorization.split(" ");
+    if (type !== "Bearer" || !token) {
+      return null;
+    }
+
+    return token;
+  }
+
   private extractTokenForZitadel(
     authorization: string | undefined,
     zitadelAccessToken: string | undefined
@@ -279,6 +332,40 @@ export class ProfilesService {
       return zitadelAccessToken.trim();
     }
     return this.extractBearerToken(authorization);
+  }
+
+  private async fetchEmailFromUserInfo(
+    authorization: string | undefined,
+    zitadelAccessToken: string | undefined
+  ) {
+    const token =
+      zitadelAccessToken?.trim() || this.extractBearerTokenIfPresent(authorization);
+    if (!token) return null;
+
+    const issuer = this.configService.getOrThrow<string>("ZITADEL_ISSUER");
+    const issuerInternal =
+      this.configService.get<string>("ZITADEL_ISSUER_INTERNAL") || issuer;
+    const issuerHost = new URL(issuer).host;
+
+    const headers = new Headers({
+      Authorization: `Bearer ${token}`,
+    });
+
+    if (issuerInternal !== issuer) {
+      headers.set("host", issuerHost);
+    }
+
+    const response = await fetch(`${issuerInternal}/oidc/v1/userinfo`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { email?: string };
+    return this.normalizeEmail(payload.email);
   }
 
   private normalizeGender(value: string | undefined): ZitadelGenderValue | undefined {
