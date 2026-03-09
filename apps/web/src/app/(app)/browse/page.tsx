@@ -293,7 +293,7 @@ export default function BrowsePage() {
             <SelectValue placeholder="Condition" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All Conditions</SelectItem>
             <SelectItem value="new">New</SelectItem>
             <SelectItem value="like_new">Like New</SelectItem>
             <SelectItem value="good">Good</SelectItem>
@@ -310,7 +310,7 @@ export default function BrowsePage() {
             <SelectValue placeholder="Format" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">All Formats</SelectItem>
             <SelectItem value="hardcover">Hardcover</SelectItem>
             <SelectItem value="paperback">Paperback</SelectItem>
             <SelectItem value="mass_market">Mass Market</SelectItem>
