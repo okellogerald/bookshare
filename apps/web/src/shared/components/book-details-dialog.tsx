@@ -17,14 +17,14 @@ const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
   paperback: "Paperback",
   mass_market: "Mass Market",
-  ebook: "eBook",
-  audiobook: "Audiobook",
 };
 
 interface BookDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bookId: string | null;
+  focusEditionId?: string | null;
+  hideEditionList?: boolean;
   fallbackTitle?: string;
   fallbackSubtitle?: string | null;
   preferredImageUrl?: string | null;
@@ -36,6 +36,8 @@ export function BookDetailsDialog({
   open,
   onOpenChange,
   bookId,
+  focusEditionId,
+  hideEditionList = false,
   fallbackTitle,
   fallbackSubtitle,
   preferredImageUrl,
@@ -44,22 +46,27 @@ export function BookDetailsDialog({
 }: BookDetailsDialogProps) {
   const queryBookId = bookId ?? "";
   const { data: book, isLoading: bookLoading } = useBookDetail(queryBookId);
-  const { data: bookWithCategories } = useBookCategories(queryBookId);
+  const { data: bookWithCategories, isLoading: bookCategoriesLoading } =
+    useBookCategories(queryBookId);
   const { data: editions, isLoading: editionsLoading } = useEditionsByBook(queryBookId);
 
   const title = book?.title ?? fallbackTitle ?? "Book details";
   const subtitle = book?.subtitle ?? fallbackSubtitle;
   const authors = book?.authors?.map((author) => author.name).join(", ");
+  const visibleEditions =
+    focusEditionId && editions
+      ? editions.filter((edition) => edition.id === focusEditionId)
+      : (editions ?? []);
   const fallbackCoverImage =
-    editions?.find((edition) => edition.cover_image_url)?.cover_image_url ?? null;
+    visibleEditions.find((edition) => edition.cover_image_url)?.cover_image_url ?? null;
   const heroImageUrl = preferredImageUrl ?? fallbackCoverImage;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         {heroImageUrl ? (
-          <div className="mx-auto w-full max-w-[320px]">
-            <div className="aspect-[2/3] overflow-hidden rounded-md border bg-muted/30 p-3 shadow-sm">
+          <div className="mx-auto w-full max-w-[170px] sm:max-w-[210px]">
+            <div className="aspect-[2/3] overflow-hidden rounded-md border bg-muted/30 p-2 shadow-sm">
               <img
                 src={heroImageUrl}
                 alt={title}
@@ -68,7 +75,7 @@ export function BookDetailsDialog({
             </div>
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-[320px]">
+          <div className="mx-auto w-full max-w-[170px] sm:max-w-[210px]">
             <div className="flex aspect-[2/3] items-center justify-center rounded-md border bg-muted text-sm text-muted-foreground">
               No cover image available
             </div>
@@ -100,15 +107,33 @@ export function BookDetailsDialog({
             {book.language && (
               <Badge variant="outline">{book.language.toUpperCase()}</Badge>
             )}
-            {bookWithCategories?.categories?.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {bookWithCategories.categories.map((category) => (
-                  <Badge key={category.id} variant="secondary">
-                    {category.name}
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Categories
+              </p>
+              {bookCategoriesLoading ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-6 w-24 animate-pulse rounded-full bg-muted"
+                    />
+                  ))}
+                </div>
+              ) : bookWithCategories?.categories?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {bookWithCategories.categories.map((category) => (
+                    <Badge key={category.id} variant="secondary">
+                      {category.name}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No categories assigned.
+                </p>
+              )}
+            </div>
 
             {book.description ? (
               <p className="whitespace-pre-line text-sm leading-relaxed">
@@ -122,42 +147,52 @@ export function BookDetailsDialog({
 
             {children}
 
-            <Separator />
+            {!hideEditionList && (
+              <>
+                <Separator />
 
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Editions</h3>
-              {editionsLoading ? (
                 <div className="space-y-2">
-                  {Array.from({ length: 2 }).map((_, index) => (
-                    <div key={index} className="h-14 animate-pulse rounded border bg-muted" />
-                  ))}
-                </div>
-              ) : editions && editions.length > 0 ? (
-                <div className="space-y-2">
-                  {editions.map((edition) => (
-                    <div key={edition.id} className="space-y-1 rounded border p-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        <Badge variant="secondary">
-                          {formatLabels[edition.format] ?? edition.format}
-                        </Badge>
-                        {edition.isbn && (
-                          <Badge variant="outline">ISBN: {edition.isbn}</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {edition.publisher ?? "Unknown publisher"}
-                        {edition.published_year ? ` • ${edition.published_year}` : ""}
-                        {edition.page_count ? ` • ${edition.page_count} pages` : ""}
-                      </p>
+                  <h3 className="text-sm font-semibold">
+                    {focusEditionId ? "Edition" : "Editions"}
+                  </h3>
+                  {editionsLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: focusEditionId ? 1 : 2 }).map((_, index) => (
+                        <div key={index} className="h-14 animate-pulse rounded border bg-muted" />
+                      ))}
                     </div>
-                  ))}
+                  ) : visibleEditions.length > 0 ? (
+                    <div className="space-y-2">
+                      {visibleEditions.map((edition) => (
+                        <div key={edition.id} className="space-y-1 rounded border p-3">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="secondary">
+                              {formatLabels[edition.format] ?? edition.format}
+                            </Badge>
+                            {edition.isbn && (
+                              <Badge variant="outline">ISBN: {edition.isbn}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {edition.publisher ?? "Unknown publisher"}
+                            {edition.published_year ? ` • ${edition.published_year}` : ""}
+                            {edition.page_count ? ` • ${edition.page_count} pages` : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : focusEditionId ? (
+                    <p className="text-sm text-muted-foreground">
+                      The specific edition for this history entry is not available.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No edition information available.
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No edition information available.
-                </p>
-              )}
-            </div>
+              </>
+            )}
           </div>
         )}
 

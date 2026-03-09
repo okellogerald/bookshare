@@ -22,8 +22,6 @@ const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
   paperback: "Paperback",
   mass_market: "Mass Market",
-  ebook: "eBook",
-  audiobook: "Audiobook",
 };
 
 const shareTypeLabels: Record<string, string> = {
@@ -179,13 +177,6 @@ export default function BookDetailPage() {
                   className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3"
                 >
                   <div className="space-y-1">
-                    {listing.primary_image_url && (
-                      <img
-                        src={listing.primary_image_url}
-                        alt={listing.book_title}
-                        className="mb-2 h-24 w-20 rounded object-cover"
-                      />
-                    )}
                     <div className="flex flex-wrap gap-1.5">
                       {listing.share_type && (
                         <Badge variant="default">

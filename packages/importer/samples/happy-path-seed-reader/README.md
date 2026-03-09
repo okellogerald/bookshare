@@ -17,5 +17,7 @@ bun run import:commit --run-id <RUN_ID_FROM_VALIDATE>
 
 ## Notes
 
-- Usernames must already exist in `member_profiles`.
+- Users in `copies.csv` and `wants.csv` must already exist in `member_profiles` (email preferred, username allowed).
+- Category slugs in `books.csv` must already exist in `categories` (BISAC slugs).
+- Cover images are downloaded from `editions.csv.cover_image_url` and uploaded to MinIO using ISBN-based object keys.
 - `id` is create-only across runs. If you re-run this sample after a successful commit, change all `id` values first.

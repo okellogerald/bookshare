@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 import {
   books,
+  categories,
   createDb,
   importRunPayloads,
   importRuns,
@@ -25,6 +26,7 @@ describe("importer commit integration", () => {
     const ownerUserId = `it_owner_${suffix}`;
     const actorUsername = `it_actor_${suffix}`;
     const ownerUsername = `it_owner_${suffix}`;
+    const categorySlug = `it_category_${suffix}`;
 
     const newBookTitle = `Rollback New ${suffix}`;
     const newEditionIsbn = "9780306406157";
@@ -36,14 +38,20 @@ describe("importer commit integration", () => {
         {
           userId: actorUserId,
           username: actorUsername,
+          email: `${actorUsername}@bookshare.local`,
           displayName: "Integration Actor",
         },
         {
           userId: ownerUserId,
           username: ownerUsername,
+          email: `${ownerUsername}@bookshare.local`,
           displayName: "Integration Owner",
         },
       ]);
+      await db.insert(categories).values({
+        name: `IT Category ${suffix}`,
+        slug: categorySlug,
+      });
 
       const [run] = await db
         .insert(importRuns)
@@ -84,6 +92,7 @@ describe("importer commit integration", () => {
             description: null,
             language: "en",
             authorNames: [],
+            categorySlugs: [categorySlug],
           },
         },
         {
@@ -99,6 +108,7 @@ describe("importer commit integration", () => {
             publisher: null,
             publishedYear: null,
             pageCount: null,
+            coverImageUrl: "http://localhost:9002/bookshare/edition-covers/9780306406157.jpg",
             verificationOverrideNote: null,
           },
         },
@@ -134,6 +144,7 @@ describe("importer commit integration", () => {
       if (runId) {
         await db.delete(importRuns).where(eq(importRuns.id, runId));
       }
+      await db.delete(categories).where(eq(categories.slug, categorySlug));
       await db.delete(memberProfiles).where(eq(memberProfiles.userId, ownerUserId));
       await db.delete(memberProfiles).where(eq(memberProfiles.userId, actorUserId));
     }

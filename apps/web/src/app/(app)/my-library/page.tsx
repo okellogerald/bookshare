@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, MoreHorizontal } from "lucide-react";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
+import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import {
@@ -48,20 +49,33 @@ const statusLabels: Record<string, string> = {
   damaged: "Damaged",
 };
 
+const pageSize = 24;
+
 const shareTypeLabels: Record<string, string> = {
   lend: "Lend",
   sell: "Sell",
   give_away: "Give Away",
 };
 
+const formatLabels: Record<string, string> = {
+  hardcover: "Hardcover",
+  paperback: "Paperback",
+  mass_market: "Mass Market",
+};
+
 export default function MyLibraryPage() {
+  const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<{
     id: string;
+    focusEditionId?: string | null;
     title?: string;
     subtitle?: string | null;
     preferredImageUrl?: string | null;
   } | null>(null);
+  const [selectedBookCopy, setSelectedBookCopy] = useState<
+    NonNullable<ReturnType<typeof useMyCopies>["data"]>[number] | null
+  >(null);
   const [statusDialog, setStatusDialog] = useState<{
     copyId: string;
     status: "lent" | "sold" | "given_away";
@@ -72,6 +86,7 @@ export default function MyLibraryPage() {
   const [counterpartyUserId, setCounterpartyUserId] = useState("");
   const [externalCounterpartyName, setExternalCounterpartyName] = useState("");
   const [externalCounterpartyContact, setExternalCounterpartyContact] = useState("");
+  const [page, setPage] = useState(1);
 
   const { data: copies, isLoading } = useMyCopies();
   const { data: members } = useCommunityMembers();
@@ -84,8 +99,9 @@ export default function MyLibraryPage() {
     [copies, statusDialog]
   );
   const statusDialogBookId = selectedStatusCopy?.edition?.book?.id ?? null;
+  const statusDialogEditionId = selectedStatusCopy?.edition?.id ?? null;
   const { data: activeWanters, isLoading: activeWantersLoading } =
-    useActiveWantersForBook(statusDialogBookId);
+    useActiveWantersForBook(statusDialogBookId, statusDialogEditionId);
   const confirmMutation = useConfirmCopy();
   const statusMutation = useUpdateCopyStatus();
   const deleteMutation = useDeleteCopy();
@@ -116,18 +132,48 @@ export default function MyLibraryPage() {
   );
   const isMemberCounterparty = counterpartyType === "member";
   const externalCounterpartyNameValue = externalCounterpartyName.trim();
+  const filteredCopies = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const allCopies = copies ?? [];
+    if (!term) return allCopies;
+
+    return allCopies.filter((copy) => {
+      const title = copy.edition?.book?.title ?? "";
+      const subtitle = copy.edition?.book?.subtitle ?? "";
+      const isbn = copy.edition?.isbn ?? "";
+      const publisher = copy.edition?.publisher ?? "";
+      const notes = copy.notes ?? "";
+      const haystack = `${title} ${subtitle} ${isbn} ${publisher} ${notes}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [copies, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCopies.length / pageSize));
+  const pagedCopies = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredCopies.slice(start, start + pageSize);
+  }, [filteredCopies, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   function handleOpenBookDetails(copy: NonNullable<typeof copies>[number]) {
     const book = copy.edition?.book;
     if (!book?.id) return;
+    setSelectedBookCopy(copy);
     setSelectedBook({
       id: book.id,
+      focusEditionId: copy.edition?.id ?? null,
       title: book.title,
       subtitle: book.subtitle,
-      preferredImageUrl:
-        copy.edition?.cover_image_url ??
-        copy.images?.[0]?.image_url ??
-        null,
+      preferredImageUrl: copy.edition?.cover_image_url ?? null,
     });
     setDialogOpen(true);
   }
@@ -185,6 +231,12 @@ export default function MyLibraryPage() {
           </Button>
         </Link>
       </div>
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search by title, subtitle, ISBN, publisher, or notes..."
+        className="max-w-xl"
+      />
 
       {isLoading ? (
         <div className="space-y-2">
@@ -193,168 +245,186 @@ export default function MyLibraryPage() {
           ))}
         </div>
       ) : copies && copies.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Book</TableHead>
-              <TableHead>Format</TableHead>
-              <TableHead>Condition</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Share Type</TableHead>
-              <TableHead className="w-[50px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {copies.map((copy) => (
-              <TableRow key={copy.id}>
-                <TableCell>
-                  <div>
-                    {copy.edition?.book?.id ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenBookDetails(copy)}
-                        className="font-medium underline-offset-4 hover:underline"
+        <>
+          {filteredCopies.length > 0 ? (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Book</TableHead>
+                    <TableHead>Format</TableHead>
+                    <TableHead>Condition</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Share Type</TableHead>
+                    <TableHead className="w-[50px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedCopies.map((copy) => (
+                    <TableRow key={copy.id}>
+                    <TableCell>
+                      <div>
+                        {copy.edition?.book?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenBookDetails(copy)}
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
+                            {copy.edition.book.title}
+                          </button>
+                        ) : (
+                          <span className="font-medium">Unknown</span>
+                        )}
+                        {copy.edition?.isbn && (
+                          <p className="text-xs text-muted-foreground">
+                            ISBN: {copy.edition.isbn}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {copy.edition?.format
+                        ? (formatLabels[copy.edition.format] ?? copy.edition.format)
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {copy.condition?.replace("_", " ") ?? "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          copy.status === "available" ? "default" : "secondary"
+                        }
                       >
-                        {copy.edition.book.title}
-                      </button>
-                    ) : (
-                      <span className="font-medium">Unknown</span>
-                    )}
-                    {copy.edition?.isbn && (
-                      <p className="text-xs text-muted-foreground">
-                        ISBN: {copy.edition.isbn}
-                      </p>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="capitalize">
-                  {copy.edition?.format?.replace("_", " ") ?? "-"}
-                </TableCell>
-                <TableCell className="capitalize">
-                  {copy.condition?.replace("_", " ") ?? "-"}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      copy.status === "available" ? "default" : "secondary"
-                    }
-                  >
-                    {statusLabels[copy.status] ?? copy.status}
-                  </Badge>
-                  {(() => {
-                    const activeLoan =
-                      copy.active_loan?.find((loan) => loan.returned_at === null) ?? null;
-                    if (!activeLoan) return null;
-                    if (!["lent", "rented", "checked_out"].includes(copy.status)) {
-                      return null;
-                    }
+                        {statusLabels[copy.status] ?? copy.status}
+                      </Badge>
+                      {(() => {
+                        const activeLoan =
+                          copy.active_loan?.find((loan) => loan.returned_at === null) ?? null;
+                        if (!activeLoan) return null;
+                        if (!["lent", "rented", "checked_out"].includes(copy.status)) {
+                          return null;
+                        }
 
-                    const borrowerLabel =
-                      activeLoan.counterparty_type === "member"
-                        ? memberNameById.get(activeLoan.counterparty_user_id ?? "") ??
-                          "member"
-                        : activeLoan.external_name ?? "external borrower";
+                        const borrowerLabel =
+                          activeLoan.counterparty_type === "member"
+                            ? memberNameById.get(activeLoan.counterparty_user_id ?? "") ??
+                              "member"
+                            : activeLoan.external_name ?? "external borrower";
 
-                    return (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Borrowed by {borrowerLabel}
-                      </p>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell>
-                  {copy.share_type ? (
-                    <Badge variant="outline">
-                      {shareTypeLabels[copy.share_type] ?? copy.share_type}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => confirmMutation.mutate(copy.id)}
-                      >
-                        Confirm Available
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/my-library/${copy.id}/edit`}>
-                          Edit
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {copy.status === "available" ? (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              statusMutation.mutate({
-                                id: copy.id,
-                                body: { status: "reserved" },
-                              })
-                            }
-                          >
-                            Mark Reserved
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => openStatusDialog(copy.id, "lent")}
-                          >
-                            Mark Lent Out
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => openStatusDialog(copy.id, "sold")}
-                          >
-                            Mark Sold
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => openStatusDialog(copy.id, "given_away")}
-                          >
-                            Mark Given Away
-                          </DropdownMenuItem>
-                        </>
-                      ) : copy.status === "lent" ? (
-                        <DropdownMenuItem
-                          onClick={() =>
-                            statusMutation.mutate({
-                              id: copy.id,
-                              body: { status: "available" },
-                            })
-                          }
-                        >
-                          Mark Returned
-                        </DropdownMenuItem>
+                        return (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Borrowed by {borrowerLabel}
+                          </p>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      {copy.share_type ? (
+                        <Badge variant="outline">
+                          {shareTypeLabels[copy.share_type] ?? copy.share_type}
+                        </Badge>
                       ) : (
-                        <DropdownMenuItem
-                          onClick={() =>
-                            statusMutation.mutate({
-                              id: copy.id,
-                              body: { status: "available" },
-                            })
-                          }
-                        >
-                          Mark Available
-                        </DropdownMenuItem>
+                        <span className="text-muted-foreground">-</span>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => deleteMutation.mutate(copy.id)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => confirmMutation.mutate(copy.id)}
+                          >
+                            Confirm Available
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/my-library/${copy.id}/edit`}>
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {copy.status === "available" ? (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusMutation.mutate({
+                                    id: copy.id,
+                                    body: { status: "reserved" },
+                                  })
+                                }
+                              >
+                                Mark Reserved
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openStatusDialog(copy.id, "lent")}
+                              >
+                                Mark Lent Out
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openStatusDialog(copy.id, "sold")}
+                              >
+                                Mark Sold
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openStatusDialog(copy.id, "given_away")}
+                              >
+                                Mark Given Away
+                              </DropdownMenuItem>
+                            </>
+                          ) : copy.status === "lent" ? (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                statusMutation.mutate({
+                                  id: copy.id,
+                                  body: { status: "available" },
+                                })
+                              }
+                            >
+                              Mark Returned
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                statusMutation.mutate({
+                                  id: copy.id,
+                                  body: { status: "available" },
+                                })
+                              }
+                            >
+                              Mark Available
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => deleteMutation.mutate(copy.id)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <PaginationControls
+                page={page}
+                pageSize={pageSize}
+                totalItems={filteredCopies.length}
+                onPageChange={setPage}
+              />
+            </>
+          ) : (
+            <div className="flex h-[120px] items-center justify-center rounded-lg border border-dashed">
+              <p className="text-muted-foreground">No copies match your search.</p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex h-[200px] flex-col items-center justify-center gap-4 rounded-lg border border-dashed">
           <p className="text-muted-foreground">No copies in your library yet</p>
@@ -369,12 +439,71 @@ export default function MyLibraryPage() {
 
       <BookDetailsDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setSelectedBookCopy(null);
+          }
+        }}
         bookId={selectedBook?.id ?? null}
+        focusEditionId={selectedBook?.focusEditionId ?? null}
+        hideEditionList
         fallbackTitle={selectedBook?.title}
         fallbackSubtitle={selectedBook?.subtitle}
         preferredImageUrl={selectedBook?.preferredImageUrl}
-      />
+      >
+        {selectedBookCopy && (
+          <div className="space-y-2 rounded-md border p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Your Copy
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="secondary">
+                {selectedBookCopy.edition?.format
+                  ? (formatLabels[selectedBookCopy.edition.format] ??
+                    selectedBookCopy.edition.format)
+                  : "Unknown format"}
+              </Badge>
+              {selectedBookCopy.edition?.isbn && (
+                <Badge variant="outline">ISBN: {selectedBookCopy.edition.isbn}</Badge>
+              )}
+              <Badge
+                variant={selectedBookCopy.status === "available" ? "default" : "secondary"}
+              >
+                {statusLabels[selectedBookCopy.status] ?? selectedBookCopy.status}
+              </Badge>
+              {selectedBookCopy.share_type && (
+                <Badge variant="outline">
+                  {shareTypeLabels[selectedBookCopy.share_type] ??
+                    selectedBookCopy.share_type}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Condition:{" "}
+              {selectedBookCopy.condition
+                ? selectedBookCopy.condition.replace("_", " ")
+                : "Unknown"}
+            </p>
+            {selectedBookCopy.edition?.publisher && (
+              <p className="text-sm text-muted-foreground">
+                Publisher: {selectedBookCopy.edition.publisher}
+                {selectedBookCopy.edition.published_year
+                  ? ` • ${selectedBookCopy.edition.published_year}`
+                  : ""}
+                {selectedBookCopy.edition.page_count
+                  ? ` • ${selectedBookCopy.edition.page_count} pages`
+                  : ""}
+              </p>
+            )}
+            {selectedBookCopy.notes && (
+              <p className="text-sm">
+                <span className="font-medium">Notes:</span> {selectedBookCopy.notes}
+              </p>
+            )}
+          </div>
+        )}
+      </BookDetailsDialog>
 
       <Dialog
         open={!!statusDialog}

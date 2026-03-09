@@ -26,6 +26,7 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "description",
     "language",
     "author_names",
+    "category_slugs",
   ],
   "editions.csv": [
     "id",
@@ -35,6 +36,7 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "publisher",
     "published_year",
     "page_count",
+    "cover_image_url",
     "verification_override_note",
   ],
   "copies.csv": [
@@ -86,6 +88,7 @@ export interface NormalizedBookRow {
   description: string | null;
   language: string;
   authorNames: string[];
+  categorySlugs: string[];
 }
 
 export interface NormalizedEditionRow {
@@ -96,6 +99,7 @@ export interface NormalizedEditionRow {
   publisher: string | null;
   publishedYear: number | null;
   pageCount: number | null;
+  coverImageUrl: string;
   verificationOverrideNote: string | null;
 }
 

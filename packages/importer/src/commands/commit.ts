@@ -1,7 +1,9 @@
 import {
   authors,
   bookAuthors,
+  bookCategories,
   books,
+  categories,
   copies,
   copyEvents,
   createDb,
@@ -187,6 +189,7 @@ export async function runCommitCommand(params: { runId: string }) {
 
     const bookIdBySourceRef = new Map<string, string>();
     const authorIdByName = new Map<string, string>();
+    const categoryIdBySlug = new Map<string, string>();
 
     // Preload authors for faster link creation.
     const authorNames = new Set<string>();
@@ -202,6 +205,30 @@ export async function runCommitCommand(params: { runId: string }) {
         .where(inArray(authors.name, [...authorNames]));
       for (const existingAuthor of existingAuthors) {
         authorIdByName.set(existingAuthor.name, existingAuthor.id);
+      }
+    }
+
+    const categorySlugs = new Set<string>();
+    for (const row of payloads.books) {
+      for (const slug of row.categorySlugs) {
+        categorySlugs.add(slug);
+      }
+    }
+    if (categorySlugs.size > 0) {
+      const existingCategories = await tx
+        .select({ id: categories.id, slug: categories.slug })
+        .from(categories)
+        .where(inArray(categories.slug, [...categorySlugs]));
+
+      for (const existingCategory of existingCategories) {
+        categoryIdBySlug.set(existingCategory.slug, existingCategory.id);
+      }
+
+      for (const slug of categorySlugs) {
+        if (categoryIdBySlug.has(slug)) continue;
+        throw new Error(
+          `Category slug '${slug}' could not be resolved at commit time`
+        );
       }
     }
 
@@ -269,6 +296,7 @@ export async function runCommitCommand(params: { runId: string }) {
           publisher: row.publisher,
           publishedYear: row.publishedYear,
           pageCount: row.pageCount,
+          coverImageUrl: row.coverImageUrl,
         })
         .returning({ id: editions.id, bookId: editions.bookId });
 
@@ -282,6 +310,28 @@ export async function runCommitCommand(params: { runId: string }) {
         editionId: createdEdition.id,
         bookId: createdEdition.bookId,
       });
+    }
+
+    const bookCategoryRows: Array<{ bookId: string; categoryId: string }> = [];
+    for (const row of payloads.books) {
+      const bookId = bookIdBySourceRef.get(row.sourceRef);
+      if (!bookId) {
+        throw new Error(`Missing committed ID for book '${row.sourceRef}'`);
+      }
+
+      for (const slug of row.categorySlugs) {
+        const categoryId = categoryIdBySlug.get(slug);
+        if (!categoryId) {
+          throw new Error(
+            `Category slug '${slug}' could not be resolved for book '${row.sourceRef}'`
+          );
+        }
+        bookCategoryRows.push({ bookId, categoryId });
+      }
+    }
+
+    if (bookCategoryRows.length > 0) {
+      await tx.insert(bookCategories).values(bookCategoryRows);
     }
 
     const now = new Date();

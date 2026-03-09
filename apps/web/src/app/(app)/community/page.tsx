@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import { useCommunityMembers } from "@/shared/queries/community";
+import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -28,9 +29,12 @@ function getInitials(value: string): string {
   return compact.slice(0, 2).toUpperCase();
 }
 
+const pageSize = 24;
+
 export default function CommunityPage() {
   const currentUser = useCurrentUser();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const { data: members, isLoading } = useCommunityMembers({
     search: search || undefined,
   });
@@ -39,6 +43,21 @@ export default function CommunityPage() {
     if (!members) return [];
     return [...members].sort((a, b) => a.username.localeCompare(b.username));
   }, [members]);
+  const totalPages = Math.max(1, Math.ceil(sortedMembers.length / pageSize));
+  const pagedMembers = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sortedMembers.slice(start, start + pageSize);
+  }, [page, sortedMembers]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   return (
     <div className="space-y-6">
@@ -68,57 +87,65 @@ export default function CommunityPage() {
           ) : sortedMembers.length === 0 ? (
             <p className="text-sm text-muted-foreground">No members found.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Avatar</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Area</TableHead>
-                  <TableHead>Contact</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedMembers.map((member) => {
-                  const fullName = [member.first_name, member.last_name]
-                    .filter((value): value is string => !!value && value.trim().length > 0)
-                    .join(" ")
-                    .trim();
-                  const label = fullName || member.username || "U";
-                  const isMe = currentUser?.id === member.user_id;
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Avatar</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Area</TableHead>
+                    <TableHead>Contact</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedMembers.map((member) => {
+                    const fullName = [member.first_name, member.last_name]
+                      .filter((value): value is string => !!value && value.trim().length > 0)
+                      .join(" ")
+                      .trim();
+                    const label = fullName || member.username || "U";
+                    const isMe = currentUser?.id === member.user_id;
 
-                  return (
-                    <TableRow key={member.user_id}>
-                      <TableCell>
-                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold">
-                          {member.avatar_url ? (
-                            <img
-                              src={member.avatar_url}
-                              alt={`${label} avatar`}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span>{getInitials(label)}</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <p className="font-medium">{fullName || "Name not set"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          @{member.username}
-                          {isMe ? " (You)" : ""}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {member.city_area || "Not shared"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {member.contact_handle || "Not shared"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                    return (
+                      <TableRow key={member.user_id}>
+                        <TableCell>
+                          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted text-xs font-semibold">
+                            {member.avatar_url ? (
+                              <img
+                                src={member.avatar_url}
+                                alt={`${label} avatar`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span>{getInitials(label)}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <p className="font-medium">{fullName || "Name not set"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            @{member.username}
+                            {isMe ? " (You)" : ""}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {member.city_area || "Not shared"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {member.contact_handle || "Not shared"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <PaginationControls
+                page={page}
+                pageSize={pageSize}
+                totalItems={sortedMembers.length}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </CardContent>
       </Card>

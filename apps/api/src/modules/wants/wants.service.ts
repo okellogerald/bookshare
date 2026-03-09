@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   NotFoundException,
@@ -23,7 +24,6 @@ import {
   ilike,
   inArray,
   or,
-  sql,
 } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
 import { CreateWantDto, UpdateWantDto } from "./dto";
@@ -41,6 +41,12 @@ interface WantSearchResult {
   title: string;
   subtitle: string | null;
   authors: Array<{ id: string; name: string }>;
+  editions: Array<{
+    id: string;
+    isbn: string | null;
+    format: string;
+    coverImageUrl: string | null;
+  }>;
   primaryIsbn: string | null;
   hasEdition: boolean;
   hasCommunityCopy: boolean;
@@ -49,6 +55,16 @@ interface WantSearchResult {
 @Injectable()
 export class WantsService {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+
+  private assertActiveWantForMutation(
+    want: { status: "active" | "fulfilled" | "cancelled" }
+  ) {
+    if (want.status !== "active") {
+      throw new BadRequestException(
+        "Only active wants can be modified. Fulfilled wants are read-only history."
+      );
+    }
+  }
 
   async findAll(userId: string) {
     return this.db.query.wants.findMany({
@@ -120,15 +136,17 @@ export class WantsService {
       .where(inArray(bookAuthors.bookId, bookIds))
       .orderBy(asc(authors.name));
 
-    const editionSummaryRows = await this.db
+    const editionRows = await this.db
       .select({
+        id: editions.id,
         bookId: editions.bookId,
-        editionCount: count(editions.id),
-        primaryIsbn: sql<string | null>`MIN(${editions.isbn})`,
+        isbn: editions.isbn,
+        format: editions.format,
+        coverImageUrl: editions.coverImageUrl,
       })
       .from(editions)
       .where(inArray(editions.bookId, bookIds))
-      .groupBy(editions.bookId);
+      .orderBy(asc(editions.isbn), asc(editions.createdAt));
 
     const copySummaryRows = await this.db
       .select({
@@ -154,13 +172,22 @@ export class WantsService {
 
     const editionsByBookId = new Map<
       string,
-      { editionCount: number; primaryIsbn: string | null }
+      Array<{
+        id: string;
+        isbn: string | null;
+        format: string;
+        coverImageUrl: string | null;
+      }>
     >();
-    for (const row of editionSummaryRows) {
-      editionsByBookId.set(row.bookId, {
-        editionCount: Number(row.editionCount),
-        primaryIsbn: row.primaryIsbn,
+    for (const row of editionRows) {
+      const existing = editionsByBookId.get(row.bookId) ?? [];
+      existing.push({
+        id: row.id,
+        isbn: row.isbn,
+        format: row.format,
+        coverImageUrl: row.coverImageUrl,
       });
+      editionsByBookId.set(row.bookId, existing);
     }
 
     const copiesByBookId = new Map<string, number>();
@@ -169,20 +196,41 @@ export class WantsService {
     }
 
     return matchedBooks.map((book) => {
-      const editionSummary = editionsByBookId.get(book.id);
+      const bookEditions = editionsByBookId.get(book.id) ?? [];
       return {
         bookId: book.id,
         title: book.title,
         subtitle: book.subtitle,
         authors: authorsByBookId.get(book.id) ?? [],
-        primaryIsbn: editionSummary?.primaryIsbn ?? null,
-        hasEdition: (editionSummary?.editionCount ?? 0) > 0,
+        editions: bookEditions,
+        primaryIsbn:
+          bookEditions.find((edition) => !!edition.isbn)?.isbn ?? null,
+        hasEdition: bookEditions.length > 0,
         hasCommunityCopy: (copiesByBookId.get(book.id) ?? 0) > 0,
       };
     });
   }
 
   async create(dto: CreateWantDto, userId: string) {
+    let normalizedEditionId: string | null = null;
+    if (dto.editionId) {
+      const selectedEdition = await this.db.query.editions.findFirst({
+        where: eq(editions.id, dto.editionId),
+      });
+
+      if (!selectedEdition) {
+        throw new BadRequestException("Selected edition was not found");
+      }
+
+      if (selectedEdition.bookId !== dto.bookId) {
+        throw new BadRequestException(
+          "Selected edition does not belong to this book"
+        );
+      }
+
+      normalizedEditionId = selectedEdition.id;
+    }
+
     // Check for duplicate active want (user_id, book_id)
     const existing = await this.db.query.wants.findFirst({
       where: and(
@@ -227,6 +275,7 @@ export class WantsService {
       .values({
         userId,
         bookId: dto.bookId,
+        editionId: normalizedEditionId,
         notes: dto.notes,
         status: "active",
         lastConfirmedAt: new Date(),
@@ -237,7 +286,8 @@ export class WantsService {
   }
 
   async confirm(id: string, userId: string) {
-    await this.findOne(id, userId);
+    const existing = await this.findOne(id, userId);
+    this.assertActiveWantForMutation(existing);
     const [updated] = await this.db
       .update(wants)
       .set({ lastConfirmedAt: new Date() })
@@ -248,6 +298,7 @@ export class WantsService {
 
   async update(id: string, dto: UpdateWantDto, userId: string) {
     const existing = await this.findOne(id, userId);
+    this.assertActiveWantForMutation(existing);
     if (dto.notes === undefined) return existing;
 
     await this.db
@@ -259,7 +310,8 @@ export class WantsService {
   }
 
   async remove(id: string, userId: string) {
-    await this.findOne(id, userId);
+    const existing = await this.findOne(id, userId);
+    this.assertActiveWantForMutation(existing);
     const [deleted] = await this.db
       .delete(wants)
       .where(and(eq(wants.id, id), eq(wants.userId, userId)))

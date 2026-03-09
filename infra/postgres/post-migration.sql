@@ -307,7 +307,7 @@ GROUP BY
 GRANT SELECT ON browse_listings TO postgrest_auth;
 
 -- ─── Browse Wants View ────────────────────────────────────
--- Cross-user grouped view of active wants by book with wantee profiles.
+-- Cross-user grouped view of active wants by book + edition preference.
 -- Does NOT use security_invoker — intentionally bypasses RLS so all
 -- authenticated users can browse all wanted books.
 
@@ -315,11 +315,15 @@ DROP VIEW IF EXISTS browse_wants;
 CREATE OR REPLACE VIEW browse_wants AS
 SELECT
   b.id AS book_id,
+  wb.edition_id,
   wb.want_count,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
   b.description AS book_description,
   b.language AS book_language,
+  e.isbn AS edition_isbn,
+  e.format AS edition_format,
+  e.cover_image_url AS edition_cover_image_url,
   wb.wanters,
   COALESCE(
     authors_data.authors,
@@ -339,6 +343,7 @@ LEFT JOIN (
 JOIN (
   SELECT
     w.book_id,
+    w.edition_id,
     COUNT(*)::int AS want_count,
     json_agg(
       json_build_object(
@@ -358,11 +363,85 @@ JOIN (
   FROM wants w
   LEFT JOIN member_profiles mp ON mp.user_id = w.user_id
   WHERE w.status = 'active'
-  GROUP BY w.book_id
-) AS wb ON wb.book_id = b.id;
+  GROUP BY w.book_id, w.edition_id
+) AS wb ON wb.book_id = b.id
+LEFT JOIN editions e ON e.id = wb.edition_id;
 
 -- Grant browse wants view to authenticated users only
 GRANT SELECT ON browse_wants TO postgrest_auth;
+
+-- ─── Fulfilled Wants History View ──────────────────────────
+-- Per-user history for both sides of a fulfilled exchange:
+-- 1) wants fulfilled for me (recipient), and
+-- 2) wants I fulfilled for others (fulfiller).
+-- Intentionally bypasses RLS but hard-filters by current_user_id().
+
+DROP VIEW IF EXISTS fulfilled_wants_history;
+CREATE OR REPLACE VIEW fulfilled_wants_history AS
+SELECT
+  w.id AS want_id,
+  w.user_id AS recipient_user_id,
+  recipient.username AS recipient_username,
+  COALESCE(
+    NULLIF(TRIM(CONCAT_WS(' ', recipient.first_name, recipient.last_name)), ''),
+    recipient.username
+  ) AS recipient_display_name,
+  recipient.avatar_url AS recipient_avatar_url,
+  w.fulfilled_by_user_id AS fulfiller_user_id,
+  fulfiller.username AS fulfiller_username,
+  COALESCE(
+    NULLIF(TRIM(CONCAT_WS(' ', fulfiller.first_name, fulfiller.last_name)), ''),
+    fulfiller.username
+  ) AS fulfiller_display_name,
+  fulfiller.avatar_url AS fulfiller_avatar_url,
+  w.book_id,
+  b.title AS book_title,
+  b.subtitle AS book_subtitle,
+  w.edition_id AS wanted_edition_id,
+  wanted_edition.isbn AS wanted_edition_isbn,
+  wanted_edition.format AS wanted_edition_format,
+  wanted_edition.cover_image_url AS wanted_edition_cover_image_url,
+  w.fulfilled_by_copy_id AS fulfilled_copy_id,
+  fulfilled_copy.edition_id AS fulfilled_edition_id,
+  fulfilled_edition.isbn AS fulfilled_edition_isbn,
+  fulfilled_edition.format AS fulfilled_edition_format,
+  fulfilled_edition.cover_image_url AS fulfilled_edition_cover_image_url,
+  w.notes AS wanter_notes,
+  w.fulfilled_at,
+  fulfillment_event.to_status AS fulfillment_type,
+  fulfillment_event.notes AS fulfillment_notes,
+  fulfillment_event.created_at AS fulfillment_recorded_at
+FROM wants w
+JOIN books b ON b.id = w.book_id
+LEFT JOIN editions wanted_edition ON wanted_edition.id = w.edition_id
+LEFT JOIN copies fulfilled_copy ON fulfilled_copy.id = w.fulfilled_by_copy_id
+LEFT JOIN editions fulfilled_edition ON fulfilled_edition.id = fulfilled_copy.edition_id
+LEFT JOIN member_profiles recipient ON recipient.user_id = w.user_id
+LEFT JOIN member_profiles fulfiller ON fulfiller.user_id = w.fulfilled_by_user_id
+LEFT JOIN LATERAL (
+  SELECT
+    ce.to_status,
+    ce.notes,
+    ce.created_at
+  FROM copy_events ce
+  WHERE ce.copy_id = w.fulfilled_by_copy_id
+    AND ce.performed_by = w.fulfilled_by_user_id
+    AND ce.to_status IN ('lent', 'sold', 'given_away')
+    AND (
+      ce.metadata ->> 'counterpartyUserId' = w.user_id
+      OR ce.metadata ->> 'counterparty_user_id' = w.user_id
+      OR ce.metadata IS NULL
+    )
+  ORDER BY ce.created_at DESC
+  LIMIT 1
+) AS fulfillment_event ON TRUE
+WHERE w.status = 'fulfilled'
+  AND (
+    w.user_id = current_user_id()
+    OR w.fulfilled_by_user_id = current_user_id()
+  );
+
+GRANT SELECT ON fulfilled_wants_history TO postgrest_auth;
 
 -- ─── Book Quotes with Book ID View ───────────────────────────
 -- Joins quotes through editions to expose book_id for easy filtering.

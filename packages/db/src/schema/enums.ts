@@ -82,6 +82,4 @@ export const bookFormatEnum = pgEnum("book_format", [
   "hardcover",
   "paperback",
   "mass_market",
-  "ebook",
-  "audiobook",
 ]);

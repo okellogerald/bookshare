@@ -182,15 +182,15 @@ export async function GET(
 
     // Extract and forward count
     const responseBody: Record<string, unknown> = { data };
-    if (Array.isArray(data)) {
-      responseBody.count = data.length;
-    }
     const contentRange = response.headers.get("Content-Range");
-    if (contentRange && !Array.isArray(data)) {
+    if (contentRange) {
       const total = contentRange.split("/")[1];
       if (total && total !== "*") {
         responseBody.count = parseInt(total, 10);
       }
+    }
+    if (responseBody.count === undefined && Array.isArray(data)) {
+      responseBody.count = data.length;
     }
 
     return NextResponse.json(responseBody);

@@ -3,8 +3,6 @@ export const BookFormat = {
   HARDCOVER: "hardcover",
   PAPERBACK: "paperback",
   MASS_MARKET: "mass_market",
-  EBOOK: "ebook",
-  AUDIOBOOK: "audiobook",
 } as const;
 
 export type BookFormat = (typeof BookFormat)[keyof typeof BookFormat];

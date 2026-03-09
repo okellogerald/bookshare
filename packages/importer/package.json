@@ -12,6 +12,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.734.0",
     "@bookshare/db": "workspace:*",
     "@bookshare/shared": "workspace:*",
     "csv-parse": "^5.6.0",

@@ -240,11 +240,15 @@ export interface PgWantWithBook extends PgWant {
 /** browse_wants view — cross-user, grouped active wants by book */
 export interface PgBrowseWant {
   book_id: string;
+  edition_id: string | null;
   want_count: number;
   book_title: string;
   book_subtitle: string | null;
   book_description: string | null;
   book_language: string;
+  edition_isbn: string | null;
+  edition_format: string | null;
+  edition_cover_image_url: string | null;
   authors: Array<{ id: string; name: string }>;
   wanters: Array<{
     user_id: string;
@@ -255,6 +259,36 @@ export interface PgBrowseWant {
     created_at: string;
     last_confirmed_at: string | null;
   }>;
+}
+
+/** fulfilled_wants_history view — per-user exchange history for recipient/fulfiller */
+export interface PgFulfilledWantHistory {
+  want_id: string;
+  recipient_user_id: string;
+  recipient_username: string | null;
+  recipient_display_name: string | null;
+  recipient_avatar_url: string | null;
+  fulfiller_user_id: string | null;
+  fulfiller_username: string | null;
+  fulfiller_display_name: string | null;
+  fulfiller_avatar_url: string | null;
+  book_id: string;
+  book_title: string;
+  book_subtitle: string | null;
+  wanted_edition_id: string | null;
+  wanted_edition_isbn: string | null;
+  wanted_edition_format: string | null;
+  wanted_edition_cover_image_url: string | null;
+  fulfilled_copy_id: string | null;
+  fulfilled_edition_id: string | null;
+  fulfilled_edition_isbn: string | null;
+  fulfilled_edition_format: string | null;
+  fulfilled_edition_cover_image_url: string | null;
+  wanter_notes: string | null;
+  fulfilled_at: string | null;
+  fulfillment_type: "lent" | "sold" | "given_away" | null;
+  fulfillment_notes: string | null;
+  fulfillment_recorded_at: string | null;
 }
 
 // ─── Convenience Aliases ────────────────────────────────────

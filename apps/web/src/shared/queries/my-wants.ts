@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PgWantWithBook } from "@/shared/api";
+import type { PgFulfilledWantHistory, PgWantWithBook } from "@/shared/api";
 import type {
   CreateWantBody,
   UpdateWantBody,
@@ -45,6 +45,24 @@ export function useWantSearchResults(query: string) {
     queryKey: ["want-search-results", normalized],
     queryFn: () => fetchWantSearchResults(normalized),
     enabled: normalized.length >= 2,
+  });
+}
+
+async function fetchFulfilledWantsHistory(): Promise<PgFulfilledWantHistory[]> {
+  const params = new URLSearchParams();
+  params.set("select", "*");
+  params.set("order", "fulfilled_at.desc");
+
+  const response = await fetch(`/api/postgrest/fulfilled_wants_history?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch fulfilled wants history");
+  const json = await response.json();
+  return json.data;
+}
+
+export function useFulfilledWantsHistory() {
+  return useQuery({
+    queryKey: ["fulfilled-wants-history"],
+    queryFn: fetchFulfilledWantsHistory,
   });
 }
 

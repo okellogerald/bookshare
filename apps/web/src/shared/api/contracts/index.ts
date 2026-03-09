@@ -429,6 +429,7 @@ export const categoriesContract = c.router({
 // Wants
 export interface CreateWantBody {
   bookId: string;
+  editionId?: string;
   notes?: string;
 }
 
@@ -441,6 +442,12 @@ export interface WantSearchResult {
   title: string;
   subtitle: string | null;
   authors: Array<{ id: string; name: string }>;
+  editions: Array<{
+    id: string;
+    isbn: string | null;
+    format: string;
+    coverImageUrl: string | null;
+  }>;
   primaryIsbn: string | null;
   hasEdition: boolean;
   hasCommunityCopy: boolean;
@@ -543,8 +550,7 @@ export interface UpdateProfileBody {
 export type IdentityGender =
   | "GENDER_UNSPECIFIED"
   | "GENDER_FEMALE"
-  | "GENDER_MALE"
-  | "GENDER_DIVERSE";
+  | "GENDER_MALE";
 
 export interface UpdateProfileIdentityBody {
   username?: string;
@@ -567,6 +573,7 @@ export interface CopyImagePresignResponse {
 }
 
 export interface EditionCoverPresignBody {
+  isbn: string;
   fileName: string;
   contentType: string;
   fileSize: number;

@@ -66,9 +66,24 @@ export class UploadService {
 
   async createEditionCoverPresign(
     dto: CreateEditionCoverPresignDto,
-    userId: string
+    _userId: string
   ) {
-    return this.createImagePresign("edition-covers", dto, userId);
+    this.validateImageUpload(dto.contentType, dto.fileSize);
+    const normalizedIsbn = this.normalizeIsbn(dto.isbn);
+    const extension = this.extensionFromContentType(dto.contentType);
+    const objectKey = `edition-covers/${normalizedIsbn}.${extension}`;
+    const uploadUrl = await this.generateUploadUrl(
+      objectKey,
+      dto.contentType,
+      dto.fileSize
+    );
+
+    return {
+      uploadUrl,
+      objectKey,
+      publicUrl: `${this.publicBaseUrl}/${this.bucket}/${objectKey}`,
+      expiresInSeconds: 600,
+    };
   }
 
   async createProfileAvatarPresign(
@@ -120,6 +135,21 @@ export class UploadService {
       .toLowerCase()
       .replace(/[^a-z0-9._-]/g, "_")
       .slice(-120);
+  }
+
+  private normalizeIsbn(isbn: string) {
+    const normalized = isbn.replace(/[^0-9Xx]/g, "").toUpperCase();
+    if (normalized.length < 10 || normalized.length > 20) {
+      throw new BadRequestException("A valid ISBN is required.");
+    }
+    return normalized;
+  }
+
+  private extensionFromContentType(contentType: string) {
+    if (contentType === "image/jpeg") return "jpg";
+    if (contentType === "image/png") return "png";
+    if (contentType === "image/webp") return "webp";
+    throw new BadRequestException("Unsupported image type. Use jpg, png, or webp.");
   }
 
   private async generateUploadUrl(

@@ -54,12 +54,13 @@ export class ProfilesService {
       : (existing?.lastName ?? null);
     const claimGender = this.normalizeGender(user.gender);
     const displayName = this.composeDisplayName(firstName, lastName, username);
-    const email = await this.resolveEmailForSync(
+    const resolvedEmail = await this.resolveEmailForSync(
       user,
       existing?.email ?? null,
       authorization,
       zitadelAccessToken
     );
+    const email = resolvedEmail ?? `${username}@bookshare.local`;
 
     const identityUpdates = {
       username,
@@ -381,10 +382,6 @@ export class ProfilesService {
     if (normalized === "GENDER_MALE" || normalized === "MALE") {
       return "GENDER_MALE";
     }
-    if (normalized === "GENDER_DIVERSE" || normalized === "DIVERSE") {
-      return "GENDER_DIVERSE";
-    }
-
     return "GENDER_UNSPECIFIED";
   }
 

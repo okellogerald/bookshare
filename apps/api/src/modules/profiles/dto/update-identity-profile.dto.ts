@@ -5,7 +5,6 @@ export const zitadelGenderValues = [
   "GENDER_UNSPECIFIED",
   "GENDER_FEMALE",
   "GENDER_MALE",
-  "GENDER_DIVERSE",
 ] as const;
 
 export type ZitadelGenderValue = (typeof zitadelGenderValues)[number];

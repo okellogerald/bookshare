@@ -38,6 +38,7 @@ async function seed() {
   await db.insert(memberProfiles).values({
     userId: USER_ID,
     username: "seed_reader",
+    email: "seed_reader@bookshare.local",
     displayName: "Seed Reader",
     cityArea: "BookTown",
     contactHandle: "@seed_reader",
@@ -64,27 +65,72 @@ async function seed() {
   console.log(`  authors: 10`);
 
   // ─── Categories ─────────────────────────────────────────────
-  const [fiction, nonFiction] = await db
+  const [bisacFiction, bisacSocialScience, bisacPsychology, bisacComputers] = await db
     .insert(categories)
     .values([
-      { name: "Fiction", slug: "fiction" },
-      { name: "Non-Fiction", slug: "non-fiction" },
+      { name: "FICTION", slug: "bisac-fiction" },
+      { name: "SOCIAL SCIENCE", slug: "bisac-social-science" },
+      { name: "PSYCHOLOGY", slug: "bisac-psychology" },
+      { name: "COMPUTERS", slug: "bisac-computers" },
     ])
     .returning();
 
-  const [classic, sciFi, fantasy, science, technology, psychology] = await db
+  const [
+    fictionClassics,
+    fictionDystopian,
+    fictionFantasyGeneral,
+    fictionScienceFictionGeneral,
+    socialScienceAnthropologyCulturalSocial,
+    psychologyCognitivePsychology,
+    computersUserInterfaces,
+    computersSoftwareEngineeringGeneral,
+  ] = await db
     .insert(categories)
     .values([
-      { name: "Classic Literature", slug: "classic-literature", parentId: fiction.id },
-      { name: "Science Fiction", slug: "science-fiction", parentId: fiction.id },
-      { name: "Fantasy", slug: "fantasy", parentId: fiction.id },
-      { name: "Science", slug: "science", parentId: nonFiction.id },
-      { name: "Technology", slug: "technology", parentId: nonFiction.id },
-      { name: "Psychology", slug: "psychology", parentId: nonFiction.id },
+      {
+        name: "FICTION / Classics",
+        slug: "bisac-fiction-classics",
+        parentId: bisacFiction.id,
+      },
+      {
+        name: "FICTION / Dystopian",
+        slug: "bisac-fiction-dystopian",
+        parentId: bisacFiction.id,
+      },
+      {
+        name: "FICTION / Fantasy / General",
+        slug: "bisac-fiction-fantasy-general",
+        parentId: bisacFiction.id,
+      },
+      {
+        name: "FICTION / Science Fiction / General",
+        slug: "bisac-fiction-science-fiction-general",
+        parentId: bisacFiction.id,
+      },
+      {
+        name: "SOCIAL SCIENCE / Anthropology / Cultural & Social",
+        slug: "bisac-social-science-anthropology-cultural-social",
+        parentId: bisacSocialScience.id,
+      },
+      {
+        name: "PSYCHOLOGY / Cognitive Psychology",
+        slug: "bisac-psychology-cognitive-psychology",
+        parentId: bisacPsychology.id,
+      },
+      {
+        name: "COMPUTERS / User Interfaces",
+        slug: "bisac-computers-user-interfaces",
+        parentId: bisacComputers.id,
+      },
+      {
+        name: "COMPUTERS / Software Development & Engineering / General",
+        slug: "bisac-computers-software-development-engineering-general",
+        parentId: bisacComputers.id,
+      },
     ])
     .returning();
 
-  console.log(`  categories: 8`);
+  console.log(`  categories: 12`);
 
   // ─── Books ──────────────────────────────────────────────────
   const [gatsby, mockingbird, nineteen84, pride, hobbit, dune, sapiens, design, cleanCode, thinking] =
@@ -177,26 +223,26 @@ async function seed() {
 
   // ─── Book ↔ Category ───────────────────────────────────────
   await db.insert(bookCategories).values([
-    { bookId: gatsby.id, categoryId: fiction.id },
-    { bookId: gatsby.id, categoryId: classic.id },
-    { bookId: mockingbird.id, categoryId: fiction.id },
-    { bookId: mockingbird.id, categoryId: classic.id },
-    { bookId: nineteen84.id, categoryId: fiction.id },
-    { bookId: nineteen84.id, categoryId: sciFi.id },
-    { bookId: pride.id, categoryId: fiction.id },
-    { bookId: pride.id, categoryId: classic.id },
-    { bookId: hobbit.id, categoryId: fiction.id },
-    { bookId: hobbit.id, categoryId: fantasy.id },
-    { bookId: dune.id, categoryId: fiction.id },
-    { bookId: dune.id, categoryId: sciFi.id },
-    { bookId: sapiens.id, categoryId: nonFiction.id },
-    { bookId: sapiens.id, categoryId: science.id },
-    { bookId: design.id, categoryId: nonFiction.id },
-    { bookId: design.id, categoryId: technology.id },
-    { bookId: cleanCode.id, categoryId: nonFiction.id },
-    { bookId: cleanCode.id, categoryId: technology.id },
-    { bookId: thinking.id, categoryId: nonFiction.id },
-    { bookId: thinking.id, categoryId: psychology.id },
+    { bookId: gatsby.id, categoryId: bisacFiction.id },
+    { bookId: gatsby.id, categoryId: fictionClassics.id },
+    { bookId: mockingbird.id, categoryId: bisacFiction.id },
+    { bookId: mockingbird.id, categoryId: fictionClassics.id },
+    { bookId: nineteen84.id, categoryId: bisacFiction.id },
+    { bookId: nineteen84.id, categoryId: fictionDystopian.id },
+    { bookId: pride.id, categoryId: bisacFiction.id },
+    { bookId: pride.id, categoryId: fictionClassics.id },
+    { bookId: hobbit.id, categoryId: bisacFiction.id },
+    { bookId: hobbit.id, categoryId: fictionFantasyGeneral.id },
+    { bookId: dune.id, categoryId: bisacFiction.id },
+    { bookId: dune.id, categoryId: fictionScienceFictionGeneral.id },
+    { bookId: sapiens.id, categoryId: bisacSocialScience.id },
+    { bookId: sapiens.id, categoryId: socialScienceAnthropologyCulturalSocial.id },
+    { bookId: design.id, categoryId: bisacComputers.id },
+    { bookId: design.id, categoryId: computersUserInterfaces.id },
+    { bookId: cleanCode.id, categoryId: bisacComputers.id },
+    { bookId: cleanCode.id, categoryId: computersSoftwareEngineeringGeneral.id },
+    { bookId: thinking.id, categoryId: bisacPsychology.id },
+    { bookId: thinking.id, categoryId: psychologyCognitivePsychology.id },
   ]);
 
   console.log(`  book_categories: 20`);

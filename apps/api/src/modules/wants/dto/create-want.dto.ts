@@ -8,6 +8,11 @@ export class CreateWantDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsUUID()
+  editionId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   notes?: string;
 }

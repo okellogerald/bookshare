@@ -21,6 +21,12 @@ const conditionLabels: Record<string, string> = {
   poor: "Poor",
 };
 
+const formatLabels: Record<string, string> = {
+  hardcover: "Hardcover",
+  paperback: "Paperback",
+  mass_market: "Mass Market",
+};
+
 function isStale(lastConfirmedAt: string | null): boolean {
   if (!lastConfirmedAt) return true;
   const confirmed = new Date(lastConfirmedAt);
@@ -47,17 +53,21 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
       onClick={() => onSelect(listing)}
     >
       <Card className="cursor-pointer transition-colors hover:bg-accent/50">
-        {listing.cover_image_url && (
-          <div className="overflow-hidden rounded-t-lg border-b bg-gradient-to-b from-muted/40 to-muted/10 p-3">
-            <div className="mx-auto aspect-[2/3] h-44 overflow-hidden rounded border bg-background/90 p-2 shadow-sm">
+        <div className="overflow-hidden rounded-t-lg border-b bg-gradient-to-b from-muted/40 to-muted/10 p-3">
+          <div className="mx-auto aspect-[2/3] h-44 overflow-hidden rounded border bg-background/90 p-2 shadow-sm">
+            {listing.cover_image_url ? (
               <img
                 src={listing.cover_image_url}
                 alt={listing.book_title}
                 className="h-full w-full object-contain"
               />
-            </div>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                No cover image
+              </div>
+            )}
           </div>
-        )}
+        </div>
         <CardHeader className="pb-3">
           <CardTitle className="line-clamp-2 text-base">
             {listing.book_title}
@@ -76,7 +86,9 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
             <Badge variant="secondary">
               {conditionLabels[listing.condition] ?? listing.condition}
             </Badge>
-            <Badge variant="outline">{listing.format}</Badge>
+            <Badge variant="outline">
+              {formatLabels[listing.format] ?? listing.format}
+            </Badge>
           </div>
 
           {listing.isbn && (

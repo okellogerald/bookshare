@@ -3,12 +3,30 @@ import * as client from "openid-client";
 import { getOIDCConfig } from "@/features/auth/lib/oidc";
 import { setSession } from "@/features/auth/lib/session";
 
+const API_URL =
+  process.env.API_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://api:3333/api";
+
 function sanitizeReturnTo(value: string | null): string {
   if (!value) return "/browse";
   if (!value.startsWith("/")) return "/browse";
   if (value.startsWith("//")) return "/browse";
   if (value.startsWith("/api/auth")) return "/browse";
   return value;
+}
+
+function isJwtLike(token?: string | null): token is string {
+  return !!token && token.split(".").length === 3;
+}
+
+function resolveApiToken(
+  accessToken?: string | null,
+  idToken?: string | null
+) {
+  if (isJwtLike(accessToken)) return accessToken;
+  if (isJwtLike(idToken)) return idToken;
+  return accessToken ?? idToken ?? null;
 }
 
 export async function GET(request: NextRequest) {
@@ -50,6 +68,30 @@ export async function GET(request: NextRequest) {
         username: claims.preferred_username as string | undefined,
       },
     });
+
+    const apiToken = resolveApiToken(tokens.access_token, tokens.id_token);
+    if (apiToken) {
+      try {
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${apiToken}`,
+        };
+        if (tokens.access_token) {
+          headers["x-zitadel-access-token"] = tokens.access_token;
+        }
+
+        const syncResponse = await fetch(`${API_URL}/profiles/sync`, {
+          method: "POST",
+          headers,
+        });
+        if (!syncResponse.ok) {
+          console.error(
+            `Profile sync on callback failed with status ${syncResponse.status}`
+          );
+        }
+      } catch (syncError) {
+        console.error("Profile sync on callback failed:", syncError);
+      }
+    }
 
     const returnTo = sanitizeReturnTo(
       request.cookies.get("oidc_return_to")?.value ?? null

@@ -148,6 +148,10 @@ export function useUpdateCopyStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["my-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["fulfilled-wants-history"] });
+      queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
       queryClient.invalidateQueries({ queryKey: ["copy"] });
     },
   });

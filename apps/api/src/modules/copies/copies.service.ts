@@ -14,7 +14,7 @@ import {
   memberProfiles,
   wants,
 } from "@bookshare/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, or } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
 import {
   AttachCopyImagesDto,
@@ -145,7 +145,7 @@ export class CopiesService {
       "given_away",
     ] as const;
     const requiresActiveWantStatuses = ["lent", "sold", "given_away"] as const;
-    const fulfillsWantStatuses = ["sold", "given_away"] as const;
+    const fulfillsWantStatuses = ["lent", "sold", "given_away"] as const;
 
     const requiresCounterparty = (requiresCounterpartyStatuses as readonly string[])
       .includes(toStatus);
@@ -213,11 +213,19 @@ export class CopiesService {
       }
     }
 
+    const matchingWantCondition = and(
+      eq(wants.bookId, existing.edition.book.id),
+      or(
+        eq(wants.editionId, existing.edition.id),
+        isNull(wants.editionId)
+      )
+    );
+
     if (shouldValidateActiveWant && counterpartyUserId) {
       const activeWant = await this.db.query.wants.findFirst({
         where: and(
           eq(wants.userId, counterpartyUserId),
-          eq(wants.bookId, existing.edition.book.id),
+          matchingWantCondition,
           eq(wants.status, "active")
         ),
       });
@@ -353,7 +361,7 @@ export class CopiesService {
           .where(
             and(
               eq(wants.userId, counterpartyUserId),
-              eq(wants.bookId, existing.edition.book.id),
+              matchingWantCondition,
               eq(wants.status, "active")
             )
           );

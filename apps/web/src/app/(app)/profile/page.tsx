@@ -24,7 +24,6 @@ const genderOptions: Array<{ label: string; value: IdentityGender }> = [
   { label: "Unspecified", value: "GENDER_UNSPECIFIED" },
   { label: "Female", value: "GENDER_FEMALE" },
   { label: "Male", value: "GENDER_MALE" },
-  { label: "Diverse", value: "GENDER_DIVERSE" },
 ];
 
 function normalizeGender(value: string | null | undefined): IdentityGender {
@@ -32,7 +31,6 @@ function normalizeGender(value: string | null | undefined): IdentityGender {
   const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
   if (normalized === "GENDER_FEMALE" || normalized === "FEMALE") return "GENDER_FEMALE";
   if (normalized === "GENDER_MALE" || normalized === "MALE") return "GENDER_MALE";
-  if (normalized === "GENDER_DIVERSE" || normalized === "DIVERSE") return "GENDER_DIVERSE";
   return "GENDER_UNSPECIFIED";
 }
 

@@ -15,10 +15,10 @@ export class UpdateEditionDto {
   isbn?: string;
 
   @ApiPropertyOptional({
-    enum: ["hardcover", "paperback", "mass_market", "ebook", "audiobook"],
+    enum: ["hardcover", "paperback", "mass_market"],
   })
   @IsOptional()
-  @IsEnum(["hardcover", "paperback", "mass_market", "ebook", "audiobook"])
+  @IsEnum(["hardcover", "paperback", "mass_market"])
   format?: string;
 
   @ApiPropertyOptional({ maxLength: 500 })

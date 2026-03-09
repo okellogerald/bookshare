@@ -9,6 +9,7 @@ import { Badge } from "@/shared/components/ui/badge";
 
 interface WantCardProps {
   want: PgBrowseWant;
+  canFulfill?: boolean;
   onSelect: (want: PgBrowseWant) => void;
 }
 
@@ -25,18 +26,44 @@ function getInitials(value: string): string {
   return compact.slice(0, 2).toUpperCase();
 }
 
-export function WantCard({ want, onSelect }: WantCardProps) {
+const formatLabels: Record<string, string> = {
+  hardcover: "Hardcover",
+  paperback: "Paperback",
+  mass_market: "Mass Market",
+};
+
+export function WantCard({
+  want,
+  canFulfill = false,
+  onSelect,
+}: WantCardProps) {
   const authors = want.authors?.map((a) => a.name).join(", ");
   const topWanters = want.wanters.slice(0, 5);
   const remainingWanters = Math.max(want.wanters.length - topWanters.length, 0);
+  const editionLabel = want.edition_id
+    ? `${want.edition_format ? (formatLabels[want.edition_format] ?? want.edition_format) : "Edition"}${
+        want.edition_isbn ? ` • ISBN ${want.edition_isbn}` : ""
+      }`
+    : "Any edition";
 
   return (
-    <button
-      type="button"
-      className="w-full text-left"
-      onClick={() => onSelect(want)}
-    >
-      <Card className="cursor-pointer transition-colors hover:bg-accent/50">
+    <button type="button" className="w-full text-left" onClick={() => onSelect(want)}>
+      <Card className="transition-colors hover:bg-accent/50">
+        <div className="overflow-hidden rounded-t-lg border-b bg-gradient-to-b from-muted/40 to-muted/10 p-3">
+          <div className="mx-auto aspect-[2/3] h-44 overflow-hidden rounded border bg-background/90 p-2 shadow-sm">
+            {want.edition_cover_image_url ? (
+              <img
+                src={want.edition_cover_image_url}
+                alt={want.book_title}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                No cover image
+              </div>
+            )}
+          </div>
+        </div>
         <CardHeader className="pb-2">
           <CardTitle className="text-base leading-tight">
             {want.book_title}
@@ -45,7 +72,7 @@ export function WantCard({ want, onSelect }: WantCardProps) {
             <p className="text-sm text-muted-foreground">{want.book_subtitle}</p>
           )}
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           {authors && (
             <p className="text-sm text-muted-foreground">by {authors}</p>
           )}
@@ -54,6 +81,8 @@ export function WantCard({ want, onSelect }: WantCardProps) {
             <Badge variant="secondary">
               {want.want_count} {want.want_count === 1 ? "member wants this" : "members want this"}
             </Badge>
+            <Badge variant="outline">{editionLabel}</Badge>
+            {canFulfill && <Badge>You can fulfill</Badge>}
           </div>
 
           {topWanters.length > 0 && (
@@ -93,10 +122,6 @@ export function WantCard({ want, onSelect }: WantCardProps) {
               </div>
             </div>
           )}
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Open details</Badge>
-          </div>
         </CardContent>
       </Card>
     </button>

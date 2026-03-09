@@ -5,6 +5,11 @@ import { IsInt, IsString, Max, MaxLength, Min } from "class-validator";
 export class CreateEditionCoverPresignDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(20)
+  isbn!: string;
+
+  @ApiProperty()
+  @IsString()
   @MaxLength(255)
   fileName!: string;
 

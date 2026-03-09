@@ -12,8 +12,8 @@ export class CreateEditionDto {
   @MaxLength(20)
   isbn?: string;
 
-  @ApiProperty({ enum: ["hardcover", "paperback", "mass_market", "ebook", "audiobook"] })
-  @IsEnum(["hardcover", "paperback", "mass_market", "ebook", "audiobook"])
+  @ApiProperty({ enum: ["hardcover", "paperback", "mass_market"] })
+  @IsEnum(["hardcover", "paperback", "mass_market"])
   format!: string;
 
   @ApiPropertyOptional({ maxLength: 500 })

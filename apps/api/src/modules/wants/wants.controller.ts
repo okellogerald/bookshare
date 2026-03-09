@@ -27,12 +27,18 @@ export class WantsController {
   @Get("search")
   search(
     @Query("q") query: string
-  ): Promise<
+    ): Promise<
     Array<{
       bookId: string;
       title: string;
       subtitle: string | null;
       authors: Array<{ id: string; name: string }>;
+      editions: Array<{
+        id: string;
+        isbn: string | null;
+        format: string;
+        coverImageUrl: string | null;
+      }>;
       primaryIsbn: string | null;
       hasEdition: boolean;
       hasCommunityCopy: boolean;

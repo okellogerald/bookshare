@@ -101,6 +101,56 @@ export default function EditWantPage() {
     );
   }
 
+  if (want.status !== "active") {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/my-wants">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Want History</h1>
+            <p className="text-muted-foreground">
+              Fulfilled wants are read-only.
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{want.book?.title ?? "Wanted book"}</CardTitle>
+            <CardDescription>
+              This transfer has been recorded and kept as history.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              <span className="font-medium">Status:</span>{" "}
+              {want.status === "fulfilled" ? "Fulfilled" : "Cancelled"}
+            </p>
+            <p>
+              <span className="font-medium">Recorded:</span>{" "}
+              {want.fulfilled_at
+                ? new Date(want.fulfilled_at).toLocaleDateString()
+                : "—"}
+            </p>
+            <p>
+              <span className="font-medium">Note:</span>{" "}
+              {want.notes || "No note provided."}
+            </p>
+            <div className="pt-2">
+              <Link href="/my-wants">
+                <Button variant="outline">Back to My Wants</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-4">

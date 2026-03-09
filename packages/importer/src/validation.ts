@@ -1,5 +1,6 @@
 import {
   type Database,
+  categories,
   editions,
   importEntityRefs,
   memberProfiles,
@@ -12,7 +13,13 @@ import {
 } from "@bookshare/shared";
 import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { compactString, optionalString } from "./csv";
+import {
+  CoverImageError,
+  createEditionCoverStorageFromEnv,
+  parseCoverSourceUrl,
+} from "./covers";
 import { isValidIsbn, normalizeIsbn } from "./isbn";
+import { parseCategorySlugs, parseDelimitedUniqueList } from "./list-parsing";
 import {
   CSV_FILES,
   ENTITY_FROM_FILE,
@@ -66,27 +73,6 @@ function addIssue(summary: ImportSummary, issue: ImportIssue) {
   summary.issues.push(issue);
 }
 
-function parseList(value: string | undefined): string[] {
-  const next = compactString(value);
-  if (!next) return [];
-
-  const segments =
-    next.includes(";")
-      ? next.split(";")
-      : next.includes("|")
-        ? next.split("|")
-        : next.split(",");
-
-  const deduped = new Set<string>();
-  for (const part of segments) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    deduped.add(trimmed);
-  }
-
-  return [...deduped];
-}
-
 function parseInteger(
   value: string | undefined,
   context: { min?: number; max?: number } = {}
@@ -117,6 +103,15 @@ function readUserIdentifier(row: Record<string, string>): string {
 
 function userIdentifierColumn(row: Record<string, string>): "email" | "username" {
   return row.email !== undefined ? "email" : "username";
+}
+
+function firstRowNumberForSourceRef(
+  fileRows: Map<string, number[]>,
+  sourceRef: string
+): number | undefined {
+  const rowNumbers = fileRows.get(sourceRef);
+  if (!rowNumbers || rowNumbers.length === 0) return undefined;
+  return rowNumbers[0];
 }
 
 async function existingRefsByEntity(
@@ -306,6 +301,19 @@ export async function validateParsedInput(
       });
     }
 
+    const categorySlugs = parseCategorySlugs(row.category_slugs);
+    if (categorySlugs.length === 0) {
+      valid = false;
+      addIssue(summary, {
+        file: "books.csv",
+        rowNumber,
+        column: "category_slugs",
+        sourceRef: sourceRef || undefined,
+        code: "missing_category_slugs",
+        message: "category_slugs is required and must include at least one slug",
+      });
+    }
+
     if (!valid || !sourceRef) return;
 
     const payload: NormalizedBookRow = {
@@ -314,11 +322,44 @@ export async function validateParsedInput(
       subtitle: optionalString(row.subtitle),
       description: optionalString(row.description),
       language,
-      authorNames: parseList(row.author_names),
+      authorNames: parseDelimitedUniqueList(row.author_names),
+      categorySlugs,
     };
     payloads.books.push(payload);
     validBookIds.add(sourceRef);
   });
+
+  const allCategorySlugs = new Set<string>();
+  for (const book of payloads.books) {
+    for (const slug of book.categorySlugs) {
+      allCategorySlugs.add(slug);
+    }
+  }
+
+  if (allCategorySlugs.size > 0) {
+    const existingCategories = await db
+      .select({ slug: categories.slug })
+      .from(categories)
+      .where(inArray(categories.slug, [...allCategorySlugs]));
+
+    const knownCategorySlugs = new Set(existingCategories.map((row) => row.slug));
+    for (const book of payloads.books) {
+      for (const slug of book.categorySlugs) {
+        if (knownCategorySlugs.has(slug)) continue;
+        addIssue(summary, {
+          file: "books.csv",
+          rowNumber: firstRowNumberForSourceRef(
+            sourceRefRows["books.csv"],
+            book.sourceRef
+          ),
+          column: "category_slugs",
+          sourceRef: book.sourceRef,
+          code: "unknown_category_slug",
+          message: `category slug '${slug}' was not found in categories`,
+        });
+      }
+    }
+  }
 
   // ─── Editions ──────────────────────────────────────────────────
   parsed.files["editions.csv"].rows.forEach((row, index) => {
@@ -454,6 +495,29 @@ export async function validateParsedInput(
       });
     }
 
+    const coverImageUrl = compactString(row.cover_image_url);
+    if (!coverImageUrl) {
+      valid = false;
+      addIssue(summary, {
+        file: "editions.csv",
+        rowNumber,
+        column: "cover_image_url",
+        sourceRef: sourceRef || undefined,
+        code: "missing_cover_image_url",
+        message: "cover_image_url is required",
+      });
+    } else if (!parseCoverSourceUrl(coverImageUrl)) {
+      valid = false;
+      addIssue(summary, {
+        file: "editions.csv",
+        rowNumber,
+        column: "cover_image_url",
+        sourceRef: sourceRef || undefined,
+        code: "invalid_cover_image_url",
+        message: "cover_image_url must be a valid http/https URL",
+      });
+    }
+
     if (!valid || !sourceRef || !bookIdRef || !normalizedIsbn) return;
 
     seenEditionIsbns.add(normalizedIsbn);
@@ -465,6 +529,7 @@ export async function validateParsedInput(
       publisher: optionalString(row.publisher),
       publishedYear: publishedYear === null ? null : publishedYear,
       pageCount: pageCount === null ? null : pageCount,
+      coverImageUrl,
       verificationOverrideNote: optionalString(row.verification_override_note),
     };
     payloads.editions.push(payload);
@@ -510,9 +575,26 @@ export async function validateParsedInput(
   const emailIdentifiers = [...userIdentifiersNeeded]
     .filter((value) => isEmailIdentifier(value))
     .map(normalizeEmail);
+  const usernameIdentifiers = [...userIdentifiersNeeded].filter(
+    (value) => !isEmailIdentifier(value)
+  );
 
   let userRows: Array<{ userId: string; username: string; email: string }> = [];
-  if (emailIdentifiers.length > 0) {
+  if (emailIdentifiers.length > 0 && usernameIdentifiers.length > 0) {
+    userRows = await db
+      .select({
+        userId: memberProfiles.userId,
+        username: memberProfiles.username,
+        email: memberProfiles.email,
+      })
+      .from(memberProfiles)
+      .where(
+        or(
+          inArray(memberProfiles.email, emailIdentifiers),
+          inArray(memberProfiles.username, usernameIdentifiers)
+        )
+      );
+  } else if (emailIdentifiers.length > 0) {
     userRows = await db
       .select({
         userId: memberProfiles.userId,
@@ -521,18 +603,35 @@ export async function validateParsedInput(
       })
       .from(memberProfiles)
       .where(inArray(memberProfiles.email, emailIdentifiers));
+  } else if (usernameIdentifiers.length > 0) {
+    userRows = await db
+      .select({
+        userId: memberProfiles.userId,
+        username: memberProfiles.username,
+        email: memberProfiles.email,
+      })
+      .from(memberProfiles)
+      .where(inArray(memberProfiles.username, usernameIdentifiers));
   }
 
   const usersByEmail = new Map<string, { userId: string; email: string }>();
+  const usersByUsername = new Map<string, { userId: string; username: string }>();
   for (const row of userRows) {
     usersByEmail.set(normalizeEmail(row.email), {
       userId: row.userId,
       email: row.email,
     });
+    usersByUsername.set(row.username, {
+      userId: row.userId,
+      username: row.username,
+    });
   }
 
   function resolveUser(identifier: string) {
-    return usersByEmail.get(normalizeEmail(identifier)) ?? null;
+    if (isEmailIdentifier(identifier)) {
+      return usersByEmail.get(normalizeEmail(identifier)) ?? null;
+    }
+    return usersByUsername.get(identifier) ?? null;
   }
 
   const wantsByUserEdition = new Set<string>();
@@ -794,6 +893,65 @@ export async function validateParsedInput(
           code: "id_already_imported",
           message: `id '${sourceRef}' was already imported for '${entityType}'`,
         });
+      }
+    }
+  }
+
+  if (summary.issues.length === 0) {
+    let coverStorage: ReturnType<typeof createEditionCoverStorageFromEnv> | null =
+      null;
+    try {
+      coverStorage = createEditionCoverStorageFromEnv();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Cover storage configuration is invalid";
+      addIssue(summary, {
+        file: "run",
+        column: "cover_image_url",
+        code: "cover_storage_config_missing",
+        message,
+      });
+    }
+
+    if (coverStorage) {
+      for (const edition of payloads.editions) {
+        try {
+          const uploaded = await coverStorage.uploadFromSource({
+            isbn: edition.isbn,
+            sourceUrl: edition.coverImageUrl,
+          });
+          edition.coverImageUrl = uploaded.publicUrl;
+        } catch (error) {
+          const rowNumber = firstRowNumberForSourceRef(
+            sourceRefRows["editions.csv"],
+            edition.sourceRef
+          );
+          if (error instanceof CoverImageError) {
+            addIssue(summary, {
+              file: "editions.csv",
+              rowNumber,
+              column: "cover_image_url",
+              sourceRef: edition.sourceRef,
+              code: error.code,
+              message: error.message,
+            });
+            continue;
+          }
+
+          addIssue(summary, {
+            file: "editions.csv",
+            rowNumber,
+            column: "cover_image_url",
+            sourceRef: edition.sourceRef,
+            code: "cover_upload_failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unexpected cover upload error",
+          });
+        }
       }
     }
   }

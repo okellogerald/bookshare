@@ -20,6 +20,7 @@ export type {
   PgWant,
   PgWantWithBook,
   PgBrowseWant,
+  PgFulfilledWantHistory,
   // Joined / embedded types
   PgBookWithAuthors,
   PgBookWithAuthorsView,
