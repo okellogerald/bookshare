@@ -1,4 +1,7 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { readFile } from "node:fs/promises";
+import { extname, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { normalizeIsbn } from "./isbn";
 
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
@@ -6,6 +9,12 @@ const CONTENT_TYPE_TO_EXTENSION = new Map<string, "jpg" | "png" | "webp">([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
   ["image/webp", "webp"],
+]);
+const EXTENSION_TO_CONTENT_TYPE = new Map<string, "image/jpeg" | "image/png" | "image/webp">([
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".png", "image/png"],
+  [".webp", "image/webp"],
 ]);
 
 export class CoverImageError extends Error {
@@ -40,6 +49,10 @@ export interface UploadedCoverResult {
   bytes: number;
   contentType: string;
 }
+
+type CoverSourceRef =
+  | { kind: "remote"; url: URL }
+  | { kind: "local"; rawPath: string; resolvedPath: string };
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
@@ -128,9 +141,42 @@ export function parseCoverSourceUrl(value: string): URL | null {
   }
 }
 
+export function parseCoverSourceRef(value: string): CoverSourceRef | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return { kind: "remote", url: parsed };
+    }
+    if (parsed.protocol === "file:") {
+      const resolvedPath = fileURLToPath(parsed);
+      return {
+        kind: "local",
+        rawPath: trimmed,
+        resolvedPath,
+      };
+    }
+    return null;
+  } catch {
+    const resolvedPath = isAbsolute(trimmed) ? trimmed : resolve(process.cwd(), trimmed);
+    return {
+      kind: "local",
+      rawPath: trimmed,
+      resolvedPath,
+    };
+  }
+}
+
 export function extensionForContentType(value: string): "jpg" | "png" | "webp" | null {
   const normalized = normalizeContentType(value);
   return CONTENT_TYPE_TO_EXTENSION.get(normalized) ?? null;
+}
+
+function contentTypeFromFilePath(path: string): "image/jpeg" | "image/png" | "image/webp" | null {
+  const extension = extname(path).toLowerCase();
+  return EXTENSION_TO_CONTENT_TYPE.get(extension) ?? null;
 }
 
 export function buildEditionCoverObjectKey(
@@ -164,53 +210,61 @@ export class EditionCoverStorage {
     isbn: string;
     sourceUrl: string;
   }): Promise<UploadedCoverResult> {
-    const parsedSourceUrl = parseCoverSourceUrl(params.sourceUrl);
-    if (!parsedSourceUrl) {
+    const sourceRef = parseCoverSourceRef(params.sourceUrl);
+    if (!sourceRef) {
       throw new CoverImageError(
         "invalid_cover_url",
-        `cover_image_url '${params.sourceUrl}' must be a valid http/https URL`
+        `cover_image_url '${params.sourceUrl}' must be a valid http/https URL or local file path`
       );
     }
 
-    let response: Response;
-    try {
-      response = await fetch(parsedSourceUrl.toString(), {
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to fetch cover image";
-      throw new CoverImageError("cover_fetch_failed", message);
-    }
+    let bytes: Buffer;
+    let contentTypeRaw: string | null = null;
 
-    if (!response.ok) {
-      throw new CoverImageError(
-        "cover_fetch_failed",
-        `Cover URL responded with HTTP ${response.status}`
-      );
-    }
+    if (sourceRef.kind === "remote") {
+      let response: Response;
+      try {
+        response = await fetch(sourceRef.url.toString(), {
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to fetch cover image";
+        throw new CoverImageError("cover_fetch_failed", message);
+      }
 
-    const contentTypeRaw = response.headers.get("content-type");
-    const extension = extensionForContentType(contentTypeRaw ?? "");
-    if (!extension) {
-      throw new CoverImageError(
-        "invalid_cover_content_type",
-        `Unsupported image content-type '${contentTypeRaw ?? "unknown"}'`
-      );
-    }
-
-    const contentLengthRaw = response.headers.get("content-length");
-    if (contentLengthRaw) {
-      const headerBytes = Number.parseInt(contentLengthRaw, 10);
-      if (Number.isFinite(headerBytes) && headerBytes > MAX_COVER_BYTES) {
+      if (!response.ok) {
         throw new CoverImageError(
-          "cover_too_large",
-          `Cover image is too large (${headerBytes} bytes). Max is ${MAX_COVER_BYTES} bytes`
+          "cover_fetch_failed",
+          `Cover URL responded with HTTP ${response.status}`
         );
       }
+
+      contentTypeRaw = response.headers.get("content-type");
+      const contentLengthRaw = response.headers.get("content-length");
+      if (contentLengthRaw) {
+        const headerBytes = Number.parseInt(contentLengthRaw, 10);
+        if (Number.isFinite(headerBytes) && headerBytes > MAX_COVER_BYTES) {
+          throw new CoverImageError(
+            "cover_too_large",
+            `Cover image is too large (${headerBytes} bytes). Max is ${MAX_COVER_BYTES} bytes`
+          );
+        }
+      }
+
+      bytes = Buffer.from(await response.arrayBuffer());
+    } else {
+      try {
+        bytes = await readFile(sourceRef.resolvedPath);
+      } catch {
+        throw new CoverImageError(
+          "cover_fetch_failed",
+          `Local cover file '${sourceRef.rawPath}' could not be read`
+        );
+      }
+      contentTypeRaw = contentTypeFromFilePath(sourceRef.resolvedPath);
     }
 
-    const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length === 0) {
       throw new CoverImageError("cover_fetch_failed", "Cover image is empty");
     }
@@ -222,6 +276,14 @@ export class EditionCoverStorage {
     }
 
     const contentType = normalizeContentType(contentTypeRaw);
+    const extension = extensionForContentType(contentType);
+    if (!extension) {
+      throw new CoverImageError(
+        "invalid_cover_content_type",
+        `Unsupported image content-type '${contentTypeRaw ?? "unknown"}'`
+      );
+    }
+
     const objectKey = buildEditionCoverObjectKey(params.isbn, extension);
 
     try {

@@ -30,6 +30,30 @@ interface GroupedPayloads {
   wants: NormalizedWantRow[];
 }
 
+function reportProgress(stage: string, detail?: string) {
+  if (detail) {
+    console.error(`[import:commit] ${stage} | ${detail}`);
+    return;
+  }
+  console.error(`[import:commit] ${stage}`);
+}
+
+function stageProgressReporter(stage: string, total: number) {
+  if (total === 0) {
+    reportProgress(stage, "0/0");
+    return () => {};
+  }
+
+  const step = total <= 20 ? 1 : Math.ceil(total / 10);
+  let lastReported = 0;
+
+  return (completed: number) => {
+    if (completed < total && completed - lastReported < step) return;
+    lastReported = completed;
+    reportProgress(stage, `${completed}/${total}`);
+  };
+}
+
 function normalizeIsbn(value: string): string {
   return value.replace(/[^0-9Xx]/g, "").toUpperCase();
 }
@@ -109,6 +133,7 @@ async function loadExistingEditionMaps(
 export async function runCommitCommand(params: { runId: string }) {
   const databaseUrl = requireDatabaseUrl();
   const db = createDb(databaseUrl);
+  reportProgress("starting", `run_id=${params.runId}`);
 
   const run = await db.query.importRuns.findFirst({
     where: eq(importRuns.id, params.runId),
@@ -138,363 +163,419 @@ export async function runCommitCommand(params: { runId: string }) {
   }
 
   const payloads = toPayloadGroups(payloadRows);
+  reportProgress(
+    "payload loaded",
+    `books=${payloads.books.length}, editions=${payloads.editions.length}, copies=${payloads.copies.length}, wants=${payloads.wants.length}`
+  );
 
-  await db.transaction(async (tx) => {
-    const lockRows = await tx.execute(sql`
-      select id
-      from import_runs
-      where id = ${params.runId}::uuid and status = 'validated'
-      for update
-    `);
-    if (lockRows.length === 0) {
-      throw new Error("Run is no longer in validated state");
-    }
+  try {
+    await db.transaction(async (tx) => {
+      reportProgress("transaction opened");
+      const lockRows = await tx.execute(sql`
+        select id
+        from import_runs
+        where id = ${params.runId}::uuid and status = 'validated'
+        for update
+      `);
+      if (lockRows.length === 0) {
+        throw new Error("Run is no longer in validated state");
+      }
 
-    const actorIdentifier = run.actorUsername.trim();
-    const actor = await tx.query.memberProfiles.findFirst({
-      where: or(
-        and(
-          isNotNull(memberProfiles.email),
-          eq(memberProfiles.email, actorIdentifier.toLowerCase())
+      const actorIdentifier = run.actorUsername.trim();
+      const actor = await tx.query.memberProfiles.findFirst({
+        where: or(
+          and(
+            isNotNull(memberProfiles.email),
+            eq(memberProfiles.email, actorIdentifier.toLowerCase())
+          ),
+          eq(memberProfiles.username, actorIdentifier)
         ),
-        eq(memberProfiles.username, actorIdentifier)
-      ),
-    });
-    if (!actor) {
-      throw new Error(
-        `Actor '${run.actorUsername}' was not found in member_profiles at commit time (checked email and username)`
-      );
-    }
-
-    const refsToCreate = [
-      ...payloads.books.map((row) => ({ entityType: "books" as const, sourceRef: row.sourceRef })),
-      ...payloads.editions.map((row) => ({
-        entityType: "editions" as const,
-        sourceRef: row.sourceRef,
-      })),
-      ...payloads.copies.map((row) => ({ entityType: "copies" as const, sourceRef: row.sourceRef })),
-      ...payloads.wants.map((row) => ({ entityType: "wants" as const, sourceRef: row.sourceRef })),
-    ];
-
-    await assertNoExistingEntityRefs(refsToCreate, tx as any);
-
-    const existingEditionsByIsbn = await loadExistingEditionMaps(tx as any);
-    for (const editionRow of payloads.editions) {
-      if (existingEditionsByIsbn.has(editionRow.isbn)) {
-        throw new Error(
-          `Create-only conflict: edition ISBN '${editionRow.isbn}' already exists`
-        );
-      }
-    }
-
-    const bookIdBySourceRef = new Map<string, string>();
-    const authorIdByName = new Map<string, string>();
-    const categoryIdBySlug = new Map<string, string>();
-
-    // Preload authors for faster link creation.
-    const authorNames = new Set<string>();
-    for (const row of payloads.books) {
-      for (const name of row.authorNames) {
-        authorNames.add(name);
-      }
-    }
-    if (authorNames.size > 0) {
-      const existingAuthors = await tx
-        .select({ id: authors.id, name: authors.name })
-        .from(authors)
-        .where(inArray(authors.name, [...authorNames]));
-      for (const existingAuthor of existingAuthors) {
-        authorIdByName.set(existingAuthor.name, existingAuthor.id);
-      }
-    }
-
-    const categorySlugs = new Set<string>();
-    for (const row of payloads.books) {
-      for (const slug of row.categorySlugs) {
-        categorySlugs.add(slug);
-      }
-    }
-    if (categorySlugs.size > 0) {
-      const existingCategories = await tx
-        .select({ id: categories.id, slug: categories.slug })
-        .from(categories)
-        .where(inArray(categories.slug, [...categorySlugs]));
-
-      for (const existingCategory of existingCategories) {
-        categoryIdBySlug.set(existingCategory.slug, existingCategory.id);
-      }
-
-      for (const slug of categorySlugs) {
-        if (categoryIdBySlug.has(slug)) continue;
-        throw new Error(
-          `Category slug '${slug}' could not be resolved at commit time`
-        );
-      }
-    }
-
-    for (const row of payloads.books) {
-      const [createdBook] = await tx
-        .insert(books)
-        .values({
-          title: row.title,
-          subtitle: row.subtitle,
-          description: row.description,
-          language: row.language,
-        })
-        .returning();
-
-      if (!createdBook) {
-        throw new Error(`Failed to create book for source_ref '${row.sourceRef}'`);
-      }
-
-      bookIdBySourceRef.set(row.sourceRef, createdBook.id);
-
-      if (row.authorNames.length > 0) {
-        const authorIds: string[] = [];
-        for (const name of row.authorNames) {
-          let authorId = authorIdByName.get(name);
-          if (!authorId) {
-            const [createdAuthor] = await tx
-              .insert(authors)
-              .values({ name })
-              .returning({ id: authors.id });
-            if (!createdAuthor) {
-              throw new Error(`Failed to create author '${name}'`);
-            }
-            authorId = createdAuthor.id;
-            authorIdByName.set(name, authorId);
-          }
-          authorIds.push(authorId);
-        }
-
-        if (authorIds.length > 0) {
-          await tx.insert(bookAuthors).values(
-            authorIds.map((authorId) => ({
-              bookId: createdBook.id,
-              authorId,
-            }))
-          );
-        }
-      }
-    }
-
-    const editionBySourceRef = new Map<string, { editionId: string; bookId: string }>();
-    for (const row of payloads.editions) {
-      const bookId = bookIdBySourceRef.get(row.bookIdRef);
-      if (!bookId) {
-        throw new Error(
-          `Cannot resolve book_id '${row.bookIdRef}' for edition '${row.sourceRef}'`
-        );
-      }
-
-      const [createdEdition] = await tx
-        .insert(editions)
-        .values({
-          bookId,
-          isbn: row.isbn,
-          format: row.format as any,
-          publisher: row.publisher,
-          publishedYear: row.publishedYear,
-          pageCount: row.pageCount,
-          coverImageUrl: row.coverImageUrl,
-        })
-        .returning({ id: editions.id, bookId: editions.bookId });
-
-      if (!createdEdition) {
-        throw new Error(
-          `Failed to create edition for source_ref '${row.sourceRef}'`
-        );
-      }
-
-      editionBySourceRef.set(row.sourceRef, {
-        editionId: createdEdition.id,
-        bookId: createdEdition.bookId,
       });
-    }
-
-    const bookCategoryRows: Array<{ bookId: string; categoryId: string }> = [];
-    for (const row of payloads.books) {
-      const bookId = bookIdBySourceRef.get(row.sourceRef);
-      if (!bookId) {
-        throw new Error(`Missing committed ID for book '${row.sourceRef}'`);
+      if (!actor) {
+        throw new Error(
+          `Actor '${run.actorUsername}' was not found in member_profiles at commit time (checked email and username)`
+        );
       }
+      reportProgress("actor resolved", `user_id=${actor.userId}`);
 
-      for (const slug of row.categorySlugs) {
-        const categoryId = categoryIdBySlug.get(slug);
-        if (!categoryId) {
+      const refsToCreate = [
+        ...payloads.books.map((row) => ({
+          entityType: "books" as const,
+          sourceRef: row.sourceRef,
+        })),
+        ...payloads.editions.map((row) => ({
+          entityType: "editions" as const,
+          sourceRef: row.sourceRef,
+        })),
+        ...payloads.copies.map((row) => ({
+          entityType: "copies" as const,
+          sourceRef: row.sourceRef,
+        })),
+        ...payloads.wants.map((row) => ({
+          entityType: "wants" as const,
+          sourceRef: row.sourceRef,
+        })),
+      ];
+
+      await assertNoExistingEntityRefs(refsToCreate, tx as any);
+      reportProgress("create-only refs check passed", `refs=${refsToCreate.length}`);
+
+      const existingEditionsByIsbn = await loadExistingEditionMaps(tx as any);
+      for (const editionRow of payloads.editions) {
+        if (existingEditionsByIsbn.has(editionRow.isbn)) {
           throw new Error(
-            `Category slug '${slug}' could not be resolved for book '${row.sourceRef}'`
+            `Create-only conflict: edition ISBN '${editionRow.isbn}' already exists`
           );
         }
-        bookCategoryRows.push({ bookId, categoryId });
       }
-    }
+      reportProgress("edition ISBN conflict check passed");
 
-    if (bookCategoryRows.length > 0) {
-      await tx.insert(bookCategories).values(bookCategoryRows);
-    }
+      const bookIdBySourceRef = new Map<string, string>();
+      const authorIdByName = new Map<string, string>();
+      const categoryIdBySlug = new Map<string, string>();
 
-    const now = new Date();
-    const createdEntityRefs: Array<{
-      entityType: "books" | "editions" | "copies" | "wants";
-      sourceRef: string;
-      entityId: string;
-    }> = [];
-
-    for (const row of payloads.books) {
-      const bookId = bookIdBySourceRef.get(row.sourceRef);
-      if (!bookId) {
-        throw new Error(`Missing committed ID for book '${row.sourceRef}'`);
+      // Preload authors for faster link creation.
+      const authorNames = new Set<string>();
+      for (const row of payloads.books) {
+        for (const name of row.authorNames) {
+          authorNames.add(name);
+        }
       }
-      createdEntityRefs.push({
-        entityType: "books",
-        sourceRef: row.sourceRef,
-        entityId: bookId,
-      });
-    }
-
-    for (const row of payloads.editions) {
-      const edition = editionBySourceRef.get(row.sourceRef);
-      if (!edition) {
-        throw new Error(`Missing committed ID for edition '${row.sourceRef}'`);
-      }
-      createdEntityRefs.push({
-        entityType: "editions",
-        sourceRef: row.sourceRef,
-        entityId: edition.editionId,
-      });
-    }
-
-    for (const row of payloads.copies) {
-      const edition = editionBySourceRef.get(row.editionIdRef);
-      if (!edition) {
-        throw new Error(
-          `Cannot resolve edition_id '${row.editionIdRef}' for copy '${row.sourceRef}'`
-        );
+      if (authorNames.size > 0) {
+        const existingAuthors = await tx
+          .select({ id: authors.id, name: authors.name })
+          .from(authors)
+          .where(inArray(authors.name, [...authorNames]));
+        for (const existingAuthor of existingAuthors) {
+          authorIdByName.set(existingAuthor.name, existingAuthor.id);
+        }
       }
 
-      const [createdCopy] = await tx
-        .insert(copies)
-        .values({
+      const categorySlugs = new Set<string>();
+      for (const row of payloads.books) {
+        for (const slug of row.categorySlugs) {
+          categorySlugs.add(slug);
+        }
+      }
+      if (categorySlugs.size > 0) {
+        const existingCategories = await tx
+          .select({ id: categories.id, slug: categories.slug })
+          .from(categories)
+          .where(inArray(categories.slug, [...categorySlugs]));
+
+        for (const existingCategory of existingCategories) {
+          categoryIdBySlug.set(existingCategory.slug, existingCategory.id);
+        }
+
+        for (const slug of categorySlugs) {
+          if (categoryIdBySlug.has(slug)) continue;
+          throw new Error(
+            `Category slug '${slug}' could not be resolved at commit time`
+          );
+        }
+      }
+      reportProgress("category mapping loaded", `slugs=${categorySlugs.size}`);
+
+      const reportBooksProgress = stageProgressReporter(
+        "books inserted",
+        payloads.books.length
+      );
+
+      for (let index = 0; index < payloads.books.length; index += 1) {
+        const row = payloads.books[index]!;
+        const [createdBook] = await tx
+          .insert(books)
+          .values({
+            title: row.title,
+            subtitle: row.subtitle,
+            description: row.description,
+            language: row.language,
+          })
+          .returning();
+
+        if (!createdBook) {
+          throw new Error(`Failed to create book for source_ref '${row.sourceRef}'`);
+        }
+
+        bookIdBySourceRef.set(row.sourceRef, createdBook.id);
+
+        if (row.authorNames.length > 0) {
+          const authorIds: string[] = [];
+          for (const name of row.authorNames) {
+            let authorId = authorIdByName.get(name);
+            if (!authorId) {
+              const [createdAuthor] = await tx
+                .insert(authors)
+                .values({ name })
+                .returning({ id: authors.id });
+              if (!createdAuthor) {
+                throw new Error(`Failed to create author '${name}'`);
+              }
+              authorId = createdAuthor.id;
+              authorIdByName.set(name, authorId);
+            }
+            authorIds.push(authorId);
+          }
+
+          if (authorIds.length > 0) {
+            await tx.insert(bookAuthors).values(
+              authorIds.map((authorId) => ({
+                bookId: createdBook.id,
+                authorId,
+              }))
+            );
+          }
+        }
+
+        reportBooksProgress(index + 1);
+      }
+
+      const editionBySourceRef = new Map<string, { editionId: string; bookId: string }>();
+      const reportEditionsProgress = stageProgressReporter(
+        "editions inserted",
+        payloads.editions.length
+      );
+      for (let index = 0; index < payloads.editions.length; index += 1) {
+        const row = payloads.editions[index]!;
+        const bookId = bookIdBySourceRef.get(row.bookIdRef);
+        if (!bookId) {
+          throw new Error(
+            `Cannot resolve book_id '${row.bookIdRef}' for edition '${row.sourceRef}'`
+          );
+        }
+
+        const [createdEdition] = await tx
+          .insert(editions)
+          .values({
+            bookId,
+            isbn: row.isbn,
+            format: row.format as any,
+            publisher: row.publisher,
+            publishedYear: row.publishedYear,
+            pageCount: row.pageCount,
+            coverImageUrl: row.coverImageUrl,
+          })
+          .returning({ id: editions.id, bookId: editions.bookId });
+
+        if (!createdEdition) {
+          throw new Error(
+            `Failed to create edition for source_ref '${row.sourceRef}'`
+          );
+        }
+
+        editionBySourceRef.set(row.sourceRef, {
+          editionId: createdEdition.id,
+          bookId: createdEdition.bookId,
+        });
+
+        reportEditionsProgress(index + 1);
+      }
+
+      const bookCategoryRows: Array<{ bookId: string; categoryId: string }> = [];
+      for (const row of payloads.books) {
+        const bookId = bookIdBySourceRef.get(row.sourceRef);
+        if (!bookId) {
+          throw new Error(`Missing committed ID for book '${row.sourceRef}'`);
+        }
+
+        for (const slug of row.categorySlugs) {
+          const categoryId = categoryIdBySlug.get(slug);
+          if (!categoryId) {
+            throw new Error(
+              `Category slug '${slug}' could not be resolved for book '${row.sourceRef}'`
+            );
+          }
+          bookCategoryRows.push({ bookId, categoryId });
+        }
+      }
+
+      if (bookCategoryRows.length > 0) {
+        await tx.insert(bookCategories).values(bookCategoryRows);
+      }
+      reportProgress("book-category links inserted", `${bookCategoryRows.length} rows`);
+
+      const now = new Date();
+      const createdEntityRefs: Array<{
+        entityType: "books" | "editions" | "copies" | "wants";
+        sourceRef: string;
+        entityId: string;
+      }> = [];
+
+      for (const row of payloads.books) {
+        const bookId = bookIdBySourceRef.get(row.sourceRef);
+        if (!bookId) {
+          throw new Error(`Missing committed ID for book '${row.sourceRef}'`);
+        }
+        createdEntityRefs.push({
+          entityType: "books",
+          sourceRef: row.sourceRef,
+          entityId: bookId,
+        });
+      }
+
+      for (const row of payloads.editions) {
+        const edition = editionBySourceRef.get(row.sourceRef);
+        if (!edition) {
+          throw new Error(`Missing committed ID for edition '${row.sourceRef}'`);
+        }
+        createdEntityRefs.push({
+          entityType: "editions",
+          sourceRef: row.sourceRef,
+          entityId: edition.editionId,
+        });
+      }
+
+      const reportCopiesProgress = stageProgressReporter(
+        "copies inserted",
+        payloads.copies.length
+      );
+      for (let index = 0; index < payloads.copies.length; index += 1) {
+        const row = payloads.copies[index]!;
+        const edition = editionBySourceRef.get(row.editionIdRef);
+        if (!edition) {
+          throw new Error(
+            `Cannot resolve edition_id '${row.editionIdRef}' for copy '${row.sourceRef}'`
+          );
+        }
+
+        const [createdCopy] = await tx
+          .insert(copies)
+          .values({
+            userId: row.userId,
+            editionId: edition.editionId,
+            condition: row.condition as any,
+            status: row.status as any,
+            notes: row.notes,
+            shareType: row.shareType as any,
+            contactNote: row.contactNote,
+            lastConfirmedAt: now,
+          })
+          .returning({ id: copies.id });
+
+        if (!createdCopy) {
+          throw new Error(`Failed to create copy '${row.sourceRef}'`);
+        }
+
+        await tx.insert(copyEvents).values({
+          userId: row.userId,
+          copyId: createdCopy.id,
+          eventType: "acquired",
+          toStatus: row.status as any,
+          performedBy: actor.userId,
+          notes: `Imported via run ${params.runId}`,
+        });
+
+        createdEntityRefs.push({
+          entityType: "copies",
+          sourceRef: row.sourceRef,
+          entityId: createdCopy.id,
+        });
+        reportCopiesProgress(index + 1);
+      }
+
+      const candidateWantRows = payloads.wants.map((row) => {
+        const edition = editionBySourceRef.get(row.editionIdRef);
+        if (!edition) {
+          throw new Error(
+            `Cannot resolve edition_id '${row.editionIdRef}' for want '${row.sourceRef}'`
+          );
+        }
+
+        return {
+          sourceRef: row.sourceRef,
           userId: row.userId,
           editionId: edition.editionId,
-          condition: row.condition as any,
-          status: row.status as any,
+          bookId: edition.bookId,
           notes: row.notes,
-          shareType: row.shareType as any,
-          contactNote: row.contactNote,
-          lastConfirmedAt: now,
-        })
-        .returning({ id: copies.id });
-
-      if (!createdCopy) {
-        throw new Error(`Failed to create copy '${row.sourceRef}'`);
-      }
-
-      await tx.insert(copyEvents).values({
-        userId: row.userId,
-        copyId: createdCopy.id,
-        eventType: "acquired",
-        toStatus: row.status as any,
-        performedBy: actor.userId,
-        notes: `Imported via run ${params.runId}`,
+        };
       });
 
-      createdEntityRefs.push({
-        entityType: "copies",
-        sourceRef: row.sourceRef,
-        entityId: createdCopy.id,
-      });
-    }
+      if (candidateWantRows.length > 0) {
+        const userIds = [...new Set(candidateWantRows.map((row) => row.userId))];
+        const bookIds = [...new Set(candidateWantRows.map((row) => row.bookId))];
 
-    const candidateWantRows = payloads.wants.map((row) => {
-      const edition = editionBySourceRef.get(row.editionIdRef);
-      if (!edition) {
-        throw new Error(
-          `Cannot resolve edition_id '${row.editionIdRef}' for want '${row.sourceRef}'`
-        );
+        const existingActiveWants = await tx
+          .select({ userId: wants.userId, bookId: wants.bookId })
+          .from(wants)
+          .where(
+            and(
+              inArray(wants.userId, userIds),
+              inArray(wants.bookId, bookIds),
+              eq(wants.status, "active")
+            )
+          );
+
+        if (existingActiveWants.length > 0) {
+          const first = existingActiveWants[0]!;
+          throw new Error(
+            `Create-only conflict: active want already exists for user '${first.userId}' and book '${first.bookId}'`
+          );
+        }
       }
 
-      return {
-        sourceRef: row.sourceRef,
-        userId: row.userId,
-        editionId: edition.editionId,
-        bookId: edition.bookId,
-        notes: row.notes,
-      };
-    });
-
-    if (candidateWantRows.length > 0) {
-      const userIds = [...new Set(candidateWantRows.map((row) => row.userId))];
-      const bookIds = [...new Set(candidateWantRows.map((row) => row.bookId))];
-
-      const existingActiveWants = await tx
-        .select({ userId: wants.userId, bookId: wants.bookId })
-        .from(wants)
-        .where(
-          and(
-            inArray(wants.userId, userIds),
-            inArray(wants.bookId, bookIds),
-            eq(wants.status, "active")
-          )
-        );
-
-      if (existingActiveWants.length > 0) {
-        const first = existingActiveWants[0]!;
-        throw new Error(
-          `Create-only conflict: active want already exists for user '${first.userId}' and book '${first.bookId}'`
-        );
-      }
-    }
-
-    for (const row of candidateWantRows) {
-      const [createdWant] = await tx
-        .insert(wants)
-        .values({
-          userId: row.userId,
-          bookId: row.bookId,
-          editionId: row.editionId,
-          notes: row.notes,
-          status: "active",
-          lastConfirmedAt: now,
-        })
-        .returning({ id: wants.id });
-
-      if (!createdWant) {
-        throw new Error(`Failed to create want '${row.sourceRef}'`);
-      }
-
-      createdEntityRefs.push({
-        entityType: "wants",
-        sourceRef: row.sourceRef,
-        entityId: createdWant.id,
-      });
-    }
-
-    if (createdEntityRefs.length > 0) {
-      await tx.insert(importEntityRefs).values(
-        createdEntityRefs.map((row) => ({
-          runId: params.runId,
-          entityType: row.entityType,
-          sourceRef: row.sourceRef,
-          entityId: row.entityId,
-        }))
+      const reportWantsProgress = stageProgressReporter(
+        "wants inserted",
+        candidateWantRows.length
       );
-    }
+      for (let index = 0; index < candidateWantRows.length; index += 1) {
+        const row = candidateWantRows[index]!;
+        const [createdWant] = await tx
+          .insert(wants)
+          .values({
+            userId: row.userId,
+            bookId: row.bookId,
+            editionId: row.editionId,
+            notes: row.notes,
+            status: "active",
+            lastConfirmedAt: now,
+          })
+          .returning({ id: wants.id });
 
-    const [updatedRun] = await tx
-      .update(importRuns)
-      .set({
-        status: "committed",
-        committedAt: new Date(),
-      })
-      .where(and(eq(importRuns.id, params.runId), eq(importRuns.status, "validated")))
-      .returning({ id: importRuns.id });
+        if (!createdWant) {
+          throw new Error(`Failed to create want '${row.sourceRef}'`);
+        }
 
-    if (!updatedRun) {
-      throw new Error("Failed to mark run as committed");
-    }
-  });
+        createdEntityRefs.push({
+          entityType: "wants",
+          sourceRef: row.sourceRef,
+          entityId: createdWant.id,
+        });
+        reportWantsProgress(index + 1);
+      }
+
+      if (createdEntityRefs.length > 0) {
+        await tx.insert(importEntityRefs).values(
+          createdEntityRefs.map((row) => ({
+            runId: params.runId,
+            entityType: row.entityType,
+            sourceRef: row.sourceRef,
+            entityId: row.entityId,
+          }))
+        );
+      }
+      reportProgress("entity refs inserted", `${createdEntityRefs.length} rows`);
+
+      const [updatedRun] = await tx
+        .update(importRuns)
+        .set({
+          status: "committed",
+          committedAt: new Date(),
+        })
+        .where(and(eq(importRuns.id, params.runId), eq(importRuns.status, "validated")))
+        .returning({ id: importRuns.id });
+
+      if (!updatedRun) {
+        throw new Error("Failed to mark run as committed");
+      }
+      reportProgress("run marked committed");
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown commit failure";
+    reportProgress("failed", message);
+    throw error;
+  }
+
+  reportProgress("completed", `run_id=${params.runId}`);
 
   console.log(
     JSON.stringify(

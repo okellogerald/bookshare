@@ -16,7 +16,7 @@ import { compactString, optionalString } from "./csv";
 import {
   CoverImageError,
   createEditionCoverStorageFromEnv,
-  parseCoverSourceUrl,
+  parseCoverSourceRef,
 } from "./covers";
 import { isValidIsbn, normalizeIsbn } from "./isbn";
 import { parseCategorySlugs, parseDelimitedUniqueList } from "./list-parsing";
@@ -506,7 +506,7 @@ export async function validateParsedInput(
         code: "missing_cover_image_url",
         message: "cover_image_url is required",
       });
-    } else if (!parseCoverSourceUrl(coverImageUrl)) {
+    } else if (!parseCoverSourceRef(coverImageUrl)) {
       valid = false;
       addIssue(summary, {
         file: "editions.csv",
@@ -514,7 +514,7 @@ export async function validateParsedInput(
         column: "cover_image_url",
         sourceRef: sourceRef || undefined,
         code: "invalid_cover_image_url",
-        message: "cover_image_url must be a valid http/https URL",
+        message: "cover_image_url must be a valid http/https URL or local file path",
       });
     }
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildEditionCoverObjectKey,
   extensionForContentType,
+  parseCoverSourceRef,
   parseCoverSourceUrl,
 } from "../covers";
 
@@ -11,6 +12,16 @@ describe("cover helpers", () => {
     expect(parseCoverSourceUrl("http://example.com/cover.png")).not.toBeNull();
     expect(parseCoverSourceUrl("ftp://example.com/cover.jpg")).toBeNull();
     expect(parseCoverSourceUrl("/relative/path.jpg")).toBeNull();
+  });
+
+  test("accepts remote URLs and local paths as cover sources", () => {
+    expect(parseCoverSourceRef("https://example.com/cover.jpg")?.kind).toBe(
+      "remote"
+    );
+    expect(parseCoverSourceRef("/tmp/cover.jpg")?.kind).toBe("local");
+    expect(parseCoverSourceRef("./covers/cover.png")?.kind).toBe("local");
+    expect(parseCoverSourceRef("file:///tmp/cover.webp")?.kind).toBe("local");
+    expect(parseCoverSourceRef("ftp://example.com/cover.jpg")).toBeNull();
   });
 
   test("maps supported content-types to extensions", () => {

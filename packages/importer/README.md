@@ -42,7 +42,10 @@ The ZIP must contain exactly these files:
 - ISBNs are normalized to digits/`X`, must be 10 or 13 chars, and must pass checksum.
 - Every imported book must have at least one imported ISBN edition.
 - `category_slugs` is required on every book and each slug must already exist in `categories` (BISAC slugs in this project).
-- `cover_image_url` is required on every edition, must be a reachable `http/https` image URL (`jpeg/png/webp`, <= 5MB).
+- `cover_image_url` is required on every edition, and may be either:
+  - a reachable `http/https` image URL, or
+  - a local file path (absolute, relative, or `file://`)
+- Cover inputs must resolve to `jpeg/png/webp` and be <= 5MB.
 - Cover images are stored in MinIO at deterministic keys: `edition-covers/<normalized-isbn>.<ext>`.
 - `--actor` resolves against `member_profiles.email` (preferred) or `member_profiles.username`.
 - `copies.csv` / `wants.csv` user identifiers resolve against `member_profiles.email` (preferred) or `member_profiles.username`.
