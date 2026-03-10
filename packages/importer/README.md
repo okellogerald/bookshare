@@ -25,10 +25,10 @@ The ZIP must contain exactly these files:
 ## CSV Contract
 
 ### `books.csv`
-`id,title,subtitle,description,language,author_names,category_slugs`
+`id,title,subtitle,language,author_names,category_slugs`
 
 ### `editions.csv`
-`id,book_id,isbn,format,publisher,published_year,page_count,cover_image_url,verification_override_note`
+`id,book_id,isbn,format,description,publisher,published_year,page_count,cover_image_url,verification_override_note`
 
 ### `copies.csv`
 `id,edition_id,username,condition,notes,share_type,contact_note,status`

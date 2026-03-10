@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { PgBrowseWant } from "@/shared/api";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
@@ -46,6 +47,7 @@ function getWantKey(want: PgBrowseWant) {
 
 export default function WantedPage() {
   const currentUser = useCurrentUser();
+  const isAuthenticated = !!currentUser;
   const [search, setSearch] = useState("");
   const [includeMyWants, setIncludeMyWants] = useState(false);
   const [showFulfillableOnly, setShowFulfillableOnly] = useState(false);
@@ -60,7 +62,7 @@ export default function WantedPage() {
   const [fulfillNotes, setFulfillNotes] = useState("");
 
   const { data: wants, isLoading } = useBrowseWants({ search });
-  const { data: myCopies } = useMyCopies();
+  const { data: myCopies } = useMyCopies({ enabled: isAuthenticated });
   const updateCopyStatus = useUpdateCopyStatus();
 
   const availableCopies = useMemo(
@@ -185,6 +187,7 @@ export default function WantedPage() {
   }
 
   function canFulfill(want: PgBrowseWant) {
+    if (!isAuthenticated) return false;
     const hasEligibleWanter = want.wanters.some(
       (wanter) => wanter.user_id !== currentUser?.id
     );
@@ -239,22 +242,32 @@ export default function WantedPage() {
           onChange={(event) => setSearch(event.target.value)}
           className="max-w-sm"
         />
-        <Button
-          type="button"
-          variant={includeMyWants ? "default" : "outline"}
-          onClick={() => setIncludeMyWants((current) => !current)}
-        >
-          {includeMyWants ? "Hide My Wants" : "Show My Wants"}
-        </Button>
-        <Button
-          type="button"
-          variant={showFulfillableOnly ? "default" : "outline"}
-          onClick={() => setShowFulfillableOnly((current) => !current)}
-        >
-          {showFulfillableOnly
-            ? "Show All Wants"
-            : "Show Wants I Can Fulfill"}
-        </Button>
+        {isAuthenticated ? (
+          <>
+            <Button
+              type="button"
+              variant={includeMyWants ? "default" : "outline"}
+              onClick={() => setIncludeMyWants((current) => !current)}
+            >
+              {includeMyWants ? "Hide My Wants" : "Show My Wants"}
+            </Button>
+            <Button
+              type="button"
+              variant={showFulfillableOnly ? "default" : "outline"}
+              onClick={() => setShowFulfillableOnly((current) => !current)}
+            >
+              {showFulfillableOnly
+                ? "Show All Wants"
+                : "Show Wants I Can Fulfill"}
+            </Button>
+          </>
+        ) : (
+          <Button type="button" variant="outline" asChild>
+            <Link href="/api/auth/login?returnTo=/wanted">
+              Sign In to Fulfill Wants
+            </Link>
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -351,15 +364,21 @@ export default function WantedPage() {
               <p className="text-sm text-muted-foreground">
                 After completing the exchange, record what happened with the specific edition copy.
               </p>
-              <Button
-                type="button"
-                onClick={openRecordExchangeFromDetails}
-                disabled={!canFulfill(selectedWantFromFiltered)}
-              >
-                Record Exchange
-              </Button>
+              {isAuthenticated ? (
+                <Button
+                  type="button"
+                  onClick={openRecordExchangeFromDetails}
+                  disabled={!canFulfill(selectedWantFromFiltered)}
+                >
+                  Record Exchange
+                </Button>
+              ) : (
+                <Button type="button" asChild>
+                  <Link href="/api/auth/login?returnTo=/wanted">Sign In</Link>
+                </Button>
+              )}
             </div>
-            {!canFulfill(selectedWantFromFiltered) && (
+            {isAuthenticated && !canFulfill(selectedWantFromFiltered) && (
               <p className="text-xs text-muted-foreground">
                 You need an available matching copy and at least one other member wanting this edition/book.
               </p>

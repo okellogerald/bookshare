@@ -78,6 +78,13 @@
       "when": 1773050100000,
       "tag": "0010_account_deactivation",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773150064366,
+      "tag": "0011_useful_agent_brand",
+      "breakpoints": true
     }
   ]
 }

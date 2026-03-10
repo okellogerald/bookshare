@@ -56,6 +56,8 @@ export default function BookDetailPage() {
   const { data: editions } = useEditionsByBook(bookId);
   const { data: listings } = useListingsByBook(bookId);
   const { data: allCategories } = useAllCategories();
+  const editionDescription =
+    editions?.find((edition) => edition.description)?.description ?? null;
   const visibleCategoryBadges = useMemo(() => {
     const categories = bookWithCategories?.categories ?? [];
     if (categories.length === 0) return [];
@@ -148,7 +150,7 @@ export default function BookDetailPage() {
         ) : null}
       </div>
 
-      {book.description && (
+      {editionDescription && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -158,7 +160,7 @@ export default function BookDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="whitespace-pre-line text-sm leading-relaxed">
-              {book.description}
+              {editionDescription}
             </p>
           </CardContent>
         </Card>

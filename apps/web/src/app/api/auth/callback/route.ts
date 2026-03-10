@@ -29,6 +29,12 @@ function resolveApiToken(
   return accessToken ?? idToken ?? null;
 }
 
+function toBoolean(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return false;
+}
+
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
 
@@ -54,6 +60,23 @@ export async function GET(request: NextRequest) {
     );
 
     const claims = tokens.claims()!;
+    const emailVerified = toBoolean(claims.email_verified);
+    const returnTo = sanitizeReturnTo(
+      request.cookies.get("oidc_return_to")?.value ?? null
+    );
+
+    if (!emailVerified) {
+      const verificationUrl = new URL("/auth/verification", request.url);
+      verificationUrl.searchParams.set("returnTo", returnTo);
+
+      const response = NextResponse.redirect(verificationUrl);
+      response.cookies.delete("bookshare_session");
+      response.cookies.delete("bookshare_token");
+      response.cookies.delete("oidc_code_verifier");
+      response.cookies.delete("oidc_state");
+      response.cookies.delete("oidc_return_to");
+      return response;
+    }
 
     await setSession({
       accessToken: tokens.access_token,
@@ -66,6 +89,7 @@ export async function GET(request: NextRequest) {
         email: claims.email as string | undefined,
         name: claims.name as string | undefined,
         username: claims.preferred_username as string | undefined,
+        emailVerified,
       },
     });
 
@@ -109,10 +133,6 @@ export async function GET(request: NextRequest) {
         console.error("Profile sync on callback failed:", syncError);
       }
     }
-
-    const returnTo = sanitizeReturnTo(
-      request.cookies.get("oidc_return_to")?.value ?? null
-    );
 
     // Clean up OIDC cookies and redirect back to requested route
     const response = NextResponse.redirect(new URL(returnTo, request.url));

@@ -24,10 +24,11 @@ async function fetchMyWants(): Promise<PgWantWithBook[]> {
   return json.data;
 }
 
-export function useMyWants() {
+export function useMyWants(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["my-wants"],
     queryFn: fetchMyWants,
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -25,14 +25,28 @@ CREATE OR REPLACE FUNCTION current_user_id() RETURNS TEXT AS $$
   SELECT current_setting('request.jwt.claims', true)::json->>'sub';
 $$ LANGUAGE sql STABLE;
 
--- Enforce authentication for all PostgREST requests regardless of role claim
+-- Enforce authentication for non-public PostgREST resources.
 CREATE OR REPLACE FUNCTION pgrst_auth_guard() RETURNS void AS $$
 DECLARE
   claims_json text;
+  request_path text;
+  request_relation text;
 BEGIN
   claims_json := current_setting('request.jwt.claims', true);
   IF claims_json IS NULL OR claims_json = '' OR (claims_json::json->>'sub') IS NULL THEN
-    RAISE insufficient_privilege USING MESSAGE = 'authentication required';
+    request_path := coalesce(current_setting('request.path', true), '');
+    request_relation := lower(split_part(trim(both '/' from request_path), '/', 1));
+
+    IF request_relation NOT IN (
+      'browse_listings',
+      'browse_wants',
+      'books_with_authors',
+      'books_with_categories',
+      'editions',
+      'categories'
+    ) THEN
+      RAISE insufficient_privilege USING MESSAGE = 'authentication required';
+    END IF;
   END IF;
 END;
 $$ LANGUAGE plpgsql STABLE;
@@ -246,7 +260,7 @@ SELECT
   b.id AS book_id,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
-  b.description AS book_description,
+  e.description AS edition_description,
   b.language AS book_language,
   owner_profile.username AS owner_username,
   COALESCE(
@@ -319,7 +333,7 @@ SELECT
   wb.want_count,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
-  b.description AS book_description,
+  e.description AS edition_description,
   b.language AS book_language,
   e.isbn AS edition_isbn,
   e.format AS edition_format,

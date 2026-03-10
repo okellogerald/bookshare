@@ -2,6 +2,7 @@ import {
   pgTable,
   uuid,
   varchar,
+  text,
   integer,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -13,7 +14,7 @@ import { bookFormatEnum } from "./enums";
 
 export { bookFormatEnum };
 
-// Edition-level metadata (ISBN, format, publisher, pagination).
+// Edition-level metadata (ISBN, format, description, publisher, pagination).
 export const editions = pgTable("editions", {
   id: uuid("id").primaryKey().defaultRandom(),
   bookId: uuid("book_id")
@@ -21,6 +22,7 @@ export const editions = pgTable("editions", {
     .references(() => books.id, { onDelete: "cascade" }),
   isbn: varchar("isbn", { length: 20 }).unique(),
   format: bookFormatEnum("format").notNull(),
+  description: text("description"),
   publisher: varchar("publisher", { length: 500 }),
   publishedYear: integer("published_year"),
   pageCount: integer("page_count"),

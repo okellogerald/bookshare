@@ -19,6 +19,8 @@ services:
       retries: 5
 
   # ─── Authentication (Ory) ─────────────────────────────────────
+  # One-shot job: apply Hydra SQL schema before Hydra starts.
+  # Required because Hydra expects its DB schema to exist at boot.
   hydra-migrate:
     image: ${ORY_HYDRA_IMAGE:-oryd/hydra:v25.4.0}
     restart: on-failure
@@ -30,6 +32,7 @@ services:
       - hydra_data:/var/lib/sqlite
       - ./infra/ory/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
 
+  # Long-running Hydra OAuth2/OIDC server (public + admin APIs).
   hydra:
     image: ${ORY_HYDRA_IMAGE:-oryd/hydra:v25.4.0}
     restart: unless-stopped
@@ -47,34 +50,8 @@ services:
       hydra-migrate:
         condition: service_completed_successfully
 
-  hydra-consent:
-    image: node:20-alpine
-    restart: unless-stopped
-    working_dir: /app
-    command: node apps/ory-login-consent/server.mjs
-    environment:
-      HYDRA_ADMIN_URL: http://hydra:4445
-      KRATOS_PUBLIC_URL: http://kratos:4433
-      ORY_LOGIN_CONSENT_PUBLIC_URL: http://localhost:3000
-      ORY_KRATOS_BROWSER_LOGIN_URL: http://localhost:4433/self-service/login/browser
-      PORT: 3000
-      HYDRA_REMEMBER_FOR: 3600
-    volumes:
-      - ./:/app
-    ports:
-      - "3000:3000"
-    depends_on:
-      hydra:
-        condition: service_started
-      kratos:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
-      start_period: 15s
-
+  # One-shot job: upsert BookShare OAuth client in Hydra admin API.
+  # Required so web login works without manual client registration.
   hydra-client-init:
     image: curlimages/curl:8.12.1
     restart: "no"
@@ -85,6 +62,8 @@ services:
       hydra:
         condition: service_started
 
+  # One-shot job: apply Kratos SQL schema before Kratos starts.
+  # Required because Kratos expects its DB schema to exist at boot.
   kratos-migrate:
     image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v25.4.0}
     restart: on-failure
@@ -95,6 +74,7 @@ services:
       - kratos_data:/var/lib/sqlite
       - ./infra/ory/kratos:/etc/config/kratos:ro
 
+  # Long-running Kratos identity/self-service engine.
   kratos:
     image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v25.4.0}
     restart: unless-stopped
@@ -114,19 +94,27 @@ services:
       mailpit:
         condition: service_started
 
-  kratos-selfservice-ui-node:
-    image: ${ORY_KRATOS_UI_IMAGE:-oryd/kratos-selfservice-ui-node:v25.4.0}
+  # Long-running reusable Auth Portal UI/challenge handler.
+  # Handles Kratos UI flows + Hydra login/consent/logout challenge endpoints.
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile.dev
     restart: unless-stopped
     environment:
-      PORT: 4455
-      KRATOS_PUBLIC_URL: http://kratos:4433/
-      KRATOS_BROWSER_URL: http://localhost:4433/
-      COOKIE_SECRET: ${ORY_KRATOS_UI_COOKIE_SECRET:-dev-insecure-change-me}
-      CSRF_COOKIE_NAME: ory_csrf_ui
-      CSRF_COOKIE_SECRET: ${ORY_KRATOS_UI_CSRF_SECRET:-dev-insecure-change-me}
+      PORT: 3337
+      AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
+      KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL:-http://localhost:4433}
+      KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://kratos:4433}
+      HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://hydra:4445}
+      HYDRA_REMEMBER_FOR: ${HYDRA_REMEMBER_FOR:-3600}
     ports:
-      - "4455:4455"
+      - "3337:3337"
+    volumes:
+      - ./apps/auth/src:/app/apps/auth/src
     depends_on:
+      hydra:
+        condition: service_started
       kratos:
         condition: service_started
 
@@ -250,6 +238,8 @@ services:
       OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
+      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
+      NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
     ports:
       - "3334:3334"
@@ -259,30 +249,13 @@ services:
     depends_on:
       api:
         condition: service_started
+      auth:
+        condition: service_started
       hydra:
         condition: service_started
+      # Ensure OAuth client exists before web begins auth redirects.
       hydra-client-init:
         condition: service_completed_successfully
-
-  # ─── Workflows (Motia) ───────────────────────────────────────
-  workflows:
-    build:
-      context: .
-      dockerfile: apps/workflows/Dockerfile.dev
-    restart: unless-stopped
-    environment:
-      PORT: 3335
-      DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
-      API_URL: http://api:3333/api
-    ports:
-      - "3335:3335"
-    volumes:
-      - ./apps/workflows/steps:/app/apps/workflows/steps
-      - ./packages/shared/src:/app/packages/shared/src
-      - ./packages/db/src:/app/packages/db/src
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
   postgres_data:

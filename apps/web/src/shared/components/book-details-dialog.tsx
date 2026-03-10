@@ -94,6 +94,12 @@ export function BookDetailsDialog({
       : null) ??
     editions?.find((edition) => edition.cover_image_url)?.cover_image_url ??
     null;
+  const editionDescription =
+    (focusEditionId
+      ? editions?.find((edition) => edition.id === focusEditionId)?.description
+      : null) ??
+    editions?.find((edition) => edition.description)?.description ??
+    null;
   const heroImageUrl = preferredImageUrl ?? fallbackCoverImage;
   const sortedListings = useMemo(
     () =>
@@ -223,10 +229,13 @@ export function BookDetailsDialog({
               )}
             </div>
 
-            {book.description ? (
-              <p className="whitespace-pre-line text-sm leading-relaxed">
-                {book.description}
-              </p>
+            {editionsLoading ? (
+              <div className="space-y-2">
+                <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
+              </div>
+            ) : editionDescription ? (
+              <p className="whitespace-pre-line text-sm leading-relaxed">{editionDescription}</p>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No description provided.

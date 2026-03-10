@@ -21,6 +21,11 @@ export class UpdateEditionDto {
   @IsEnum(["hardcover", "paperback", "mass_market"])
   format?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @ApiPropertyOptional({ maxLength: 500 })
   @IsOptional()
   @IsString()

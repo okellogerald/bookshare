@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import type { PgBrowseListing } from "@/shared/api";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
@@ -41,6 +42,8 @@ export default function BrowsePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<PgBrowseListing | null>(null);
   const [addWantError, setAddWantError] = useState<string | null>(null);
+  const currentUser = useCurrentUser();
+  const isAuthenticated = !!currentUser;
 
   const { data: listings, isLoading } = useBrowseListings({
     search: search || undefined,
@@ -49,12 +52,13 @@ export default function BrowsePage() {
     format: format || undefined,
   });
   const { data: allCategories } = useAllCategories();
-  const { data: myWants, isLoading: myWantsLoading } = useMyWants();
+  const { data: myWants, isLoading: myWantsLoading } = useMyWants({
+    enabled: isAuthenticated,
+  });
   const { data: myActiveOwnedBookIds, isLoading: activeOwnedBooksLoading } =
-    useMyActiveOwnedBookIds();
+    useMyActiveOwnedBookIds({ enabled: isAuthenticated });
   const createWant = useCreateWant();
   const deleteWant = useDeleteWant();
-  const currentUser = useCurrentUser();
 
   const activeWantsByBookId = useMemo(
     () =>
@@ -159,6 +163,11 @@ export default function BrowsePage() {
   }
 
   function handleAddToWants() {
+    if (!currentUser) {
+      window.location.href = "/api/auth/login?returnTo=/browse";
+      return;
+    }
+
     if (
       !selectedListing ||
       alreadyInMyWants ||
@@ -296,13 +305,15 @@ export default function BrowsePage() {
             ))}
           </SelectContent>
         </Select>
-        <Button
-          variant={includeOwnListings ? "secondary" : "outline"}
-          onClick={() => setIncludeOwnListings((prev) => !prev)}
-          type="button"
-        >
-          {includeOwnListings ? "Hide My Listings" : "Show My Listings"}
-        </Button>
+        {isAuthenticated ? (
+          <Button
+            variant={includeOwnListings ? "secondary" : "outline"}
+            onClick={() => setIncludeOwnListings((prev) => !prev)}
+            type="button"
+          >
+            {includeOwnListings ? "Hide My Listings" : "Show My Listings"}
+          </Button>
+        ) : null}
       </div>
 
       {isLoadingListings ? (
@@ -348,7 +359,13 @@ export default function BrowsePage() {
         preferredImageUrl={selectedListing?.cover_image_url}
         footer={
           <div className="w-full space-y-1">
-            {alreadyInMyWants ? (
+            {!isAuthenticated ? (
+              <Button asChild>
+                <Link href="/api/auth/login?returnTo=/browse">
+                  Sign In to Add to Wants
+                </Link>
+              </Button>
+            ) : alreadyInMyWants ? (
               <Button
                 variant="outline"
                 onClick={handleRemoveInterest}

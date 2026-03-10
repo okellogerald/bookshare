@@ -8,12 +8,21 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/features/auth/lib/session";
+import { getAccessToken, getSession } from "@/features/auth/lib/session";
 
 const POSTGREST_URL =
   process.env.POSTGREST_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_POSTGREST_URL ||
   "http://postgrest:3000";
+
+const PUBLIC_POSTGREST_PATHS = new Set([
+  "browse_listings",
+  "browse_wants",
+  "books_with_authors",
+  "books_with_categories",
+  "editions",
+  "categories",
+]);
 
 const DEFAULT_HIDDEN_USERNAMES = ["admin", "admin_bookshare_local"];
 const DEFAULT_HIDDEN_USER_IDS: string[] = [];
@@ -134,19 +143,32 @@ function sanitizePostgrestData(tablePath: string, data: unknown) {
   return data;
 }
 
+function isPublicPostgrestPath(tablePath: string): boolean {
+  return PUBLIC_POSTGREST_PATHS.has(tablePath);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path } = await params;
+  const tablePath = path.join("/");
+  const isPublicPath = isPublicPostgrestPath(tablePath);
   const token = await getAccessToken();
+  const session = await getSession();
 
-  if (!token) {
+  if (!isPublicPath && (!token || !session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!isPublicPath && session?.user.emailVerified !== true) {
+    return NextResponse.json(
+      { error: "Email verification required" },
+      { status: 403 }
+    );
+  }
+
   // Build the PostgREST URL from the path segments and query params
-  const tablePath = path.join("/");
   const url = new URL(`/${tablePath}`, POSTGREST_URL);
 
   // Forward all query params
@@ -154,10 +176,11 @@ export async function GET(
     url.searchParams.set(key, value);
   });
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   // Forward special PostgREST headers from client
   if (request.headers.get("x-postgrest-single") === "true") {

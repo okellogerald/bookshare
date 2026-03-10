@@ -28,6 +28,7 @@ interface User {
   email?: string;
   name?: string;
   username?: string;
+  emailVerified?: boolean;
 }
 
 const navItems = [
@@ -59,17 +60,18 @@ export function AppShellClient({
 }) {
   const pathname = usePathname();
   const syncedProfile = useRef(false);
-  const { data: myProfile } = useMyProfile();
+  const isEmailVerified = user?.emailVerified === true;
+  const { data: myProfile } = useMyProfile({ enabled: !!user && isEmailVerified });
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   useEffect(() => {
-    if (!user || syncedProfile.current) return;
+    if (!user || !isEmailVerified || syncedProfile.current) return;
     syncedProfile.current = true;
 
     fetch("/api/nestjs/profiles/sync", { method: "POST" }).catch(() => {
       // Best-effort profile bootstrap for first-time users.
     });
-  }, [user]);
+  }, [isEmailVerified, user]);
 
   const profileFullName = [myProfile?.firstName, myProfile?.lastName]
     .filter((value): value is string => !!value && value.trim().length > 0)
@@ -119,28 +121,42 @@ export function AppShellClient({
       {/* Main content */}
       <main className="flex flex-1 flex-col">
         <header className="flex h-14 items-center justify-end border-b bg-card px-4">
-          {user && (
+          {user ? (
             <div className="flex items-center gap-1">
-              <Link href="/my-library">
-                <Button
-                  variant={pathname.startsWith("/my-library") ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <Library className="h-4 w-4" />
-                  <span className="hidden md:inline">My Library</span>
+              {isEmailVerified ? (
+                <>
+                  <Link href="/my-library">
+                    <Button
+                      variant={pathname.startsWith("/my-library") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Library className="h-4 w-4" />
+                      <span className="hidden md:inline">My Library</span>
+                    </Button>
+                  </Link>
+                  <Link href="/my-wants">
+                    <Button
+                      variant={pathname.startsWith("/my-wants") ? "secondary" : "ghost"}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <BookMarked className="h-4 w-4" />
+                      <span className="hidden md:inline">My Wants</span>
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={`/auth/verification?returnTo=${encodeURIComponent(
+                      pathname || "/browse"
+                    )}`}
+                  >
+                    Verify Email
+                  </Link>
                 </Button>
-              </Link>
-              <Link href="/my-wants">
-                <Button
-                  variant={pathname.startsWith("/my-wants") ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <BookMarked className="h-4 w-4" />
-                  <span className="hidden md:inline">My Wants</span>
-                </Button>
-              </Link>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -179,11 +195,31 @@ export function AppShellClient({
                       Settings
                     </Link>
                   </DropdownMenuItem>
+                  {!isEmailVerified ? (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/auth/verification?returnTo=${encodeURIComponent(
+                          pathname || "/browse"
+                        )}`}
+                      >
+                        Verify Email
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
                   <DropdownMenuItem asChild>
                     <a href="/api/auth/logout">Sign Out</a>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/auth/register">Create Account</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/api/auth/login?returnTo=/browse">Sign In</Link>
+              </Button>
             </div>
           )}
         </header>

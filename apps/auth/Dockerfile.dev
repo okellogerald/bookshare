@@ -1,0 +1,22 @@
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY packages/importer/package.json ./packages/importer/
+COPY apps/auth/package.json ./apps/auth/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/workflows/package.json ./apps/workflows/
+
+RUN bun install --frozen-lockfile
+
+COPY apps/auth ./apps/auth
+COPY tsconfig.base.json ./
+
+WORKDIR /app/apps/auth
+
+EXPOSE 3337
+
+CMD ["bun", "run", "dev"]

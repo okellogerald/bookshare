@@ -13,11 +13,6 @@ export class CreateBookDto {
   @MaxLength(1000)
   subtitle?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  description?: string;
-
   @ApiPropertyOptional({ default: "en", maxLength: 10 })
   @IsOptional()
   @IsString()

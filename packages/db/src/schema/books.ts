@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { editions } from "./editions";
 import { bookAuthors } from "./authors";
@@ -9,7 +9,6 @@ export const books = pgTable("books", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 500 }).notNull(),
   subtitle: varchar("subtitle", { length: 1000 }),
-  description: text("description"),
   language: varchar("language", { length: 10 }).notNull().default("en"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

@@ -11,7 +11,6 @@ export interface PgBook {
   id: string;
   title: string;
   subtitle: string | null;
-  description: string | null;
   language: string;
   created_at: string;
   updated_at: string;
@@ -30,6 +29,7 @@ export interface PgEdition {
   book_id: string;
   isbn: string | null;
   format: string;
+  description: string | null;
   publisher: string | null;
   published_year: number | null;
   page_count: number | null;
@@ -202,7 +202,7 @@ export interface PgBrowseListing {
   book_id: string;
   book_title: string;
   book_subtitle: string | null;
-  book_description: string | null;
+  edition_description: string | null;
   book_language: string;
   owner_username: string | null;
   owner_display_name: string | null;
@@ -244,7 +244,7 @@ export interface PgBrowseWant {
   want_count: number;
   book_title: string;
   book_subtitle: string | null;
-  book_description: string | null;
+  edition_description: string | null;
   book_language: string;
   edition_isbn: string | null;
   edition_format: string | null;

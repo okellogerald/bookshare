@@ -86,10 +86,11 @@ async function fetchAllCategories(): Promise<PgCategory[]> {
   return json.data;
 }
 
-export function useMyCopies() {
+export function useMyCopies(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["my-copies"],
     queryFn: fetchMyCopies,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -101,10 +102,11 @@ export function useEditionByIsbn(isbn: string) {
   });
 }
 
-export function useMyActiveOwnedBookIds() {
+export function useMyActiveOwnedBookIds(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["my-active-owned-book-ids"],
     queryFn: fetchMyActiveOwnedBookIds,
+    enabled: options?.enabled ?? true,
   });
 }
 

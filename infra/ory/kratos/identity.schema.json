@@ -14,6 +14,10 @@
           "minLength": 3,
           "ory.sh/kratos": {
             "credentials": {
+              "code": {
+                "identifier": true,
+                "via": "email"
+              },
               "password": {
                 "identifier": true
               }
@@ -38,6 +42,16 @@
               "type": "string"
             }
           }
+        },
+        "gender": {
+          "title": "Gender",
+          "type": "string",
+          "enum": [
+            "female",
+            "male",
+            "non_binary",
+            "prefer_not_to_say"
+          ]
         }
       },
       "required": [

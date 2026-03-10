@@ -135,28 +135,11 @@ services:
       OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT}
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT}
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
+      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
+      NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
     depends_on:
       - api
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  # ─── Workflows (Motia) ───────────────────────────────────────
-  workflows:
-    build:
-      context: .
-      dockerfile: apps/workflows/Dockerfile.prod
-    restart: always
-    environment:
-      PORT: 3335
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bookshare
-      API_URL: http://api:3333/api
-    depends_on:
-      postgres:
-        condition: service_healthy
     deploy:
       resources:
         limits:

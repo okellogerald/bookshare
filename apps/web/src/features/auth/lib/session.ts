@@ -13,6 +13,7 @@ interface SessionData {
     email?: string;
     name?: string;
     username?: string;
+    emailVerified?: boolean;
   };
 }
 

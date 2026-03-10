@@ -65,6 +65,10 @@ db-studio: ## Open Drizzle Studio GUI
 db-post-migrate: ## Apply RLS policies, views, and grants (post-migration.sql)
 	psql "$(DB_URL)" -f infra/postgres/post-migration.sql
 
+.PHONY: db-reset-user-data
+db-reset-user-data: ## Clear users + user-related records, keep catalog tables
+	psql "$(DB_URL)" -f infra/postgres/reset-user-data.sql
+
 .PHONY: db-seed
 db-seed: ## Insert test data (books, authors, copies, etc.)
 	DATABASE_URL=$(DB_URL) bun run --cwd packages/db seed

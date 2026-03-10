@@ -9,9 +9,8 @@ A closed-access platform where approved community members list books they're wil
 | Frontend | Next.js 15, ShadCN, Tailwind, TanStack Query | 3334 |
 | Write API | NestJS | 3333 |
 | Read API | PostgREST | 3336 |
-| Workflows | Motia | 3335 |
 | Database | PostgreSQL 16 + Drizzle ORM | 5434 |
-| Auth | Ory (Hydra + Kratos, default dev flavor) | 4444 / 4433 |
+| Auth | Ory (Hydra + Kratos + Auth Portal) | 4444 / 4433 / 3337 |
 | Object Storage | MinIO | 9002 / 9003 |
 
 ## Project Structure
@@ -20,9 +19,9 @@ A closed-access platform where approved community members list books they're wil
 .
 ├── apps/
 │   ├── api/          # NestJS write API
+│   ├── auth/         # Reusable Auth Portal (Kratos flows + Hydra challenges)
 │   ├── web/          # Next.js frontend
-│   ├── ory-login-consent/ # Hydra login/consent bridge backed by Kratos session
-│   └── workflows/    # Motia workflow steps
+│   └── workflows/    # Optional background workflows (not in default compose)
 ├── packages/
 │   ├── db/           # Drizzle schema, migrations
 │   └── shared/       # Shared types, enums, constants
@@ -78,11 +77,12 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
 
 4. **Hydra OAuth client is auto-provisioned**
    - `hydra-client-init` creates/updates `bookshare-web` on startup.
-   - Login/consent is handled by the local bridge service on `http://localhost:3000`, which validates Kratos sessions and maps Kratos traits into Hydra token claims.
+   - Login, consent, and logout challenges are handled by Auth Portal at `http://localhost:3337`.
+   - Config reference for contributors: `infra/ory/README.md`
 
-5. **Register a Kratos user (first time)**
-   - Open `http://localhost:4455/registration`
-   - Create an account with email and password (name fields optional but recommended for profile prefill)
+5. **Register a user (first time)**
+   - Open `http://localhost:3337/register` (or `http://localhost:3334/auth/register`)
+   - Create an account with email/password, verify email, then continue to BookShare login.
 
 6. **Set PostgREST JWT keyset**
    ```sh
@@ -106,6 +106,29 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    ```
 
 The app is available at `http://localhost:3334`.
+
+## Auth Compose Jobs (Why They Exist)
+
+`docker-compose.dev.yml` includes three important one-shot jobs for Ory startup:
+
+| Service | Type | Why it is necessary | What it does |
+|---|---|---|---|
+| `hydra-migrate` | One-shot migration job | Hydra will fail or behave unpredictably if DB schema is missing/outdated. | Runs `hydra migrate sql up` against Hydra's SQLite DB volume before `hydra` starts. |
+| `kratos-migrate` | One-shot migration job | Kratos requires its SQL schema to exist before serving self-service/session APIs. | Runs `kratos migrate sql` against Kratos's SQLite DB volume before `kratos` starts. |
+| `hydra-client-init` | One-shot bootstrap job | Without this, OAuth login fails with `invalid_client` because `bookshare-web` client does not exist. | Calls Hydra Admin API to create/update client `bookshare-web` with callback/logout URLs and grant settings. |
+
+### Startup Order
+
+1. `hydra-migrate` completes, then `hydra` starts.
+2. `kratos-migrate` completes, then `kratos` starts.
+3. `hydra-client-init` runs after Hydra is up and upserts the OAuth client.
+4. `web` depends on `hydra-client-init` completion so auth redirects have a valid client.
+
+### Script Notes
+
+- `infra/ory/hydra/init-client.sh` is idempotent by design.
+- It waits for `http://hydra:4445/health/ready`, then uses `PUT /admin/clients/bookshare-web` to create or update the client.
+- Re-running compose does not duplicate clients; it keeps client config in sync.
 
 ## Submission Behavior (V1)
 

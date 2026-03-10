@@ -15,7 +15,6 @@ const c = initContract();
 export interface CreateBookBody {
   title: string;
   subtitle?: string;
-  description?: string;
   language?: string;
   authorIds?: string[];
   categoryIds?: string[];
@@ -24,7 +23,6 @@ export interface CreateBookBody {
 export interface UpdateBookBody {
   title?: string;
   subtitle?: string;
-  description?: string;
   language?: string;
   authorIds?: string[];
   categoryIds?: string[];
@@ -34,7 +32,6 @@ export interface BookResponse {
   id: string;
   title: string;
   subtitle: string | null;
-  description: string | null;
   language: string;
   createdAt: string;
   updatedAt: string;
@@ -64,6 +61,7 @@ export interface CreateEditionBody {
   bookId: string;
   isbn?: string;
   format: string;
+  description?: string;
   publisher?: string;
   publishedYear?: number;
   pageCount?: number;
@@ -73,6 +71,7 @@ export interface CreateEditionBody {
 export interface UpdateEditionBody {
   isbn?: string;
   format?: string;
+  description?: string;
   publisher?: string;
   publishedYear?: number;
   pageCount?: number;
@@ -84,6 +83,7 @@ export interface EditionResponse {
   bookId: string;
   isbn: string | null;
   format: string;
+  description: string | null;
   publisher: string | null;
   publishedYear: number | null;
   pageCount: number | null;

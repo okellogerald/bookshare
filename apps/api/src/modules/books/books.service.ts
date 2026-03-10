@@ -15,7 +15,6 @@ export class BooksService {
         .values({
           title: dto.title,
           subtitle: dto.subtitle,
-          description: dto.description,
           language: dto.language ?? "en",
         })
         .returning();

@@ -1,0 +1,41 @@
+FROM oven/bun:1 AS builder
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY packages/importer/package.json ./packages/importer/
+COPY apps/auth/package.json ./apps/auth/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/workflows/package.json ./apps/workflows/
+
+RUN bun install --frozen-lockfile
+
+COPY apps/auth ./apps/auth
+COPY tsconfig.base.json ./
+
+WORKDIR /app/apps/auth
+RUN bun run build
+
+FROM oven/bun:1-slim AS runner
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=builder /app/apps/auth/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3337
+
+ENV PORT=3337
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["bun", "run", "server.js"]

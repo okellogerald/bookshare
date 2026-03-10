@@ -1,3 +1,6 @@
+# BookShare development Kratos config.
+# Contributor guide: infra/ory/README.md
+
 version: v1.3.1
 
 dsn: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
@@ -11,55 +14,76 @@ serve:
     base_url: http://kratos:4434/
 
 selfservice:
-  default_browser_return_url: http://localhost:3334
+  # Browser default when Kratos flow has no explicit `return_to`.
+  default_browser_return_url: http://localhost:3337
+  # Explicitly allow Auth Portal + BookShare callback resume paths.
   allowed_return_urls:
-    - http://localhost:4455
+    - http://localhost:3337
     - http://localhost:3334
-    - http://localhost:3000
+    - http://localhost:3334/api/auth/login
+    - http://localhost:3337/oauth/login
 
   methods:
     password:
       enabled: true
+    # Used for registration verification + recovery/verification flows.
     code:
       enabled: true
+      # Enables registration/login code flows. We keep login UI password-only in Auth Portal.
+      passwordless_enabled: true
+      config:
+        # Keep code validity aligned with registration flow lifetime.
+        lifespan: 1h
+    # Keep enabled for future email-link style flows.
     link:
       enabled: true
 
   flows:
     error:
-      ui_url: http://localhost:4455/error
+      ui_url: http://localhost:3337/error
 
     settings:
-      ui_url: http://localhost:4455/settings
+      ui_url: http://localhost:3337/settings
       privileged_session_max_age: 15m
 
     recovery:
       enabled: true
-      ui_url: http://localhost:4455/recovery
+      ui_url: http://localhost:3337/recovery
       use: code
 
     verification:
       enabled: true
-      ui_url: http://localhost:4455/verification
+      ui_url: http://localhost:3337/verification
       use: code
       after:
-        default_browser_return_url: http://localhost:4455/welcome
+        default_browser_return_url: http://localhost:3337/welcome
 
     logout:
       after:
-        default_browser_return_url: http://localhost:4455/login
+        default_browser_return_url: http://localhost:3337/login
 
     login:
-      ui_url: http://localhost:4455/login
+      ui_url: http://localhost:3337/login
       lifespan: 10m
 
     registration:
-      lifespan: 10m
-      ui_url: http://localhost:4455/registration
+      # Keep enough time for users to receive and enter the emailed code.
+      lifespan: 1h
+      # Keep registration as a single method-submit flow in the portal (email -> code verify).
+      style: unified
+      ui_url: http://localhost:3337/register
       after:
+        # After successful code verification, continue into profile/password setup.
+        default_browser_return_url: http://localhost:3337/setup
+        code:
+          hooks:
+            # Creates a Kratos session after successful code verification.
+            - hook: session
         password:
           hooks:
+            # Creates a Kratos session immediately after registration.
             - hook: session
+            # Redirects into verification UI to verify email.
             - hook: show_verification_ui
 
 log:
@@ -84,8 +108,10 @@ identity:
   default_schema_id: default
   schemas:
     - id: default
+      # Trait schema used by registration/settings forms.
       url: file:///etc/config/kratos/identity.schema.json
 
 courier:
   smtp:
-    connection_uri: smtp://mailpit:1025/?skip_ssl_verify=true
+    # Dev mail sink (Mailpit container in docker-compose.dev.yml).
+    connection_uri: smtp://mailpit:1025/?skip_ssl_verify=true&disable_starttls=true

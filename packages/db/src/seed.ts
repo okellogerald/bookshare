@@ -139,65 +139,45 @@ async function seed() {
       .values([
         {
           title: "The Great Gatsby",
-          description:
-            "A novel about the American Dream set in the Jazz Age, following the mysterious millionaire Jay Gatsby and his obsession with Daisy Buchanan.",
           language: "en",
         },
         {
           title: "To Kill a Mockingbird",
-          description:
-            "A story of racial injustice and childhood innocence in the Deep South, seen through the eyes of young Scout Finch.",
           language: "en",
         },
         {
           title: "1984",
-          description:
-            "A dystopian novel set in a totalitarian society under constant surveillance, where independent thinking is a crime.",
           language: "en",
         },
         {
           title: "Pride and Prejudice",
-          description:
-            "A romantic novel following Elizabeth Bennet as she navigates issues of manners, morality, and marriage in Regency-era England.",
           language: "en",
         },
         {
           title: "The Hobbit",
           subtitle: "Or There and Back Again",
-          description:
-            "The adventure of Bilbo Baggins, a hobbit who is swept into an epic quest to reclaim the lost Dwarf Kingdom of Erebor.",
           language: "en",
         },
         {
           title: "Dune",
-          description:
-            "An epic science fiction saga set on the desert planet Arrakis, following young Paul Atreides as he navigates politics, religion, and ecology.",
           language: "en",
         },
         {
           title: "Sapiens",
           subtitle: "A Brief History of Humankind",
-          description:
-            "An exploration of how Homo sapiens came to dominate the Earth, covering the Cognitive, Agricultural, and Scientific Revolutions.",
           language: "en",
         },
         {
           title: "The Design of Everyday Things",
-          description:
-            "A foundational text on human-centered design, examining why some products satisfy users while others frustrate them.",
           language: "en",
         },
         {
           title: "Clean Code",
           subtitle: "A Handbook of Agile Software Craftsmanship",
-          description:
-            "A guide to writing readable, maintainable code with practical advice on naming, functions, error handling, and testing.",
           language: "en",
         },
         {
           title: "Thinking, Fast and Slow",
-          description:
-            "An exploration of the two systems that drive the way we think: fast intuitive thinking and slow deliberate thinking.",
           language: "en",
         },
       ])
@@ -268,6 +248,8 @@ async function seed() {
         bookId: gatsby.id,
         isbn: "9780743273565",
         format: "paperback",
+        description:
+          "A novel about the American Dream set in the Jazz Age, following the mysterious millionaire Jay Gatsby and his obsession with Daisy Buchanan.",
         publisher: "Scribner",
         publishedYear: 2004,
         pageCount: 180,
@@ -276,6 +258,8 @@ async function seed() {
         bookId: mockingbird.id,
         isbn: "9780061120084",
         format: "paperback",
+        description:
+          "A story of racial injustice and childhood innocence in the Deep South, seen through the eyes of young Scout Finch.",
         publisher: "Harper Perennial",
         publishedYear: 2006,
         pageCount: 336,
@@ -284,6 +268,8 @@ async function seed() {
         bookId: nineteen84.id,
         isbn: "9780451524935",
         format: "paperback",
+        description:
+          "A dystopian novel set in a totalitarian society under constant surveillance, where independent thinking is a crime.",
         publisher: "Signet Classics",
         publishedYear: 1961,
         pageCount: 328,
@@ -292,6 +278,8 @@ async function seed() {
         bookId: nineteen84.id,
         isbn: "9780141036144",
         format: "hardcover",
+        description:
+          "A dystopian novel set in a totalitarian society under constant surveillance, where independent thinking is a crime.",
         publisher: "Penguin Books",
         publishedYear: 2008,
         pageCount: 336,
@@ -300,6 +288,8 @@ async function seed() {
         bookId: pride.id,
         isbn: "9780141439518",
         format: "paperback",
+        description:
+          "A romantic novel following Elizabeth Bennet as she navigates issues of manners, morality, and marriage in Regency-era England.",
         publisher: "Penguin Classics",
         publishedYear: 2002,
         pageCount: 480,
@@ -308,6 +298,8 @@ async function seed() {
         bookId: hobbit.id,
         isbn: "9780547928227",
         format: "paperback",
+        description:
+          "The adventure of Bilbo Baggins, a hobbit who is swept into an epic quest to reclaim the lost Dwarf Kingdom of Erebor.",
         publisher: "Mariner Books",
         publishedYear: 2012,
         pageCount: 300,
@@ -316,6 +308,8 @@ async function seed() {
         bookId: hobbit.id,
         isbn: "9780618260300",
         format: "hardcover",
+        description:
+          "The adventure of Bilbo Baggins, a hobbit who is swept into an epic quest to reclaim the lost Dwarf Kingdom of Erebor.",
         publisher: "Houghton Mifflin",
         publishedYear: 2001,
         pageCount: 320,
@@ -324,6 +318,8 @@ async function seed() {
         bookId: dune.id,
         isbn: "9780441013593",
         format: "paperback",
+        description:
+          "An epic science fiction saga set on the desert planet Arrakis, following young Paul Atreides as he navigates politics, religion, and ecology.",
         publisher: "Ace Books",
         publishedYear: 2005,
         pageCount: 688,
@@ -332,6 +328,8 @@ async function seed() {
         bookId: sapiens.id,
         isbn: "9780062316097",
         format: "paperback",
+        description:
+          "An exploration of how Homo sapiens came to dominate the Earth, covering the Cognitive, Agricultural, and Scientific Revolutions.",
         publisher: "Harper Perennial",
         publishedYear: 2015,
         pageCount: 464,
@@ -340,6 +338,8 @@ async function seed() {
         bookId: design.id,
         isbn: "9780465050659",
         format: "paperback",
+        description:
+          "A foundational text on human-centered design, examining why some products satisfy users while others frustrate them.",
         publisher: "Basic Books",
         publishedYear: 2013,
         pageCount: 368,
@@ -348,6 +348,8 @@ async function seed() {
         bookId: cleanCode.id,
         isbn: "9780132350884",
         format: "paperback",
+        description:
+          "A guide to writing readable, maintainable code with practical advice on naming, functions, error handling, and testing.",
         publisher: "Prentice Hall",
         publishedYear: 2008,
         pageCount: 464,
@@ -356,6 +358,8 @@ async function seed() {
         bookId: thinking.id,
         isbn: "9780374533557",
         format: "paperback",
+        description:
+          "An exploration of the two systems that drive the way we think: fast intuitive thinking and slow deliberate thinking.",
         publisher: "Farrar, Straus and Giroux",
         publishedYear: 2013,
         pageCount: 499,

@@ -14,10 +14,11 @@ async function fetchMyProfile(): Promise<ProfileResponse> {
   return nestjsFetch<ProfileResponse>("profiles/me", "GET");
 }
 
-export function useMyProfile() {
+export function useMyProfile(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["my-profile"],
     queryFn: fetchMyProfile,
+    enabled: options?.enabled ?? true,
   });
 }
 

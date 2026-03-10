@@ -45,6 +45,7 @@ export async function GET() {
   response.cookies.delete("bookshare_token");
   response.cookies.delete("oidc_code_verifier");
   response.cookies.delete("oidc_state");
+  response.cookies.delete("oidc_return_to");
 
   return response;
 }

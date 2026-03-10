@@ -7,6 +7,7 @@ interface User {
   email?: string;
   name?: string;
   username?: string;
+  emailVerified?: boolean;
 }
 
 const UserContext = createContext<User | null>(null);

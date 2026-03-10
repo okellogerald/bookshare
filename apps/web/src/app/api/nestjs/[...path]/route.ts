@@ -9,8 +9,15 @@ const API_URL =
 async function proxyToNestJS(request: NextRequest, path: string[]) {
   const token = await getAccessToken();
   const session = await getSession();
-  if (!token) {
+  if (!token || !session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (session.user.emailVerified !== true) {
+    return NextResponse.json(
+      { error: "Email verification required" },
+      { status: 403 }
+    );
   }
 
   const apiPath = path.join("/");

@@ -288,7 +288,6 @@ export async function runCommitCommand(params: { runId: string }) {
           .values({
             title: row.title,
             subtitle: row.subtitle,
-            description: row.description,
             language: row.language,
           })
           .returning();
@@ -350,6 +349,7 @@ export async function runCommitCommand(params: { runId: string }) {
             bookId,
             isbn: row.isbn,
             format: row.format as any,
+            description: row.description,
             publisher: row.publisher,
             publishedYear: row.publishedYear,
             pageCount: row.pageCount,

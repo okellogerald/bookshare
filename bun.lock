@@ -7,7 +7,7 @@
     },
     "apps/api": {
       "name": "@bookshare/api",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.758.0",
         "@aws-sdk/s3-request-presigner": "^3.758.0",
@@ -41,9 +41,24 @@
         "typescript": "^5.7.0",
       },
     },
+    "apps/auth": {
+      "name": "@bookshare/auth",
+      "version": "0.1.0",
+      "dependencies": {
+        "next": "^15.1.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+      "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "typescript": "^5.7.0",
+      },
+    },
     "apps/web": {
       "name": "@bookshare/web",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@bookshare/shared": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.4",
@@ -76,7 +91,7 @@
     },
     "apps/workflows": {
       "name": "@bookshare/workflows",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@bookshare/db": "workspace:*",
         "@bookshare/shared": "workspace:*",
@@ -90,7 +105,7 @@
     },
     "packages/db": {
       "name": "@bookshare/db",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@bookshare/shared": "workspace:*",
         "drizzle-orm": "^0.38.0",
@@ -104,7 +119,7 @@
     },
     "packages/importer": {
       "name": "@bookshare/importer",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.734.0",
         "@bookshare/db": "workspace:*",
@@ -121,7 +136,7 @@
     },
     "packages/shared": {
       "name": "@bookshare/shared",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "typescript": "^5.7.0",
       },
@@ -227,6 +242,8 @@
     "@babel/runtime": ["@babel/runtime@7.28.6", "", {}, "sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA=="],
 
     "@bookshare/api": ["@bookshare/api@workspace:apps/api"],
+
+    "@bookshare/auth": ["@bookshare/auth@workspace:apps/auth"],
 
     "@bookshare/db": ["@bookshare/db@workspace:packages/db"],
 

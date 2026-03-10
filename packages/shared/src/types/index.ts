@@ -14,7 +14,6 @@ export interface Book {
   id: string;
   title: string;
   subtitle: string | null;
-  description: string | null;
   language: string;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +33,7 @@ export interface Edition {
   bookId: string;
   isbn: string | null;
   format: BookFormat;
+  description: string | null;
   publisher: string | null;
   publishedYear: number | null;
   pageCount: number | null;

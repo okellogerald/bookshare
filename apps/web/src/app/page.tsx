@@ -14,9 +14,14 @@ export default function LandingPage() {
           giving away.
         </p>
       </div>
-      <Link href="/api/auth/login">
-        <Button size="lg">Sign In</Button>
-      </Link>
+      <div className="flex items-center gap-3">
+        <Button size="lg" asChild>
+          <Link href="/api/auth/login">Sign In</Link>
+        </Button>
+        <Button size="lg" variant="outline" asChild>
+          <Link href="/auth/register">Create Account</Link>
+        </Button>
+      </div>
     </div>
   );
 }
