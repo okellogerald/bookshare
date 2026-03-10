@@ -40,11 +40,12 @@ export function WantCard({
   const authors = want.authors?.map((a) => a.name).join(", ");
   const topWanters = want.wanters.slice(0, 5);
   const remainingWanters = Math.max(want.wanters.length - topWanters.length, 0);
-  const editionLabel = want.edition_id
+  const isEditionSpecific = !!want.edition_id;
+  const editionLabel = isEditionSpecific
     ? `${want.edition_format ? (formatLabels[want.edition_format] ?? want.edition_format) : "Edition"}${
         want.edition_isbn ? ` • ISBN ${want.edition_isbn}` : ""
       }`
-    : "Any edition";
+    : null;
 
   return (
     <button type="button" className="w-full text-left" onClick={() => onSelect(want)}>
@@ -81,7 +82,10 @@ export function WantCard({
             <Badge variant="secondary">
               {want.want_count} {want.want_count === 1 ? "member wants this" : "members want this"}
             </Badge>
-            <Badge variant="outline">{editionLabel}</Badge>
+            <Badge variant="outline">
+              {isEditionSpecific ? "Edition specific" : "Edition agnostic"}
+            </Badge>
+            {editionLabel && <Badge variant="outline">{editionLabel}</Badge>}
             {canFulfill && <Badge>You can fulfill</Badge>}
           </div>
 

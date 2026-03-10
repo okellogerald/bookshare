@@ -124,6 +124,32 @@ export default function WantedPage() {
   const selectedWantFromFiltered = selectedWantKey
     ? filteredWants.find((want) => getWantKey(want) === selectedWantKey) ?? null
     : null;
+  const selectedBookWantVariants = useMemo(() => {
+    if (!selectedWantFromFiltered) return [];
+    return filteredWants.filter(
+      (want) => want.book_id === selectedWantFromFiltered.book_id
+    );
+  }, [filteredWants, selectedWantFromFiltered]);
+  const selectedBookPreferenceSummary = useMemo(() => {
+    let editionAgnostic = 0;
+    let editionSpecific = 0;
+    const specificEditionIds = new Set<string>();
+
+    for (const want of selectedBookWantVariants) {
+      if (want.edition_id) {
+        editionSpecific += want.want_count;
+        specificEditionIds.add(want.edition_id);
+      } else {
+        editionAgnostic += want.want_count;
+      }
+    }
+
+    return {
+      editionAgnostic,
+      editionSpecific,
+      specificEditionCount: specificEditionIds.size,
+    };
+  }, [selectedBookWantVariants]);
 
   useEffect(() => {
     if (detailsOpen && selectedWantKey && !selectedWantFromFiltered) {
@@ -272,6 +298,11 @@ export default function WantedPage() {
               </p>
               <Badge variant="outline">
                 {selectedWantFromFiltered.edition_id
+                  ? "Edition specific"
+                  : "Edition agnostic"}
+              </Badge>
+              <Badge variant="outline">
+                {selectedWantFromFiltered.edition_id
                   ? `${selectedWantFromFiltered.edition_format ? (formatLabels[selectedWantFromFiltered.edition_format] ?? selectedWantFromFiltered.edition_format) : "Edition"}${
                       selectedWantFromFiltered.edition_isbn
                         ? ` • ISBN ${selectedWantFromFiltered.edition_isbn}`
@@ -280,6 +311,24 @@ export default function WantedPage() {
                   : "Any edition"}
               </Badge>
             </div>
+            {(selectedBookPreferenceSummary.editionAgnostic > 0 ||
+              selectedBookPreferenceSummary.editionSpecific > 0) && (
+              <div className="rounded border bg-muted/30 p-2 text-sm text-muted-foreground">
+                Preference mix for this book:{" "}
+                <span className="font-medium text-foreground">
+                  {selectedBookPreferenceSummary.editionAgnostic}
+                </span>{" "}
+                edition-agnostic,{" "}
+                <span className="font-medium text-foreground">
+                  {selectedBookPreferenceSummary.editionSpecific}
+                </span>{" "}
+                edition-specific
+                {selectedBookPreferenceSummary.editionSpecific > 0
+                  ? ` across ${selectedBookPreferenceSummary.specificEditionCount} edition${selectedBookPreferenceSummary.specificEditionCount === 1 ? "" : "s"}`
+                  : ""}
+                .
+              </div>
+            )}
             <div className="rounded border bg-muted/30 p-2 text-sm text-muted-foreground">
               Exchange is handled outside the app. Contact a member first, then record the completed exchange here.
             </div>

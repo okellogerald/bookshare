@@ -9,6 +9,7 @@ import {
   Heart,
   Library,
   Search,
+  Settings,
   Users,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -143,7 +144,11 @@ export function AppShellClient({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
+                    variant={
+                      pathname.startsWith("/profile") || pathname.startsWith("/settings")
+                        ? "secondary"
+                        : "ghost"
+                    }
                     size="sm"
                     className="gap-2"
                   >
@@ -167,6 +172,12 @@ export function AppShellClient({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
                     <Link href="/profile">View Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a href="/api/auth/logout">Sign Out</a>

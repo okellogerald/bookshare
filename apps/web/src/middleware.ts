@@ -11,6 +11,7 @@ const protectedPagePrefixes = [
   "/my-library",
   "/my-wants",
   "/profile",
+  "/settings",
   "/books",
 ];
 

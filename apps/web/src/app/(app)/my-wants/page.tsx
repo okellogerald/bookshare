@@ -156,6 +156,7 @@ export default function MyWantsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Book</TableHead>
+                      <TableHead>Edition Preference</TableHead>
                       <TableHead>Notes</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
@@ -179,6 +180,13 @@ export default function MyWantsPage() {
                             <p className="text-xs text-muted-foreground">
                               {want.book.subtitle}
                             </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {want.edition_id ? (
+                            <Badge variant="outline">Edition specific</Badge>
+                          ) : (
+                            <Badge variant="secondary">Edition agnostic</Badge>
                           )}
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">

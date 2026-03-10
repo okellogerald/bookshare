@@ -528,6 +528,7 @@ export interface SubmissionResponse {
 export interface ProfileResponse {
   userId: string;
   username: string;
+  email: string;
   displayName: string;
   firstName: string | null;
   lastName: string | null;
@@ -536,6 +537,7 @@ export interface ProfileResponse {
   cityArea: string | null;
   contactHandle: string | null;
   avatarUrl: string | null;
+  deactivatedAt?: string | null;
   identityUpdatedAt: string;
   createdAt: string;
   updatedAt: string;

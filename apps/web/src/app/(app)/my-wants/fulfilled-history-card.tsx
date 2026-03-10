@@ -28,6 +28,14 @@ function formatEdition(entry: PgFulfilledWantHistory) {
   return isbn ? `${formatLabel} • ISBN ${isbn}` : formatLabel;
 }
 
+function formatWantedPreference(entry: PgFulfilledWantHistory) {
+  if (!entry.wanted_edition_id) return "Any edition";
+  const format = entry.wanted_edition_format;
+  const isbn = entry.wanted_edition_isbn;
+  const formatLabel = format ? (formatLabels[format] ?? format) : "Specific edition";
+  return isbn ? `${formatLabel} • ISBN ${isbn}` : formatLabel;
+}
+
 function getCover(entry: PgFulfilledWantHistory) {
   return (
     entry.fulfilled_edition_cover_image_url ??
@@ -53,6 +61,7 @@ export function FulfilledHistoryCard({
       : entry.recipient_display_name ?? entry.recipient_username ?? "Member";
   const notesLabel =
     perspective === "received" ? "Your want note" : "Wanter note";
+  const editionLabel = perspective === "received" ? "Received edition" : "Shared edition";
 
   return (
     <Card>
@@ -85,7 +94,9 @@ export function FulfilledHistoryCard({
                     entry.fulfillment_type)
                   : "Fulfilled"}
               </Badge>
-              <Badge variant="outline">{formatEdition(entry)}</Badge>
+              <Badge variant="outline">
+                {entry.wanted_edition_id ? "Edition specific request" : "Edition agnostic request"}
+              </Badge>
             </div>
           </div>
         </div>
@@ -97,6 +108,14 @@ export function FulfilledHistoryCard({
         <p>
           <span className="font-medium">{notesLabel}:</span>{" "}
           {entry.wanter_notes || "No note provided."}
+        </p>
+        <p>
+          <span className="font-medium">Wanter preference:</span>{" "}
+          {formatWantedPreference(entry)}
+        </p>
+        <p>
+          <span className="font-medium">{editionLabel}:</span>{" "}
+          {formatEdition(entry)}
         </p>
         {entry.fulfillment_notes && (
           <p>

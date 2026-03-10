@@ -84,8 +84,25 @@ export async function GET(request: NextRequest) {
           headers,
         });
         if (!syncResponse.ok) {
+          const syncErrorText = await syncResponse.text();
+
+          if (
+            syncResponse.status === 401 &&
+            syncErrorText.toLowerCase().includes("deactivated")
+          ) {
+            const blockedResponse = NextResponse.redirect(
+              new URL("/?error=account_deactivated", request.url)
+            );
+            blockedResponse.cookies.delete("bookshare_session");
+            blockedResponse.cookies.delete("bookshare_token");
+            blockedResponse.cookies.delete("oidc_code_verifier");
+            blockedResponse.cookies.delete("oidc_state");
+            blockedResponse.cookies.delete("oidc_return_to");
+            return blockedResponse;
+          }
+
           console.error(
-            `Profile sync on callback failed with status ${syncResponse.status}`
+            `Profile sync on callback failed with status ${syncResponse.status}: ${syncErrorText}`
           );
         }
       } catch (syncError) {

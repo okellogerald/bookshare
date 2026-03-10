@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, Loader2, Users } from "lucide-react";
@@ -17,6 +18,7 @@ import {
   useEditionsByBook,
   useListingsByBook,
 } from "@/shared/queries/books";
+import { useAllCategories } from "@/shared/queries/my-library";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -38,6 +40,14 @@ const conditionLabels: Record<string, string> = {
   poor: "Poor",
 };
 
+function getCategoryDisplayName(name: string) {
+  const segments = name
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  return segments[segments.length - 1] ?? name.trim();
+}
+
 export default function BookDetailPage() {
   const { bookId } = useParams<{ bookId: string }>();
 
@@ -45,6 +55,40 @@ export default function BookDetailPage() {
   const { data: bookWithCategories } = useBookCategories(bookId);
   const { data: editions } = useEditionsByBook(bookId);
   const { data: listings } = useListingsByBook(bookId);
+  const { data: allCategories } = useAllCategories();
+  const visibleCategoryBadges = useMemo(() => {
+    const categories = bookWithCategories?.categories ?? [];
+    if (categories.length === 0) return [];
+
+    const categoryIds = new Set(categories.map((category) => category.id));
+    const parentByCategoryId = new Map(
+      (allCategories ?? []).map((category) => [category.id, category.parent_id])
+    );
+    const parentIdsToHide = new Set<string>();
+
+    for (const category of categories) {
+      const parentId = parentByCategoryId.get(category.id) ?? null;
+      if (parentId && categoryIds.has(parentId)) {
+        parentIdsToHide.add(parentId);
+      }
+    }
+
+    const seenLabels = new Set<string>();
+    const normalized = categories
+      .filter((category) => !parentIdsToHide.has(category.id))
+      .map((category) => ({
+        ...category,
+        displayName: getCategoryDisplayName(category.name),
+      }))
+      .filter((category) => {
+        const key = category.displayName.toLowerCase();
+        if (seenLabels.has(key)) return false;
+        seenLabels.add(key);
+        return true;
+      });
+
+    return normalized.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [allCategories, bookWithCategories?.categories]);
 
   if (bookLoading) {
     return (
@@ -93,11 +137,11 @@ export default function BookDetailPage() {
         {book.language && book.language !== "en" && (
           <Badge variant="outline">{book.language.toUpperCase()}</Badge>
         )}
-        {bookWithCategories?.categories?.length ? (
+        {visibleCategoryBadges.length ? (
           <div className="flex flex-wrap gap-1.5">
-            {bookWithCategories.categories.map((category) => (
+            {visibleCategoryBadges.map((category) => (
               <Badge key={category.id} variant="secondary">
-                {category.name}
+                {category.displayName}
               </Badge>
             ))}
           </div>

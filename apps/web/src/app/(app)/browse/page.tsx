@@ -5,7 +5,6 @@ import { Search } from "lucide-react";
 import type { PgBrowseListing } from "@/shared/api";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
-import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -23,25 +22,13 @@ import { ListingCard } from "./listing-card";
 
 const pageSize = 24;
 
-const shareTypeLabels: Record<string, string> = {
-  lend: "Lend",
-  sell: "Sell",
-  give_away: "Give Away",
-};
-
-const conditionLabels: Record<string, string> = {
-  new: "New",
-  like_new: "Like New",
-  good: "Good",
-  fair: "Fair",
-  poor: "Poor",
-};
-
-const formatLabels: Record<string, string> = {
-  hardcover: "Hardcover",
-  paperback: "Paperback",
-  mass_market: "Mass Market",
-};
+function getCategoryDisplayName(name: string) {
+  const segments = name
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  return segments[segments.length - 1] ?? name.trim();
+}
 
 export default function BrowsePage() {
   const [search, setSearch] = useState("");
@@ -106,47 +93,24 @@ export default function BrowsePage() {
   } = useBrowseBookCategoryIndex(browseBookIds);
   const categoryOptionRows = useMemo(() => {
     const categories = allCategories ?? [];
-    const childrenByParent = new Map<string, typeof categories>();
-    for (const category of categories) {
-      if (!category.parent_id) continue;
-      const siblings = childrenByParent.get(category.parent_id) ?? [];
-      siblings.push(category);
-      childrenByParent.set(category.parent_id, siblings);
-    }
+    const parentIds = new Set(
+      categories
+        .map((category) => category.parent_id)
+        .filter((parentId): parentId is string => !!parentId)
+    );
 
-    const parents = categories
-      .filter((category) => !category.parent_id)
+    return categories
+      .filter((category) => !parentIds.has(category.id))
+      .map((category) => ({
+        id: category.id,
+        name: getCategoryDisplayName(category.name),
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
-
-    return parents.flatMap((parent) => {
-      const children = (childrenByParent.get(parent.id) ?? [])
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((child) => ({
-          id: child.id,
-          name: child.name,
-          level: 2 as const,
-        }));
-      return [{ id: parent.id, name: parent.name, level: 1 as const }, ...children];
-    });
   }, [allCategories]);
   const selectedCategoryIds = useMemo(() => {
     if (!categoryId) return null;
-
-    const categories = allCategories ?? [];
-    const selected = categories.find((category) => category.id === categoryId);
-    if (!selected) return new Set<string>([categoryId]);
-
-    const scope = new Set<string>([selected.id]);
-    if (!selected.parent_id) {
-      for (const category of categories) {
-        if (category.parent_id === selected.id) {
-          scope.add(category.id);
-        }
-      }
-    }
-
-    return scope;
-  }, [allCategories, categoryId]);
+    return new Set<string>([categoryId]);
+  }, [categoryId]);
   const filteredListings = useMemo(() => {
     if (!selectedCategoryIds) return ownershipFilteredListings;
     const categoryIndex = browseBookCategoryIndex ?? new Map<string, Set<string>>();
@@ -293,7 +257,7 @@ export default function BrowsePage() {
             <SelectValue placeholder="Condition" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Conditions</SelectItem>
+            <SelectItem value="all">All conditions</SelectItem>
             <SelectItem value="new">New</SelectItem>
             <SelectItem value="like_new">Like New</SelectItem>
             <SelectItem value="good">Good</SelectItem>
@@ -310,7 +274,7 @@ export default function BrowsePage() {
             <SelectValue placeholder="Format" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Formats</SelectItem>
+            <SelectItem value="all">All formats</SelectItem>
             <SelectItem value="hardcover">Hardcover</SelectItem>
             <SelectItem value="paperback">Paperback</SelectItem>
             <SelectItem value="mass_market">Mass Market</SelectItem>
@@ -327,7 +291,7 @@ export default function BrowsePage() {
             <SelectItem value="all">All categories</SelectItem>
             {categoryOptionRows.map((category) => (
               <SelectItem key={category.id} value={category.id}>
-                {category.level === 2 ? `↳ ${category.name}` : category.name}
+                {category.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -378,6 +342,7 @@ export default function BrowsePage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         bookId={selectedListing?.book_id ?? null}
+        focusEditionId={selectedListing?.edition_id ?? null}
         fallbackTitle={selectedListing?.book_title}
         fallbackSubtitle={selectedListing?.book_subtitle}
         preferredImageUrl={selectedListing?.cover_image_url}
@@ -426,41 +391,7 @@ export default function BrowsePage() {
             )}
           </div>
         }
-      >
-        {selectedListing && (
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-sm font-medium">Available listing</p>
-            <div className="flex flex-wrap gap-1.5">
-              {selectedListing.share_type && (
-                <Badge variant="default">
-                  {shareTypeLabels[selectedListing.share_type] ??
-                    selectedListing.share_type}
-                </Badge>
-              )}
-              <Badge variant="secondary">
-                {conditionLabels[selectedListing.condition] ??
-                  selectedListing.condition}
-              </Badge>
-              <Badge variant="outline">
-                {formatLabels[selectedListing.format] ?? selectedListing.format}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Listed by @{selectedListing.owner_username ?? "member"}
-              {selectedListing.owner_display_name
-                ? ` (${selectedListing.owner_display_name})`
-                : ""}
-            </p>
-            {selectedListing.status === "lent" && (
-              <p className="text-sm">
-                {selectedListing.borrower_username
-                  ? `Borrowed by @${selectedListing.borrower_username} from @${selectedListing.owner_username ?? "member"}`
-                  : "Borrowed off-platform"}
-              </p>
-            )}
-          </div>
-        )}
-      </BookDetailsDialog>
+      />
     </div>
   );
 }

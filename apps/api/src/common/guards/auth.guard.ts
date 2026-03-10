@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -8,6 +9,9 @@ import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import jwksClient, { JwksClient } from "jwks-rsa";
+import { type Database, memberProfiles } from "@bookshare/db";
+import { eq } from "drizzle-orm";
+import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
 interface ZitadelJwtPayload {
@@ -49,6 +53,7 @@ export class AuthGuard implements CanActivate {
   private jwksClient: JwksClient;
 
   constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
     private readonly configService: ConfigService,
     private readonly reflector: Reflector
   ) {
@@ -84,10 +89,26 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = await this.verifyToken(token);
-      request.user = this.mapToAuthenticatedUser(payload);
+      const mappedUser = this.mapToAuthenticatedUser(payload);
+      await this.ensureActiveAccount(mappedUser.id);
+      request.user = mappedUser;
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException("Invalid or expired token");
+    }
+  }
+
+  private async ensureActiveAccount(userId: string) {
+    const profile = await this.db.query.memberProfiles.findFirst({
+      columns: { deactivatedAt: true },
+      where: eq(memberProfiles.userId, userId),
+    });
+
+    if (profile?.deactivatedAt) {
+      throw new UnauthorizedException("Account is deactivated");
     }
   }
 

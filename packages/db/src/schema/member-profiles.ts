@@ -17,6 +17,7 @@ export const memberProfiles = pgTable("member_profiles", {
   cityArea: varchar("city_area", { length: 255 }),
   contactHandle: varchar("contact_handle", { length: 500 }),
   avatarUrl: varchar("avatar_url", { length: 2000 }),
+  deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
   identityUpdatedAt: timestamp("identity_updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
