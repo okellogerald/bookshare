@@ -1,5 +1,4 @@
 import {
-  BadGatewayException,
   BadRequestException,
   Inject,
   Injectable,
@@ -25,7 +24,7 @@ import {
   type UpdateIdentityProfileDto,
   type UpdatePasswordDto,
   type UpdateProfileDto,
-  type ZitadelGenderValue,
+  type IdentityGenderValue,
 } from "./dto";
 
 @Injectable()
@@ -38,7 +37,7 @@ export class ProfilesService {
   async sync(
     user: AuthenticatedUser,
     authorization?: string,
-    zitadelAccessToken?: string
+    identityAccessToken?: string
   ) {
     const existing = await this.db.query.memberProfiles.findFirst({
       where: eq(memberProfiles.userId, user.id),
@@ -73,7 +72,7 @@ export class ProfilesService {
       user,
       existing?.email ?? null,
       authorization,
-      zitadelAccessToken
+      identityAccessToken
     );
     const email = resolvedEmail ?? `${username}@bookshare.local`;
 
@@ -117,7 +116,7 @@ export class ProfilesService {
   async findMe(
     user: AuthenticatedUser,
     authorization?: string,
-    zitadelAccessToken?: string
+    identityAccessToken?: string
   ) {
     const profile = await this.db.query.memberProfiles.findFirst({
       where: eq(memberProfiles.userId, user.id),
@@ -128,16 +127,16 @@ export class ProfilesService {
     }
 
     if (profile) return profile;
-    return this.sync(user, authorization, zitadelAccessToken);
+    return this.sync(user, authorization, identityAccessToken);
   }
 
   async updateMe(
     user: AuthenticatedUser,
     dto: UpdateProfileDto,
     authorization?: string,
-    zitadelAccessToken?: string
+    identityAccessToken?: string
   ) {
-    const existing = await this.findMe(user, authorization, zitadelAccessToken);
+    const existing = await this.findMe(user, authorization, identityAccessToken);
     const updates: Record<string, unknown> = {};
 
     if (dto.cityArea !== undefined) {
@@ -169,12 +168,11 @@ export class ProfilesService {
   async updateMyIdentity(
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined,
+    identityAccessToken: string | undefined,
     dto: UpdateIdentityProfileDto
   ) {
     this.extractBearerToken(authorization);
-    const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
-    const existing = await this.findMe(user, authorization, zitadelAccessToken);
+    const existing = await this.findMe(user, authorization, identityAccessToken);
 
     const usernameInput = (dto.username ?? existing.username ?? "").trim();
     const firstName = (dto.firstName ?? existing.firstName ?? "").trim();
@@ -192,15 +190,6 @@ export class ProfilesService {
     if (!lastName) {
       throw new BadRequestException("lastName is required");
     }
-
-    const payload = {
-      firstName,
-      lastName,
-      displayName,
-      gender,
-    };
-
-    await this.updateZitadelMyProfile(token, payload);
 
     const [updated] = await this.db
       .update(memberProfiles)
@@ -223,12 +212,11 @@ export class ProfilesService {
   async updateMyEmail(
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined,
+    identityAccessToken: string | undefined,
     dto: UpdateEmailDto
   ) {
     this.extractBearerToken(authorization);
-    const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
-    const existing = await this.findMe(user, authorization, zitadelAccessToken);
+    const existing = await this.findMe(user, authorization, identityAccessToken);
 
     const nextEmail = this.normalizeEmail(dto.email);
     if (!nextEmail) {
@@ -238,8 +226,6 @@ export class ProfilesService {
     if (existing.email === nextEmail) {
       return existing;
     }
-
-    await this.updateZitadelMyEmail(token, user.id, nextEmail);
 
     const [updated] = await this.db
       .update(memberProfiles)
@@ -257,11 +243,10 @@ export class ProfilesService {
   async updateMyPassword(
     _user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined,
+    _identityAccessToken: string | undefined,
     dto: UpdatePasswordDto
   ) {
     this.extractBearerToken(authorization);
-    const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
 
     const oldPassword = dto.oldPassword.trim();
     const newPassword = dto.newPassword.trim();
@@ -273,24 +258,24 @@ export class ProfilesService {
       throw new BadRequestException("newPassword must be different from oldPassword");
     }
 
-    await this.updateZitadelMyPassword(token, oldPassword, newPassword);
-    return { updated: true };
+    throw new BadRequestException(
+      "Password changes must be completed through the Ory Kratos settings flow."
+    );
   }
 
   async deactivateMyAccount(
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined,
+    identityAccessToken: string | undefined,
     dto: DeactivateAccountDto
   ) {
     this.extractBearerToken(authorization);
-    const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
 
     if (!dto.password.trim()) {
       throw new BadRequestException("password is required");
     }
 
-    await this.findMe(user, authorization, zitadelAccessToken);
+    await this.findMe(user, authorization, identityAccessToken);
 
     const deactivatedAt = new Date();
     const [updated] = await this.db
@@ -306,32 +291,25 @@ export class ProfilesService {
       throw new NotFoundException("Profile not found");
     }
 
-    const identityProviderDeactivated = await this.deactivateZitadelUser(
-      token,
-      user.id
-    );
-
     return {
       deactivated: true,
       deactivatedAt: updated.deactivatedAt,
-      identityProviderDeactivated,
+      identityProviderDeactivated: false,
     };
   }
 
   async deleteMyAccount(
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined,
+    _identityAccessToken: string | undefined,
     dto: DeleteAccountDto
   ) {
     this.extractBearerToken(authorization);
-    const token = this.extractTokenForZitadel(authorization, zitadelAccessToken);
 
     if (!dto.password.trim()) {
       throw new BadRequestException("password is required");
     }
 
-    await this.removeZitadelUser(token, user.id);
     await this.deleteLocalAccountData(user.id);
 
     return { deleted: true };
@@ -381,7 +359,7 @@ export class ProfilesService {
     user: AuthenticatedUser,
     existingEmail: string | null,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined
+    identityAccessToken: string | undefined
   ) {
     const emailFromClaims = this.normalizeEmail(user.email);
     if (emailFromClaims) return emailFromClaims;
@@ -389,7 +367,7 @@ export class ProfilesService {
     const emailFromProfile = this.normalizeEmail(existingEmail);
     if (emailFromProfile) return emailFromProfile;
 
-    return this.fetchEmailFromUserInfo(authorization, zitadelAccessToken);
+    return this.fetchEmailFromUserInfo(authorization, identityAccessToken);
   }
 
   private async getUniqueUsername(base: string, userId?: string) {
@@ -461,31 +439,29 @@ export class ProfilesService {
     return token;
   }
 
-  private extractTokenForZitadel(
-    authorization: string | undefined,
-    zitadelAccessToken: string | undefined
-  ) {
-    if (zitadelAccessToken && zitadelAccessToken.trim().length > 0) {
-      return zitadelAccessToken.trim();
-    }
-    return this.extractBearerToken(authorization);
-  }
-
-  private getZitadelEndpoints() {
-    const issuer = this.configService.getOrThrow<string>("ZITADEL_ISSUER");
+  private getIdentityProviderEndpoints() {
+    const issuer = this.configService.getOrThrow<string>("OIDC_ISSUER");
     const issuerInternal =
-      this.configService.get<string>("ZITADEL_ISSUER_INTERNAL") || issuer;
+      this.configService.get<string>("OIDC_ISSUER_INTERNAL") || issuer;
     const issuerHost = new URL(issuer).host;
+    const configuredUserInfoEndpoint = this.configService.get<string>(
+      "OIDC_USERINFO_ENDPOINT"
+    );
+    const userInfoEndpoint = configuredUserInfoEndpoint
+      ? new URL(configuredUserInfoEndpoint, issuerInternal).toString()
+      : new URL("/userinfo", issuerInternal).toString();
 
     return {
       issuer,
       issuerInternal,
       issuerHost,
+      userInfoEndpoint,
     };
   }
 
-  private createZitadelHeaders(token: string, includeJson = false) {
-    const { issuer, issuerInternal, issuerHost } = this.getZitadelEndpoints();
+  private createIdentityProviderHeaders(token: string, includeJson = false) {
+    const { issuer, issuerInternal, issuerHost } =
+      this.getIdentityProviderEndpoints();
 
     const headers = new Headers({
       Authorization: `Bearer ${token}`,
@@ -507,15 +483,16 @@ export class ProfilesService {
 
   private async fetchEmailFromUserInfo(
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined
+    identityAccessToken: string | undefined
   ) {
     const token =
-      zitadelAccessToken?.trim() || this.extractBearerTokenIfPresent(authorization);
+      identityAccessToken?.trim() || this.extractBearerTokenIfPresent(authorization);
     if (!token) return null;
 
-    const { issuerInternal, headers } = this.createZitadelHeaders(token);
+    const { userInfoEndpoint } = this.getIdentityProviderEndpoints();
+    const { headers } = this.createIdentityProviderHeaders(token);
 
-    const response = await fetch(`${issuerInternal}/oidc/v1/userinfo`, {
+    const response = await fetch(userInfoEndpoint, {
       method: "GET",
       headers,
     });
@@ -528,7 +505,9 @@ export class ProfilesService {
     return this.normalizeEmail(payload.email);
   }
 
-  private normalizeGender(value: string | undefined): ZitadelGenderValue | undefined {
+  private normalizeGender(
+    value: string | undefined
+  ): IdentityGenderValue | undefined {
     if (!value) return undefined;
     const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
 
@@ -542,167 +521,6 @@ export class ProfilesService {
       return "GENDER_MALE";
     }
     return "GENDER_UNSPECIFIED";
-  }
-
-  private isZitadelNoopProfileUpdate(status: number, errorText: string) {
-    if (status !== 400) return false;
-    const normalizedError = errorText.toLowerCase();
-    return normalizedError.includes("profile not changed");
-  }
-
-  private async updateZitadelMyProfile(
-    token: string,
-    payload: {
-      firstName: string;
-      lastName: string;
-      displayName: string;
-      gender?: ZitadelGenderValue;
-    }
-  ) {
-    const { issuerInternal, headers } = this.createZitadelHeaders(token, true);
-
-    const response = await fetch(`${issuerInternal}/auth/v1/users/me/profile`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(payload),
-    });
-
-    if (response.ok) return;
-
-    const primaryErrorText = await response.text();
-    if (this.isZitadelNoopProfileUpdate(response.status, primaryErrorText)) {
-      return;
-    }
-
-    const fallbackResponse = await fetch(`${issuerInternal}/v2/users/me`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({
-        profile: {
-          givenName: payload.firstName,
-          familyName: payload.lastName,
-          displayName: payload.displayName,
-          gender: payload.gender,
-        },
-      }),
-    });
-
-    if (fallbackResponse.ok) return;
-
-    const fallbackErrorText = await fallbackResponse.text();
-    throw new BadGatewayException(
-      `Failed to update identity in Zitadel (auth/v1: ${response.status}, v2: ${fallbackResponse.status}) primary=${primaryErrorText} fallback=${fallbackErrorText}`
-    );
-  }
-
-  private async updateZitadelMyEmail(
-    token: string,
-    userId: string,
-    email: string
-  ) {
-    const { issuerInternal, headers } = this.createZitadelHeaders(token, true);
-
-    const response = await fetch(`${issuerInternal}/auth/v1/users/me/email`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({ email }),
-    });
-
-    if (response.ok) return;
-
-    const primaryErrorText = await response.text();
-
-    const fallbackResponse = await fetch(
-      `${issuerInternal}/v2/users/${encodeURIComponent(userId)}`,
-      {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({
-          email: {
-            email,
-            isVerified: false,
-          },
-        }),
-      }
-    );
-
-    if (fallbackResponse.ok) return;
-
-    const fallbackErrorText = await fallbackResponse.text();
-    throw new BadGatewayException(
-      `Failed to update email in Zitadel (auth/v1: ${response.status}, v2: ${fallbackResponse.status}) primary=${primaryErrorText} fallback=${fallbackErrorText}`
-    );
-  }
-
-  private async updateZitadelMyPassword(
-    token: string,
-    oldPassword: string,
-    newPassword: string
-  ) {
-    const { issuerInternal, headers } = this.createZitadelHeaders(token, true);
-
-    const response = await fetch(`${issuerInternal}/auth/v1/users/me/password`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({
-        oldPassword,
-        newPassword,
-      }),
-    });
-
-    if (response.ok) return;
-
-    const errorText = await response.text();
-    throw new BadGatewayException(
-      `Failed to update password in Zitadel (${response.status}): ${errorText}`
-    );
-  }
-
-  private async deactivateZitadelUser(token: string, userId: string) {
-    const { issuerInternal, headers } = this.createZitadelHeaders(token, true);
-
-    try {
-      const response = await fetch(
-        `${issuerInternal}/v2/users/${encodeURIComponent(userId)}/deactivate`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({}),
-        }
-      );
-
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  private async removeZitadelUser(token: string, userId: string) {
-    const { issuerInternal, headers } = this.createZitadelHeaders(token, true);
-
-    const response = await fetch(`${issuerInternal}/auth/v1/users/me`, {
-      method: "DELETE",
-      headers,
-    });
-
-    if (response.ok) return;
-
-    const primaryErrorText = await response.text();
-
-    const fallbackResponse = await fetch(
-      `${issuerInternal}/v2/users/${encodeURIComponent(userId)}`,
-      {
-        method: "DELETE",
-        headers,
-      }
-    );
-
-    if (fallbackResponse.ok) return;
-
-    const fallbackErrorText = await fallbackResponse.text();
-    throw new BadGatewayException(
-      `Failed to delete account in Zitadel (auth/v1: ${response.status}, v2: ${fallbackResponse.status}) primary=${primaryErrorText} fallback=${fallbackErrorText}`
-    );
   }
 
   private async deleteLocalAccountData(userId: string) {

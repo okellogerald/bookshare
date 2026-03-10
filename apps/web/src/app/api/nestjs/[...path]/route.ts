@@ -22,7 +22,7 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     "Content-Type": "application/json",
   };
   if (session?.accessToken) {
-    headers["x-zitadel-access-token"] = session.accessToken;
+    headers["x-auth-access-token"] = session.accessToken;
   }
 
   const fetchOptions: RequestInit = {

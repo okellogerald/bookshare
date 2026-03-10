@@ -1,0 +1,26 @@
+serve:
+  cookies:
+    same_site_mode: Lax
+
+urls:
+  self:
+    issuer: http://localhost:4444
+  error: http://localhost:3334/?error=oauth
+  consent: http://localhost:3000/consent
+  login: http://localhost:3000/login
+  logout: http://localhost:3000/logout
+  device:
+    verification: http://localhost:3000/device/verify
+    success: http://localhost:3000/device/success
+
+secrets:
+  system:
+    - change-this-dev-secret
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - pairwise
+      - public
+    pairwise:
+      salt: change-this-dev-salt

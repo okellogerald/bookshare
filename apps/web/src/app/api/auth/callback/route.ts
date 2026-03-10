@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
           Authorization: `Bearer ${apiToken}`,
         };
         if (tokens.access_token) {
-          headers["x-zitadel-access-token"] = tokens.access_token;
+          headers["x-auth-access-token"] = tokens.access_token;
         }
 
         const syncResponse = await fetch(`${API_URL}/profiles/sync`, {

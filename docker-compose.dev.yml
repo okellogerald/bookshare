@@ -18,110 +18,123 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Authentication ───────────────────────────────────────────
-  zitadel-proxy:
-    image: traefik:v3.1
+  # ─── Authentication (Ory) ─────────────────────────────────────
+  hydra-migrate:
+    image: ${ORY_HYDRA_IMAGE:-oryd/hydra:v25.4.0}
+    restart: on-failure
+    user: "0:0"
+    environment:
+      DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
+    command: migrate -c /etc/config/hydra/hydra.yml sql up -e --yes
+    volumes:
+      - hydra_data:/var/lib/sqlite
+      - ./infra/ory/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
+
+  hydra:
+    image: ${ORY_HYDRA_IMAGE:-oryd/hydra:v25.4.0}
     restart: unless-stopped
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --ping=true
-      - --ping.entrypoint=web
+    user: "0:0"
+    environment:
+      DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
+    command: serve -c /etc/config/hydra/hydra.yml all --dev
     ports:
-      - "8085:80"
+      - "4444:4444" # public
+      - "4445:4445" # admin
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - hydra_data:/var/lib/sqlite
+      - ./infra/ory/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
     depends_on:
-      zitadel:
-        condition: service_healthy
-      zitadel-login:
-        condition: service_healthy
+      hydra-migrate:
+        condition: service_completed_successfully
 
-  zitadel:
-    image: ghcr.io/zitadel/zitadel:latest
+  hydra-consent:
+    image: node:20-alpine
     restart: unless-stopped
-    user: "0"
-    command: start-from-init --masterkeyFile /masterkey --tlsMode disabled --steps /steps.yaml
+    working_dir: /app
+    command: node apps/ory-login-consent/server.mjs
     environment:
-      ZITADEL_PORT: 8080
-      ZITADEL_TLS_ENABLED: false
-      ZITADEL_DATABASE_POSTGRES_HOST: postgres
-      ZITADEL_DATABASE_POSTGRES_PORT: 5432
-      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
-      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: ${POSTGRES_USER:-bookshare}
-      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD:-bookshare_dev}
-      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
-      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER:-bookshare}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-bookshare_dev}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
-      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-false}
-      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-8085}
-      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN:-localhost}
-      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
-      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
-      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Automatically Initialized IAM_LOGIN_CLIENT
-      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2030-01-01T00:00:00Z"
-      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true
-      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://localhost:8085/ui/v2/login/
-      ZITADEL_OIDC_DEFAULTLOGINURLV2: http://localhost:8085/ui/v2/login/login?authRequest=
-      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: http://localhost:8085/ui/v2/login/logout?post_logout_redirect=
-      ZITADEL_SAML_DEFAULTLOGINURLV2: http://localhost:8085/ui/v2/login/login?samlRequest=
+      HYDRA_ADMIN_URL: http://hydra:4445
+      KRATOS_PUBLIC_URL: http://kratos:4433
+      ORY_LOGIN_CONSENT_PUBLIC_URL: http://localhost:3000
+      ORY_KRATOS_BROWSER_LOGIN_URL: http://localhost:4433/self-service/login/browser
+      PORT: 3000
+      HYDRA_REMEMBER_FOR: 3600
     volumes:
-      - ./infra/zitadel/masterkey:/masterkey:ro
-      - ./infra/zitadel/steps.yaml:/steps.yaml:ro
-      - zitadel_bootstrap:/zitadel/bootstrap
-    healthcheck:
-      test: ["CMD", "/app/zitadel", "ready"]
-      interval: 10s
-      timeout: 30s
-      retries: 12
-      start_period: 20s
+      - ./:/app
+    ports:
+      - "3000:3000"
     depends_on:
-      postgres:
-        condition: service_healthy
-    labels:
-      - traefik.enable=true
-      - traefik.http.services.zitadel-api.loadbalancer.server.port=8080
-      - traefik.http.services.zitadel-api.loadbalancer.server.scheme=h2c
-      - traefik.http.routers.zitadel-api.rule=Host(`localhost`)
-      - traefik.http.routers.zitadel-api.entrypoints=web
-      - traefik.http.routers.zitadel-api.service=zitadel-api
-      - traefik.http.routers.zitadel-api.priority=10
+      hydra:
+        condition: service_started
+      kratos:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 15s
 
-  zitadel-login:
-    image: ghcr.io/zitadel/zitadel-login:latest
-    restart: unless-stopped
-    user: "0"
-    environment:
-      ZITADEL_API_URL: http://zitadel:8080
-      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
-      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel/bootstrap/login-client.pat
-      CUSTOM_REQUEST_HEADERS: Host:localhost,X-Forwarded-Proto:http
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/ui/v2/login/healthy').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 30s
-      retries: 12
-      start_period: 20s
+  hydra-client-init:
+    image: curlimages/curl:8.12.1
+    restart: "no"
+    command: ["/bin/sh", "/etc/config/hydra/init-client.sh"]
     volumes:
-      - zitadel_bootstrap:/zitadel/bootstrap:ro
+      - ./infra/ory/hydra/init-client.sh:/etc/config/hydra/init-client.sh:ro
     depends_on:
-      zitadel:
-        condition: service_healthy
-    labels:
-      - traefik.enable=true
-      - traefik.http.services.zitadel-login.loadbalancer.server.port=3000
-      - traefik.http.middlewares.zitadel-root-rewrite.replacepath.path=/ui/v2/login/
-      - traefik.http.routers.zitadel-root.rule=Host(`localhost`) && Path(`/`)
-      - traefik.http.routers.zitadel-root.entrypoints=web
-      - traefik.http.routers.zitadel-root.middlewares=zitadel-root-rewrite
-      - traefik.http.routers.zitadel-root.service=zitadel-login
-      - traefik.http.routers.zitadel-root.priority=400
-      - traefik.http.routers.zitadel-login.rule=Host(`localhost`) && PathPrefix(`/ui/v2/login`)
-      - traefik.http.routers.zitadel-login.entrypoints=web
-      - traefik.http.routers.zitadel-login.service=zitadel-login
-      - traefik.http.routers.zitadel-login.priority=250
+      hydra:
+        condition: service_started
+
+  kratos-migrate:
+    image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v25.4.0}
+    restart: on-failure
+    environment:
+      DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
+    command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
+    volumes:
+      - kratos_data:/var/lib/sqlite
+      - ./infra/ory/kratos:/etc/config/kratos:ro
+
+  kratos:
+    image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v25.4.0}
+    restart: unless-stopped
+    environment:
+      DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
+      LOG_LEVEL: debug
+    command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
+    ports:
+      - "4433:4433" # public
+      - "4434:4434" # admin
+    volumes:
+      - kratos_data:/var/lib/sqlite
+      - ./infra/ory/kratos:/etc/config/kratos:ro
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
+  kratos-selfservice-ui-node:
+    image: ${ORY_KRATOS_UI_IMAGE:-oryd/kratos-selfservice-ui-node:v25.4.0}
+    restart: unless-stopped
+    environment:
+      PORT: 4455
+      KRATOS_PUBLIC_URL: http://kratos:4433/
+      KRATOS_BROWSER_URL: http://localhost:4433/
+      COOKIE_SECRET: ${ORY_KRATOS_UI_COOKIE_SECRET:-dev-insecure-change-me}
+      CSRF_COOKIE_NAME: ory_csrf_ui
+      CSRF_COOKIE_SECRET: ${ORY_KRATOS_UI_CSRF_SECRET:-dev-insecure-change-me}
+    ports:
+      - "4455:4455"
+    depends_on:
+      kratos:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "4436:8025"
 
   # ─── Read API (PostgREST) ─────────────────────────────────────
   postgrest:
@@ -131,12 +144,11 @@ services:
       PGRST_DB_URI: postgresql://postgrest_authenticator:postgrest_dev@postgres:5432/bookshare
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: postgrest_auth
-      PGRST_JWT_SECRET: ${ZITADEL_JWT_SECRET:-}
+      PGRST_JWT_SECRET: ${OIDC_JWT_SECRET:-}
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3336
       PGRST_DB_MAX_ROWS: 1000
       PGRST_DB_PRE_REQUEST: public.pgrst_auth_guard
-      # Use Zitadel's JWKS endpoint for JWT verification
       PGRST_JWT_AUD: ""
       PGRST_JWT_ROLE_CLAIM_KEY: ".role"
     ports:
@@ -186,9 +198,11 @@ services:
     environment:
       PORT: 3333
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER_URL:-http://localhost:8085}
-      ZITADEL_ISSUER_INTERNAL: ${ZITADEL_ISSUER_INTERNAL:-http://zitadel:8080}
-      ZITADEL_EXTERNAL_URL: ${ZITADEL_EXTERNAL_URL:-http://localhost:8085}
+      AUTH_PROVIDER: ory
+      OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
+      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-/userinfo}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bookshare}
@@ -225,10 +239,17 @@ services:
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
       NEXT_PUBLIC_POSTGREST_URL: ${PUBLIC_POSTGREST_URL:-http://localhost:3336}
-      NEXT_PUBLIC_ZITADEL_URL: ${PUBLIC_ZITADEL_URL:-http://localhost:8085}
-      ZITADEL_ISSUER_URL: ${ZITADEL_ISSUER_URL:-http://localhost:8085}
-      ZITADEL_INTERNAL_URL: ${ZITADEL_INTERNAL_URL:-http://zitadel-proxy}
-      ZITADEL_CLIENT_ID: ${ZITADEL_CLIENT_ID:-}
+      AUTH_PROVIDER: ory
+      NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-bookshare-web}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
+      OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
     ports:
       - "3334:3334"
@@ -236,7 +257,12 @@ services:
       - ./apps/web/src:/app/apps/web/src
       - ./packages/shared/src:/app/packages/shared/src
     depends_on:
-      - api
+      api:
+        condition: service_started
+      hydra:
+        condition: service_started
+      hydra-client-init:
+        condition: service_completed_successfully
 
   # ─── Workflows (Motia) ───────────────────────────────────────
   workflows:
@@ -261,4 +287,5 @@ services:
 volumes:
   postgres_data:
   minio_data:
-  zitadel_bootstrap:
+  hydra_data:
+  kratos_data:

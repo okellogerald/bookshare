@@ -108,7 +108,7 @@ export const WantStatus = {
 
 export type WantStatus = (typeof WantStatus)[keyof typeof WantStatus];
 
-// ─── Zitadel Roles ───────────────────────────────────────────
+// ─── User Roles ──────────────────────────────────────────────
 export const UserRole = {
   OWNER: "owner",
   MANAGER: "manager",

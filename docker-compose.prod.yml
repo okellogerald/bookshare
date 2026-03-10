@@ -20,35 +20,6 @@ services:
         limits:
           memory: 512M
 
-  # ─── Authentication ───────────────────────────────────────────
-  zitadel:
-    image: ghcr.io/zitadel/zitadel:latest
-    restart: always
-    command: start-from-init --masterkeyFile /masterkey --tlsMode disabled --steps /steps.yaml
-    environment:
-      ZITADEL_DATABASE_POSTGRES_HOST: postgres
-      ZITADEL_DATABASE_POSTGRES_PORT: 5432
-      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
-      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: ${POSTGRES_USER}
-      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD}
-      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
-      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: ${POSTGRES_USER}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD}
-      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
-      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE:-true}
-      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT:-443}
-      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN}
-    volumes:
-      - ./infra/zitadel/masterkey:/masterkey:ro
-      - ./infra/zitadel/steps.yaml:/steps.yaml:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
   # ─── Read API (PostgREST) ─────────────────────────────────────
   postgrest:
     image: postgrest/postgrest:latest
@@ -57,7 +28,7 @@ services:
       PGRST_DB_URI: postgresql://postgrest_authenticator:${POSTGREST_DB_PASSWORD}@postgres:5432/bookshare
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: postgrest_auth
-      PGRST_JWT_SECRET: ${ZITADEL_JWT_SECRET}
+      PGRST_JWT_SECRET: ${OIDC_JWT_SECRET}
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_DB_MAX_ROWS: 1000
       PGRST_DB_PRE_REQUEST: public.pgrst_auth_guard
@@ -114,9 +85,11 @@ services:
       PORT: 3333
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bookshare
-      ZITADEL_ISSUER: ${ZITADEL_ISSUER_URL}
-      ZITADEL_ISSUER_INTERNAL: ${ZITADEL_ISSUER_INTERNAL:-http://zitadel:8080}
-      ZITADEL_EXTERNAL_URL: ${ZITADEL_EXTERNAL_URL}
+      AUTH_PROVIDER: ory
+      OIDC_ISSUER: ${OIDC_ISSUER_URL}
+      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-/userinfo}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
@@ -151,7 +124,17 @@ services:
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
-      NEXT_PUBLIC_ZITADEL_URL: ${ZITADEL_EXTERNAL_URL}
+      AUTH_PROVIDER: ory
+      NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT}
+      OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
     depends_on:
       - api

@@ -1,13 +1,13 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 
-export const zitadelGenderValues = [
+export const identityGenderValues = [
   "GENDER_UNSPECIFIED",
   "GENDER_FEMALE",
   "GENDER_MALE",
 ] as const;
 
-export type ZitadelGenderValue = (typeof zitadelGenderValues)[number];
+export type IdentityGenderValue = (typeof identityGenderValues)[number];
 
 export class UpdateIdentityProfileDto {
   @ApiPropertyOptional()
@@ -33,10 +33,10 @@ export class UpdateIdentityProfileDto {
   lastName?: string;
 
   @ApiPropertyOptional({
-    enum: zitadelGenderValues,
+    enum: identityGenderValues,
   })
   @IsOptional()
   @IsString()
-  @IsIn(zitadelGenderValues)
-  gender?: ZitadelGenderValue;
+  @IsIn(identityGenderValues)
+  gender?: IdentityGenderValue;
 }

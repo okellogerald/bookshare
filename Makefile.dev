@@ -3,7 +3,8 @@
 # Usage: make -f Makefile.dev <target>
 # ═══════════════════════════════════════════════════════════════
 
-COMPOSE := docker compose -f docker-compose.dev.yml
+COMPOSE_FILE ?= docker-compose.dev.yml
+COMPOSE := docker compose -f $(COMPOSE_FILE)
 DB_URL  := postgresql://bookshare:bookshare_dev@localhost:5434/bookshare
 
 .DEFAULT_GOAL := help
@@ -12,15 +13,15 @@ DB_URL  := postgresql://bookshare:bookshare_dev@localhost:5434/bookshare
 
 .PHONY: up
 up: ## Start all services (detached)
-	$(COMPOSE) up -d
+	$(COMPOSE) up -d --remove-orphans
 
 .PHONY: up-build
 up-build: ## Start all services with image rebuild
-	$(COMPOSE) up -d --build
+	$(COMPOSE) up -d --build --remove-orphans
 
 .PHONY: down
 down: ## Stop all services
-	$(COMPOSE) down
+	$(COMPOSE) down --remove-orphans
 
 .PHONY: restart
 restart: ## Restart all services
@@ -41,10 +42,6 @@ logs-%: ## Tail logs for a specific service (e.g. make -f Makefile.dev logs-api)
 .PHONY: shell-%
 shell-%: ## Open a shell in a running service container (e.g. make -f Makefile.dev shell-api)
 	$(COMPOSE) exec $* sh
-
-.PHONY: zitadel-client-ids
-zitadel-client-ids: ## List available Zitadel OIDC client IDs
-	$(COMPOSE) exec -T postgres psql -U bookshare -d zitadel -c "SELECT a.name, c.client_id, c.redirect_uris FROM projections.apps7 a JOIN projections.apps7_oidc_configs c ON c.app_id = a.id WHERE a.state = 1 ORDER BY a.name;"
 
 # ─── Database ─────────────────────────────────────────────────
 

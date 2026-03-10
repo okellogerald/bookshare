@@ -11,7 +11,7 @@ export async function GET() {
   const config = await getOIDCConfig();
   const session = await getSession();
 
-  // Always route through the IdP end-session endpoint so Zitadel's SSO
+  // Route through the IdP end-session endpoint so the remote SSO
   // user-agent session is terminated as well (not just local cookies).
   const endSessionParams: {
     post_logout_redirect_uri: string;
@@ -27,12 +27,19 @@ export async function GET() {
     endSessionParams.id_token_hint = session.idToken;
   }
 
-  if (process.env.ZITADEL_CLIENT_ID) {
-    endSessionParams.client_id = process.env.ZITADEL_CLIENT_ID;
+  const clientId = process.env.OIDC_CLIENT_ID;
+  if (clientId) {
+    endSessionParams.client_id = clientId;
   }
 
-  const logoutUrl = client.buildEndSessionUrl(config, endSessionParams);
-  const response = NextResponse.redirect(logoutUrl.href);
+  let redirectTarget = postLogoutRedirectUri;
+  try {
+    const logoutUrl = client.buildEndSessionUrl(config, endSessionParams);
+    redirectTarget = logoutUrl.href;
+  } catch {
+    redirectTarget = postLogoutRedirectUri;
+  }
+  const response = NextResponse.redirect(redirectTarget);
 
   response.cookies.delete("bookshare_session");
   response.cookies.delete("bookshare_token");

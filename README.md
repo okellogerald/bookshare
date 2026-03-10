@@ -11,7 +11,7 @@ A closed-access platform where approved community members list books they're wil
 | Read API | PostgREST | 3336 |
 | Workflows | Motia | 3335 |
 | Database | PostgreSQL 16 + Drizzle ORM | 5434 |
-| Auth | Zitadel (OIDC, MFA enforced) | 8085 |
+| Auth | Ory (Hydra + Kratos, default dev flavor) | 4444 / 4433 |
 | Object Storage | MinIO | 9002 / 9003 |
 
 ## Project Structure
@@ -21,13 +21,14 @@ A closed-access platform where approved community members list books they're wil
 ├── apps/
 │   ├── api/          # NestJS write API
 │   ├── web/          # Next.js frontend
+│   ├── ory-login-consent/ # Hydra login/consent bridge backed by Kratos session
 │   └── workflows/    # Motia workflow steps
 ├── packages/
 │   ├── db/           # Drizzle schema, migrations
 │   └── shared/       # Shared types, enums, constants
 ├── infra/
 │   ├── postgres/     # init.sql, post-migration.sql (RLS, views)
-│   ├── zitadel/      # Auth provider config
+│   ├── ory/          # Ory Hydra/Kratos config (default dev)
 │   ├── minio/        # Object storage init
 │   └── nginx/        # Production reverse proxy
 ├── docker-compose.dev.yml
@@ -75,30 +76,31 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    make -f Makefile.dev up-build
    ```
 
-4. **Configure Zitadel client manually**
-   1. Open the Zitadel console at `http://localhost:8085/ui/console`.
-   2. Create an OIDC web application client for BookShare (Authorization Code + PKCE).
-   3. Set redirect URI to `http://localhost:3334/api/auth/callback`.
-   4. Set post-logout redirect URI to `http://localhost:3334`.
-   5. Put the client ID into `.env` as `ZITADEL_CLIENT_ID=<your_client_id>`.
+4. **Hydra OAuth client is auto-provisioned**
+   - `hydra-client-init` creates/updates `bookshare-web` on startup.
+   - Login/consent is handled by the local bridge service on `http://localhost:3000`, which validates Kratos sessions and maps Kratos traits into Hydra token claims.
 
-5. **Set PostgREST JWT keyset**
+5. **Register a Kratos user (first time)**
+   - Open `http://localhost:4455/registration`
+   - Create an account with email and password (name fields optional but recommended for profile prefill)
+
+6. **Set PostgREST JWT keyset**
    ```sh
-   docker run --rm --network library_default curlimages/curl:8.12.1 -sS -H 'Host: localhost' http://zitadel:8080/oauth/v2/keys
+   curl -sS http://localhost:4444/.well-known/jwks.json
    ```
-   Put the returned JSON in `.env` as `ZITADEL_JWT_SECRET=<jwks_json_single_line>`.
+   Put the returned JSON in `.env` as `OIDC_JWT_SECRET=<jwks_json_single_line>`.
 
-6. **Reload auth consumers**
+7. **Reload auth consumers**
    ```sh
    docker compose -f docker-compose.dev.yml up -d --force-recreate web postgrest
    ```
 
-7. **Run database migrations**
+8. **Run database migrations**
    ```sh
    make -f Makefile.dev db-migrate
    ```
 
-8. **Apply RLS policies and views**
+9. **Apply RLS policies and views**
    ```sh
    make -f Makefile.dev db-post-migrate
    ```
@@ -123,7 +125,6 @@ Run with `make -f Makefile.dev <target>`:
 | `down` | Stop all services |
 | `logs` | Tail all logs |
 | `logs-<svc>` | Tail logs for a service (e.g. `logs-api`) |
-| `zitadel-client-ids` | List available Zitadel OIDC client IDs |
 | `db-generate` | Generate Drizzle migrations from schema |
 | `db-migrate` | Run pending migrations |
 | `db-post-migrate` | Apply RLS, views, grants |

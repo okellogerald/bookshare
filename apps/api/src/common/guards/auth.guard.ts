@@ -14,10 +14,10 @@ import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
-interface ZitadelJwtPayload {
+interface IdentityJwtPayload {
   sub: string;
   iss: string;
-  aud: string[];
+  aud: string[] | string;
   exp: number;
   iat: number;
   email?: string;
@@ -27,12 +27,10 @@ interface ZitadelJwtPayload {
   family_name?: string;
   nickname?: string;
   gender?: string;
-  "urn:zitadel:iam:org:id"?: string;
-  "urn:zitadel:iam:user:resourceowner:id"?: string;
-  "urn:zitadel:iam:org:project:roles"?: Record<
-    string,
-    Record<string, string>
-  >;
+  roles?: string[];
+  realm_access?: {
+    roles?: string[];
+  };
 }
 
 export interface AuthenticatedUser {
@@ -57,13 +55,16 @@ export class AuthGuard implements CanActivate {
     private readonly configService: ConfigService,
     private readonly reflector: Reflector
   ) {
-    const issuer = this.configService.getOrThrow<string>("ZITADEL_ISSUER");
+    const issuer = this.getIssuer();
     const issuerInternal =
-      this.configService.get<string>("ZITADEL_ISSUER_INTERNAL") || issuer;
+      this.configService.get<string>("OIDC_ISSUER_INTERNAL") || issuer;
     const issuerHost = new URL(issuer).host;
+    const jwksUri =
+      this.configService.get<string>("OIDC_JWKS_URI") ||
+      new URL("/.well-known/jwks.json", issuerInternal).toString();
 
     this.jwksClient = jwksClient({
-      jwksUri: `${issuerInternal}/oauth/v2/keys`,
+      jwksUri,
       requestHeaders:
         issuerInternal === issuer ? undefined : { host: issuerHost },
       cache: true,
@@ -120,8 +121,12 @@ export class AuthGuard implements CanActivate {
     return type === "Bearer" ? token : null;
   }
 
-  private async verifyToken(token: string): Promise<ZitadelJwtPayload> {
-    const issuer = this.configService.getOrThrow<string>("ZITADEL_ISSUER");
+  private getIssuer(): string {
+    return this.configService.getOrThrow<string>("OIDC_ISSUER");
+  }
+
+  private async verifyToken(token: string): Promise<IdentityJwtPayload> {
+    const issuer = this.getIssuer();
 
     return new Promise((resolve, reject) => {
       jwt.verify(
@@ -139,18 +144,20 @@ export class AuthGuard implements CanActivate {
         },
         (err, decoded) => {
           if (err) return reject(err);
-          resolve(decoded as ZitadelJwtPayload);
+          resolve(decoded as IdentityJwtPayload);
         }
       );
     });
   }
 
   private mapToAuthenticatedUser(
-    payload: ZitadelJwtPayload
+    payload: IdentityJwtPayload
   ): AuthenticatedUser {
-    const roles = payload["urn:zitadel:iam:org:project:roles"]
-      ? Object.keys(payload["urn:zitadel:iam:org:project:roles"])
-      : [];
+    const roles = Array.isArray(payload.roles)
+      ? payload.roles
+      : Array.isArray(payload.realm_access?.roles)
+        ? payload.realm_access.roles
+        : [];
 
     return {
       id: payload.sub,

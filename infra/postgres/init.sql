@@ -5,8 +5,6 @@
 -- Create databases
 SELECT 'CREATE DATABASE bookshare'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'bookshare')\gexec
-SELECT 'CREATE DATABASE zitadel'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'zitadel')\gexec
 
 -- Switch to bookshare database for the rest of the setup
 \c bookshare;
@@ -55,7 +53,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO postgrest_au
 
 -- ─── RLS Helper Function ──────────────────────────────────────
 
--- Extract the Zitadel user ID (sub claim) from the JWT claims passed by PostgREST.
+-- Extract the authenticated user ID (sub claim) from JWT claims passed by PostgREST.
 -- PostgREST sets request.jwt.claims as a JSON string.
 CREATE OR REPLACE FUNCTION current_user_id() RETURNS TEXT AS $$
   SELECT current_setting('request.jwt.claims', true)::json->>'sub';

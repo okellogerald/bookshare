@@ -19,13 +19,13 @@ export class SubmissionsController {
     @Body() dto: CreateCopySubmissionDto,
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined
   ): Promise<{ submitted: true }> {
     return this.submissionsService.submitCopy(
       dto,
       user,
       authorization,
-      zitadelAccessToken
+      identityAccessToken
     );
   }
 
@@ -34,13 +34,13 @@ export class SubmissionsController {
     @Body() dto: CreateMissingWantSubmissionDto,
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined
   ): Promise<{ submitted: true }> {
     return this.submissionsService.submitMissingWant(
       dto,
       user,
       authorization,
-      zitadelAccessToken
+      identityAccessToken
     );
   }
 }

@@ -22,10 +22,7 @@ export async function GET(request: NextRequest) {
   const state = client.randomState();
 
   const baseScopes = ["openid", "profile", "email"];
-  const additionalScopes = (
-    process.env.ZITADEL_ADDITIONAL_SCOPES ||
-    "urn:zitadel:iam:org:project:id:zitadel:aud"
-  )
+  const additionalScopes = (process.env.OIDC_ADDITIONAL_SCOPES || "offline_access")
     .split(" ")
     .map((scope) => scope.trim())
     .filter(Boolean);

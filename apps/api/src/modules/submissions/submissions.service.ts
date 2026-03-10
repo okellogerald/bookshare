@@ -26,12 +26,12 @@ export class SubmissionsService {
     dto: CreateCopySubmissionDto,
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined
+    identityAccessToken: string | undefined
   ): Promise<SubmissionResponse> {
     const userEmail = await this.resolveUserEmail(
       user,
       authorization,
-      zitadelAccessToken
+      identityAccessToken
     );
     const adminBody = this.buildCopyAdminEmailBody(dto, user.id, userEmail);
 
@@ -55,12 +55,12 @@ export class SubmissionsService {
     dto: CreateMissingWantSubmissionDto,
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined
+    identityAccessToken: string | undefined
   ): Promise<SubmissionResponse> {
     const userEmail = await this.resolveUserEmail(
       user,
       authorization,
-      zitadelAccessToken
+      identityAccessToken
     );
     const adminBody = this.buildMissingWantAdminEmailBody(dto, user.id, userEmail);
 
@@ -83,12 +83,12 @@ export class SubmissionsService {
   private async resolveUserEmail(
     user: AuthenticatedUser,
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined
+    identityAccessToken: string | undefined
   ) {
     if (!user.email?.trim()) {
       const fallback = await this.fetchEmailFromUserInfo(
         authorization,
-        zitadelAccessToken
+        identityAccessToken
       );
       if (!fallback) {
         throw new BadRequestException(
@@ -100,6 +100,26 @@ export class SubmissionsService {
     return user.email.trim();
   }
 
+  private getIdentityProviderEndpoints() {
+    const issuer = this.configService.getOrThrow<string>("OIDC_ISSUER");
+    const issuerInternal =
+      this.configService.get<string>("OIDC_ISSUER_INTERNAL") || issuer;
+    const issuerHost = new URL(issuer).host;
+    const configuredUserInfoEndpoint = this.configService.get<string>(
+      "OIDC_USERINFO_ENDPOINT"
+    );
+    const userInfoEndpoint = configuredUserInfoEndpoint
+      ? new URL(configuredUserInfoEndpoint, issuerInternal).toString()
+      : new URL("/userinfo", issuerInternal).toString();
+
+    return {
+      issuer,
+      issuerInternal,
+      issuerHost,
+      userInfoEndpoint,
+    };
+  }
+
   private extractBearerToken(authorization: string | undefined) {
     if (!authorization) return null;
     const [type, token] = authorization.split(" ");
@@ -109,16 +129,14 @@ export class SubmissionsService {
 
   private async fetchEmailFromUserInfo(
     authorization: string | undefined,
-    zitadelAccessToken: string | undefined
+    identityAccessToken: string | undefined
   ) {
     const token =
-      zitadelAccessToken?.trim() || this.extractBearerToken(authorization);
+      identityAccessToken?.trim() || this.extractBearerToken(authorization);
     if (!token) return null;
 
-    const issuer = this.configService.getOrThrow<string>("ZITADEL_ISSUER");
-    const issuerInternal =
-      this.configService.get<string>("ZITADEL_ISSUER_INTERNAL") || issuer;
-    const issuerHost = new URL(issuer).host;
+    const { issuer, issuerInternal, issuerHost, userInfoEndpoint } =
+      this.getIdentityProviderEndpoints();
 
     const headers = new Headers({
       Authorization: `Bearer ${token}`,
@@ -128,7 +146,7 @@ export class SubmissionsService {
       headers.set("host", issuerHost);
     }
 
-    const response = await fetch(`${issuerInternal}/oidc/v1/userinfo`, {
+    const response = await fetch(userInfoEndpoint, {
       method: "GET",
       headers,
     });

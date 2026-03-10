@@ -30,32 +30,32 @@ export class ProfilesController {
   sync(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined
   ) {
-    return this.profilesService.sync(user, authorization, zitadelAccessToken);
+    return this.profilesService.sync(user, authorization, identityAccessToken);
   }
 
   @Get("me")
   findMe(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined
   ) {
-    return this.profilesService.findMe(user, authorization, zitadelAccessToken);
+    return this.profilesService.findMe(user, authorization, identityAccessToken);
   }
 
   @Put("me")
   updateMe(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined,
     @Body() dto: UpdateProfileDto
   ) {
     return this.profilesService.updateMe(
       user,
       dto,
       authorization,
-      zitadelAccessToken
+      identityAccessToken
     );
   }
 
@@ -63,13 +63,13 @@ export class ProfilesController {
   updateMyIdentity(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined,
     @Body() dto: UpdateIdentityProfileDto
   ) {
     return this.profilesService.updateMyIdentity(
       user,
       authorization,
-      zitadelAccessToken,
+      identityAccessToken,
       dto
     );
   }
@@ -78,13 +78,13 @@ export class ProfilesController {
   updateMyEmail(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined,
     @Body() dto: UpdateEmailDto
   ) {
     return this.profilesService.updateMyEmail(
       user,
       authorization,
-      zitadelAccessToken,
+      identityAccessToken,
       dto
     );
   }
@@ -93,13 +93,13 @@ export class ProfilesController {
   updateMyPassword(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined,
     @Body() dto: UpdatePasswordDto
   ) {
     return this.profilesService.updateMyPassword(
       user,
       authorization,
-      zitadelAccessToken,
+      identityAccessToken,
       dto
     );
   }
@@ -108,13 +108,13 @@ export class ProfilesController {
   deactivateMyAccount(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined,
     @Body() dto: DeactivateAccountDto
   ) {
     return this.profilesService.deactivateMyAccount(
       user,
       authorization,
-      zitadelAccessToken,
+      identityAccessToken,
       dto
     );
   }
@@ -123,13 +123,13 @@ export class ProfilesController {
   deleteMyAccount(
     @CurrentUser() user: AuthenticatedUser,
     @Headers("authorization") authorization: string | undefined,
-    @Headers("x-zitadel-access-token") zitadelAccessToken: string | undefined,
+    @Headers("x-auth-access-token") identityAccessToken: string | undefined,
     @Body() dto: DeleteAccountDto
   ) {
     return this.profilesService.deleteMyAccount(
       user,
       authorization,
-      zitadelAccessToken,
+      identityAccessToken,
       dto
     );
   }

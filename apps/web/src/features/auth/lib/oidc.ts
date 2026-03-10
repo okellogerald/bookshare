@@ -2,47 +2,67 @@ import * as client from "openid-client";
 
 let config: client.Configuration | null = null;
 
+function resolveUrl(
+  value: string | undefined,
+  base: URL,
+  defaultPath: string
+): string {
+  if (!value || value.trim().length === 0) {
+    return new URL(defaultPath, base).toString();
+  }
+  return new URL(value, base).toString();
+}
+
 export async function getOIDCConfig(): Promise<client.Configuration> {
   if (config) return config;
 
   const publicIssuer = new URL(
-    process.env.ZITADEL_ISSUER_URL ||
-      process.env.NEXT_PUBLIC_ZITADEL_URL ||
-      "http://localhost:8085"
+    process.env.OIDC_ISSUER_URL ||
+      process.env.NEXT_PUBLIC_OIDC_ISSUER_URL ||
+      "http://localhost:4444"
   );
-  const internalIssuer = new URL(
-    process.env.ZITADEL_INTERNAL_URL || publicIssuer.href
-  );
-  const clientId = process.env.ZITADEL_CLIENT_ID;
+  const internalIssuer = new URL(process.env.OIDC_INTERNAL_URL || publicIssuer.href);
+  const clientId = process.env.OIDC_CLIENT_ID;
 
   if (!clientId) {
     throw new Error(
-      "ZITADEL_CLIENT_ID is not configured. Set it in .env and restart the web container."
+      "OIDC_CLIENT_ID is not configured. Set it in .env and restart the web container."
     );
   }
 
   const serverMetadata: client.ServerMetadata = {
     issuer: publicIssuer.origin,
-    authorization_endpoint: new URL(
-      "/oauth/v2/authorize",
-      publicIssuer
-    ).toString(),
-    end_session_endpoint: new URL(
-      "/oidc/v1/end_session",
-      publicIssuer
-    ).toString(),
-    token_endpoint: new URL("/oauth/v2/token", internalIssuer).toString(),
-    jwks_uri: new URL("/oauth/v2/keys", internalIssuer).toString(),
-    userinfo_endpoint: new URL(
-      "/oidc/v1/userinfo",
-      internalIssuer
-    ).toString(),
+    authorization_endpoint: resolveUrl(
+      process.env.OIDC_AUTHORIZATION_ENDPOINT,
+      publicIssuer,
+      "/oauth2/auth"
+    ),
+    end_session_endpoint: resolveUrl(
+      process.env.OIDC_END_SESSION_ENDPOINT,
+      publicIssuer,
+      "/oauth2/sessions/logout"
+    ),
+    token_endpoint: resolveUrl(
+      process.env.OIDC_TOKEN_ENDPOINT,
+      internalIssuer,
+      "/oauth2/token"
+    ),
+    jwks_uri: resolveUrl(
+      process.env.OIDC_JWKS_URI,
+      internalIssuer,
+      "/.well-known/jwks.json"
+    ),
+    userinfo_endpoint: resolveUrl(
+      process.env.OIDC_USERINFO_ENDPOINT,
+      internalIssuer,
+      "/userinfo"
+    ),
   };
 
   config = new client.Configuration(serverMetadata, clientId);
 
-  // In Docker dev, internal calls go through host.docker.internal but Zitadel
-  // instance resolution is based on the public host.
+  // In Docker dev, token/userinfo/JWKS calls may target an internal host while
+  // issuer validation still expects the public host.
   if (internalIssuer.host !== publicIssuer.host) {
     config[client.customFetch] = (input, init) => {
       const headers = new Headers(init?.headers as HeadersInit | undefined);
