@@ -1,2 +1,2 @@
-id,edition_id,username,notes
-want_20260307_001,edition_20260307_002,seed_reader,Need another copy for annotation
+id,edition_isbn,email,notes
+want_20260307_001,9780201485677,seed_reader@bookshare.local,Need another copy for annotation

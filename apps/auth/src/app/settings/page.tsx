@@ -26,11 +26,44 @@ export default async function SettingsPage({
     redirect(createBrowserFlowUrl("settings", returnTo));
   }
 
+  const accountEmail = (() => {
+    const identityEmail = flow.identity?.traits;
+    if (
+      identityEmail &&
+      typeof identityEmail === "object" &&
+      typeof (identityEmail as { email?: unknown }).email === "string"
+    ) {
+      const value = (identityEmail as { email?: string }).email?.trim();
+      if (value) return value;
+    }
+
+    const emailNode = flow.ui.nodes.find(
+      (node) => node.type === "input" && node.attributes.name === "traits.email"
+    );
+    return typeof emailNode?.attributes.value === "string"
+      ? emailNode.attributes.value.trim()
+      : "";
+  })();
+
+  const description = accountEmail
+    ? `Manage profile details for ${accountEmail}.`
+    : "Manage your profile details.";
+
   return (
     <KratosFlowForm
       flow={flow}
       title="Account settings"
-      description="Manage profile, password, recovery email and two-factor auth."
+      description={description}
+      sectionGroups={["profile"]}
+      fieldAllowlist={[
+        "traits.email",
+        "traits.name.first",
+        "traits.name.last",
+        "traits.gender",
+      ]}
+      readonlyFieldNames={["traits.email"]}
+      submitAllowlist={["method"]}
+      hideBackOnlySections
       links={[{ href: "/login", label: "Back to sign in" }]}
     />
   );

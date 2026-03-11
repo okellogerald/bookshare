@@ -63,6 +63,8 @@ describe("importer commit integration", () => {
           rowCount: 3,
           issueCount: 0,
           summary: {
+            mode: "catalog",
+            replaceInventory: false,
             totalRows: 3,
             validRows: 3,
             issueCount: 0,
@@ -119,8 +121,8 @@ describe("importer commit integration", () => {
           sourceRef: "w_new",
           payload: {
             sourceRef: "w_new",
-            editionIdRef: "missing_edition",
-            username: ownerUsername,
+            editionIsbn: "9780000000002",
+            email: `${ownerUsername}@bookshare.local`,
             userId: ownerUserId,
             notes: "should fail commit",
           },
@@ -128,7 +130,7 @@ describe("importer commit integration", () => {
       ]);
 
       await expect(runCommitCommand({ runId })).rejects.toThrow(
-        "Cannot resolve edition_id 'missing_edition' for want 'w_new'"
+        "Cannot resolve edition_isbn '9780000000002' for want 'w_new'"
       );
 
       const createdNewBook = await db.query.books.findFirst({

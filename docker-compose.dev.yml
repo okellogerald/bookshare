@@ -124,6 +124,24 @@ services:
     ports:
       - "4436:8025"
 
+  # One-shot job: materialize PostgREST JWT secret/JWKS before PostgREST starts.
+  # This removes the manual "copy JWKS into .env" step for local development.
+  postgrest-jwt-init:
+    image: curlimages/curl:8.12.1
+    restart: "no"
+    user: "0:0"
+    command: ["/bin/sh", "/etc/config/postgrest/init-jwt.sh"]
+    environment:
+      OIDC_JWT_SECRET: ${OIDC_JWT_SECRET:-}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      PGRST_JWT_SECRET_FILE: /jwt/jwks.json
+    volumes:
+      - ./infra/postgrest/init-jwt.sh:/etc/config/postgrest/init-jwt.sh:ro
+      - postgrest_jwt:/jwt
+    depends_on:
+      hydra:
+        condition: service_started
+
   # ─── Read API (PostgREST) ─────────────────────────────────────
   postgrest:
     image: postgrest/postgrest:latest
@@ -132,7 +150,7 @@ services:
       PGRST_DB_URI: postgresql://postgrest_authenticator:postgrest_dev@postgres:5432/bookshare
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: postgrest_auth
-      PGRST_JWT_SECRET: ${OIDC_JWT_SECRET:-}
+      PGRST_JWT_SECRET: "@/jwt/jwks.json"
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3336
       PGRST_DB_MAX_ROWS: 1000
@@ -141,9 +159,13 @@ services:
       PGRST_JWT_ROLE_CLAIM_KEY: ".role"
     ports:
       - "3336:3000"
+    volumes:
+      - postgrest_jwt:/jwt:ro
     depends_on:
       postgres:
         condition: service_healthy
+      postgrest-jwt-init:
+        condition: service_completed_successfully
 
   # ─── Object Storage ──────────────────────────────────────────
   minio:
@@ -262,3 +284,4 @@ volumes:
   minio_data:
   hydra_data:
   kratos_data:
+  postgrest_jwt:

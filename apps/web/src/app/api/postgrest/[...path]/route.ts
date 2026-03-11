@@ -154,18 +154,22 @@ export async function GET(
   const { path } = await params;
   const tablePath = path.join("/");
   const isPublicPath = isPublicPostgrestPath(tablePath);
-  const token = await getAccessToken();
-  const session = await getSession();
+  let token: string | null = null;
 
-  if (!isPublicPath && (!token || !session)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isPublicPath) {
+    token = await getAccessToken();
+    const session = await getSession();
 
-  if (!isPublicPath && session?.user.emailVerified !== true) {
-    return NextResponse.json(
-      { error: "Email verification required" },
-      { status: 403 }
-    );
+    if (!token || !session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.emailVerified !== true) {
+      return NextResponse.json(
+        { error: "Email verification required" },
+        { status: 403 }
+      );
+    }
   }
 
   // Build the PostgREST URL from the path segments and query params
@@ -178,7 +182,7 @@ export async function GET(
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
-  if (token) {
+  if (!isPublicPath && token) {
     headers.Authorization = `Bearer ${token}`;
   }
 

@@ -15,13 +15,14 @@ import {
   wants,
 } from "@bookshare/db";
 import type {
+  ImportSummary,
   NormalizedBookRow,
   NormalizedCopyRow,
   NormalizedEditionRow,
   NormalizedWantRow,
 } from "../types";
 import { requireDatabaseUrl } from "../env";
-import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 interface GroupedPayloads {
   books: NormalizedBookRow[];
@@ -130,6 +131,14 @@ async function loadExistingEditionMaps(
   return byNormalizedIsbn;
 }
 
+async function clearInventoryState(tx: any) {
+  await tx.delete(wants);
+  await tx.delete(copies);
+  await tx
+    .delete(importEntityRefs)
+    .where(inArray(importEntityRefs.entityType, ["copies", "wants"] as any));
+}
+
 export async function runCommitCommand(params: { runId: string }) {
   const databaseUrl = requireDatabaseUrl();
   const db = createDb(databaseUrl);
@@ -148,6 +157,15 @@ export async function runCommitCommand(params: { runId: string }) {
     );
   }
 
+  const summary = run.summary as ImportSummary;
+  const mode = summary.mode ?? "catalog";
+  const replaceInventory = summary.replaceInventory === true;
+  if (replaceInventory && mode !== "inventory_only") {
+    throw new Error(
+      "Run options are inconsistent: replaceInventory=true requires mode=inventory_only"
+    );
+  }
+
   const payloadRows = await db
     .select({
       entityType: importRunPayloads.entityType,
@@ -158,14 +176,14 @@ export async function runCommitCommand(params: { runId: string }) {
     .where(eq(importRunPayloads.runId, params.runId))
     .orderBy(importRunPayloads.entityType, importRunPayloads.rowNumber);
 
-  if (payloadRows.length === 0) {
+  if (payloadRows.length === 0 && !replaceInventory) {
     throw new Error(`Run '${params.runId}' has no payload rows to commit`);
   }
 
   const payloads = toPayloadGroups(payloadRows);
   reportProgress(
     "payload loaded",
-    `books=${payloads.books.length}, editions=${payloads.editions.length}, copies=${payloads.copies.length}, wants=${payloads.wants.length}`
+    `mode=${mode}, replace_inventory=${replaceInventory}, books=${payloads.books.length}, editions=${payloads.editions.length}, copies=${payloads.copies.length}, wants=${payloads.wants.length}`
   );
 
   try {
@@ -181,19 +199,16 @@ export async function runCommitCommand(params: { runId: string }) {
         throw new Error("Run is no longer in validated state");
       }
 
-      const actorIdentifier = run.actorUsername.trim();
+      const actorIdentifier = run.actorUsername.trim().toLowerCase();
       const actor = await tx.query.memberProfiles.findFirst({
-        where: or(
-          and(
-            isNotNull(memberProfiles.email),
-            eq(memberProfiles.email, actorIdentifier.toLowerCase())
-          ),
-          eq(memberProfiles.username, actorIdentifier)
+        where: and(
+          isNotNull(memberProfiles.email),
+          eq(memberProfiles.email, actorIdentifier)
         ),
       });
       if (!actor) {
         throw new Error(
-          `Actor '${run.actorUsername}' was not found in member_profiles at commit time (checked email and username)`
+          `Actor '${run.actorUsername}' was not found in member_profiles by email at commit time`
         );
       }
       reportProgress("actor resolved", `user_id=${actor.userId}`);
@@ -207,14 +222,18 @@ export async function runCommitCommand(params: { runId: string }) {
           entityType: "editions" as const,
           sourceRef: row.sourceRef,
         })),
-        ...payloads.copies.map((row) => ({
-          entityType: "copies" as const,
-          sourceRef: row.sourceRef,
-        })),
-        ...payloads.wants.map((row) => ({
-          entityType: "wants" as const,
-          sourceRef: row.sourceRef,
-        })),
+        ...(replaceInventory
+          ? []
+          : payloads.copies.map((row) => ({
+              entityType: "copies" as const,
+              sourceRef: row.sourceRef,
+            }))),
+        ...(replaceInventory
+          ? []
+          : payloads.wants.map((row) => ({
+              entityType: "wants" as const,
+              sourceRef: row.sourceRef,
+            }))),
       ];
 
       await assertNoExistingEntityRefs(refsToCreate, tx as any);
@@ -229,6 +248,11 @@ export async function runCommitCommand(params: { runId: string }) {
         }
       }
       reportProgress("edition ISBN conflict check passed");
+
+      if (replaceInventory) {
+        await clearInventoryState(tx);
+        reportProgress("inventory cleared", "wants/copies/import refs reset");
+      }
 
       const bookIdBySourceRef = new Map<string, string>();
       const authorIdByName = new Map<string, string>();
@@ -329,7 +353,14 @@ export async function runCommitCommand(params: { runId: string }) {
         reportBooksProgress(index + 1);
       }
 
-      const editionBySourceRef = new Map<string, { editionId: string; bookId: string }>();
+      const editionByIsbn = new Map<string, { editionId: string; bookId: string }>();
+      for (const [isbn, existing] of existingEditionsByIsbn.entries()) {
+        editionByIsbn.set(isbn, {
+          editionId: existing.id,
+          bookId: existing.bookId,
+        });
+      }
+      const editionIdBySourceRef = new Map<string, string>();
       const reportEditionsProgress = stageProgressReporter(
         "editions inserted",
         payloads.editions.length
@@ -363,10 +394,11 @@ export async function runCommitCommand(params: { runId: string }) {
           );
         }
 
-        editionBySourceRef.set(row.sourceRef, {
+        editionByIsbn.set(row.isbn, {
           editionId: createdEdition.id,
           bookId: createdEdition.bookId,
         });
+        editionIdBySourceRef.set(row.sourceRef, createdEdition.id);
 
         reportEditionsProgress(index + 1);
       }
@@ -414,14 +446,14 @@ export async function runCommitCommand(params: { runId: string }) {
       }
 
       for (const row of payloads.editions) {
-        const edition = editionBySourceRef.get(row.sourceRef);
-        if (!edition) {
+        const editionId = editionIdBySourceRef.get(row.sourceRef);
+        if (!editionId) {
           throw new Error(`Missing committed ID for edition '${row.sourceRef}'`);
         }
         createdEntityRefs.push({
           entityType: "editions",
           sourceRef: row.sourceRef,
-          entityId: edition.editionId,
+          entityId: editionId,
         });
       }
 
@@ -431,10 +463,10 @@ export async function runCommitCommand(params: { runId: string }) {
       );
       for (let index = 0; index < payloads.copies.length; index += 1) {
         const row = payloads.copies[index]!;
-        const edition = editionBySourceRef.get(row.editionIdRef);
+        const edition = editionByIsbn.get(row.editionIsbn);
         if (!edition) {
           throw new Error(
-            `Cannot resolve edition_id '${row.editionIdRef}' for copy '${row.sourceRef}'`
+            `Cannot resolve edition_isbn '${row.editionIsbn}' for copy '${row.sourceRef}'`
           );
         }
 
@@ -474,10 +506,10 @@ export async function runCommitCommand(params: { runId: string }) {
       }
 
       const candidateWantRows = payloads.wants.map((row) => {
-        const edition = editionBySourceRef.get(row.editionIdRef);
+        const edition = editionByIsbn.get(row.editionIsbn);
         if (!edition) {
           throw new Error(
-            `Cannot resolve edition_id '${row.editionIdRef}' for want '${row.sourceRef}'`
+            `Cannot resolve edition_isbn '${row.editionIsbn}' for want '${row.sourceRef}'`
           );
         }
 
@@ -490,7 +522,7 @@ export async function runCommitCommand(params: { runId: string }) {
         };
       });
 
-      if (candidateWantRows.length > 0) {
+      if (!replaceInventory && candidateWantRows.length > 0) {
         const userIds = [...new Set(candidateWantRows.map((row) => row.userId))];
         const bookIds = [...new Set(candidateWantRows.map((row) => row.bookId))];
 
@@ -517,8 +549,17 @@ export async function runCommitCommand(params: { runId: string }) {
         "wants inserted",
         candidateWantRows.length
       );
+      const seenWantBookKeys = new Set<string>();
       for (let index = 0; index < candidateWantRows.length; index += 1) {
         const row = candidateWantRows[index]!;
+        const wantBookKey = `${row.userId}::${row.bookId}`;
+        if (seenWantBookKeys.has(wantBookKey)) {
+          throw new Error(
+            `Duplicate active want in run for user '${row.userId}' and book '${row.bookId}'`
+          );
+        }
+        seenWantBookKeys.add(wantBookKey);
+
         const [createdWant] = await tx
           .insert(wants)
           .values({

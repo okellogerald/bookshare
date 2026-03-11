@@ -84,23 +84,17 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    - Open `http://localhost:3337/register` (or `http://localhost:3334/auth/register`)
    - Create an account with email/password, verify email, then continue to BookShare login.
 
-6. **Set PostgREST JWT keyset**
-   ```sh
-   curl -sS http://localhost:4444/.well-known/jwks.json
-   ```
-   Put the returned JSON in `.env` as `OIDC_JWT_SECRET=<jwks_json_single_line>`.
+6. **PostgREST JWT keyset (auto in dev)**
+   - `postgrest-jwt-init` now fetches JWKS from `OIDC_JWKS_URI` and writes it to a shared volume before PostgREST starts.
+   - PostgREST reads that keyset from `@/jwt/jwks.json`, so read queries work without manually copying JWKS into `.env`.
+   - Optional: set `OIDC_JWT_SECRET` in `.env` to override fetched JWKS (useful for external/non-default OIDC setups).
 
-7. **Reload auth consumers**
-   ```sh
-   docker compose -f docker-compose.dev.yml up -d --force-recreate web postgrest
-   ```
-
-8. **Run database migrations**
+7. **Run database migrations**
    ```sh
    make -f Makefile.dev db-migrate
    ```
 
-9. **Apply RLS policies and views**
+8. **Apply RLS policies and views**
    ```sh
    make -f Makefile.dev db-post-migrate
    ```

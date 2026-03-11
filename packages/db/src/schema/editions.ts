@@ -36,6 +36,8 @@ export const editions = pgTable("editions", {
     .$onUpdate(() => new Date()),
 });
 
+// Relation on editions
+// how many _ does one edition have?
 export const editionsRelations = relations(editions, ({ one, many }) => ({
   book: one(books, {
     fields: [editions.bookId],

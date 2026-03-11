@@ -1,4 +1,5 @@
 import type { BookFormat, CopyCondition, CopyStatus, ShareType } from "@bookshare/shared";
+import type { CoverExtension } from "./covers";
 
 export const CSV_FILES = [
   "books.csv",
@@ -10,6 +11,7 @@ export const CSV_FILES = [
 export type CsvFileName = (typeof CSV_FILES)[number];
 export type ImportEntityType = "books" | "editions" | "copies" | "wants";
 export type RunStatus = "invalid" | "validated" | "committed";
+export type ImportMode = "catalog" | "inventory_only";
 
 export const ENTITY_FROM_FILE: Record<CsvFileName, ImportEntityType> = {
   "books.csv": "books",
@@ -36,20 +38,19 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "publisher",
     "published_year",
     "page_count",
-    "cover_image_url",
     "verification_override_note",
   ],
   "copies.csv": [
     "id",
-    "edition_id",
-    "username",
+    "edition_isbn",
+    "email",
     "condition",
     "notes",
     "share_type",
     "contact_note",
     "status",
   ],
-  "wants.csv": ["id", "edition_id", "username", "notes"],
+  "wants.csv": ["id", "edition_isbn", "email", "notes"],
 };
 
 export interface ImportIssue {
@@ -62,6 +63,8 @@ export interface ImportIssue {
 }
 
 export interface ImportSummary {
+  mode: ImportMode;
+  replaceInventory: boolean;
   totalRows: number;
   validRows: number;
   issueCount: number;
@@ -71,14 +74,25 @@ export interface ImportSummary {
 
 export interface ParsedCsvFile {
   fileName: CsvFileName;
+  present: boolean;
   headers: string[];
   rows: Array<Record<string, string>>;
+}
+
+export interface ParsedCoverFile {
+  zipPath: string;
+  fileName: string;
+  isbn: string;
+  extension: CoverExtension;
+  bytes: Buffer;
 }
 
 export interface ParsedZipInput {
   zipName: string;
   sha256: string;
+  mode: ImportMode;
   files: Record<CsvFileName, ParsedCsvFile>;
+  covers: ParsedCoverFile[];
 }
 
 export interface NormalizedBookRow {
@@ -105,8 +119,8 @@ export interface NormalizedEditionRow {
 
 export interface NormalizedCopyRow {
   sourceRef: string;
-  editionIdRef: string;
-  username: string;
+  editionIsbn: string;
+  email: string;
   userId: string;
   condition: CopyCondition;
   notes: string | null;
@@ -117,8 +131,8 @@ export interface NormalizedCopyRow {
 
 export interface NormalizedWantRow {
   sourceRef: string;
-  editionIdRef: string;
-  username: string;
+  editionIsbn: string;
+  email: string;
   userId: string;
   notes: string | null;
 }

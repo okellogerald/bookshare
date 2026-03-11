@@ -4,11 +4,12 @@ import { parseFlagArgs, requireFlag } from "./args";
 import { runCommitCommand } from "./commands/commit";
 import { runReportCommand } from "./commands/report";
 import { runValidateCommand } from "./commands/validate";
+import { resolveValidateZipSelection } from "./zip-input";
 
 function usage() {
   return [
     "Usage:",
-    "  bun run src/cli.ts validate --zip <path-to-zip> --actor <admin-email-or-username>",
+    "  bun run src/cli.ts validate --actor <admin-email> [--zip <path-to-zip>] [--inventory-only] [--replace-inventory]",
     "  bun run src/cli.ts commit --run-id <uuid>",
     "  bun run src/cli.ts report --run-id <uuid> --format json|csv",
   ].join("\n");
@@ -23,9 +24,21 @@ async function main() {
   }
 
   if (command === "validate") {
-    const zipPath = requireFlag(flags, "zip");
+    const zipSelection = await resolveValidateZipSelection(flags.zip);
+    if (zipSelection.selectedFromInputFolder && zipSelection.inputFolderPath) {
+      console.error(
+        `[import:validate] auto-selected ZIP '${zipSelection.zipPath}' from '${zipSelection.inputFolderPath}'`
+      );
+    }
     const actorUsername = requireFlag(flags, "actor");
-    await runValidateCommand({ zipPath, actorUsername });
+    const inventoryOnly = flags["inventory-only"] === "true";
+    const replaceInventory = flags["replace-inventory"] === "true";
+    await runValidateCommand({
+      zipPath: zipSelection.zipPath,
+      actorUsername,
+      inventoryOnly,
+      replaceInventory,
+    });
     return;
   }
 

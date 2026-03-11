@@ -5,6 +5,8 @@ import type { ImportSummary } from "../types";
 describe("summaryIssuesToCsv", () => {
   test("renders CSV header and issue rows", () => {
     const summary: ImportSummary = {
+      mode: "catalog",
+      replaceInventory: false,
       totalRows: 2,
       validRows: 1,
       issueCount: 1,

@@ -195,6 +195,7 @@ LEFT JOIN categories c ON c.id = bc.category_id
 GROUP BY b.id;
 
 -- Editions with book info
+DROP VIEW IF EXISTS editions_with_books;
 CREATE OR REPLACE VIEW editions_with_books AS
 SELECT
   e.*,

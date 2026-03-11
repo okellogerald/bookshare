@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LogOut,
+  Mail,
   BookMarked,
   BookOpen,
   Heart,
   Library,
   Search,
   Settings,
+  User,
   Users,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -187,7 +190,10 @@ export function AppShellClient({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href="/profile">View Profile</Link>
+                    <Link href="/profile" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      View Profile
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="flex items-center gap-2">
@@ -198,16 +204,21 @@ export function AppShellClient({
                   {!isEmailVerified ? (
                     <DropdownMenuItem asChild>
                       <Link
+                        className="flex items-center gap-2"
                         href={`/auth/verification?returnTo=${encodeURIComponent(
                           pathname || "/browse"
                         )}`}
                       >
+                        <Mail className="h-4 w-4" />
                         Verify Email
                       </Link>
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem asChild>
-                    <a href="/api/auth/logout">Sign Out</a>
+                    <a href="/api/auth/logout" className="flex items-center gap-2">
+                      <LogOut className="h-4 w-4" />
+                      Sign Out
+                    </a>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

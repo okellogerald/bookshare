@@ -41,7 +41,13 @@ export interface KratosUiNode {
 
 export interface KratosBrowserFlow {
   id: string;
+  state?: string;
+  active?: string;
   return_to?: string;
+  identity?: {
+    id?: string;
+    traits?: Record<string, unknown>;
+  };
   ui: {
     action: string;
     method: string;

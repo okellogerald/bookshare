@@ -5,6 +5,8 @@ Atomic CSV ingestion tool for Bookshare.
 ## Commands
 
 ```bash
+bun run import:validate --actor admin@your-org.local
+bun run import:validate --actor admin@your-org.local --inventory-only --replace-inventory
 bun run import:validate --zip /path/to/import.zip --actor admin@your-org.local
 bun run import:commit --run-id <run-id>
 bun run import:report --run-id <run-id> --format json
@@ -13,14 +15,34 @@ bun run import:report --run-id <run-id> --format csv
 
 The `validate` command exits with code `2` when validation fails.
 
-## Required ZIP Contents
+If `--zip` is omitted, the importer auto-selects the newest `.zip` file from:
+- `IMPORTER_INPUT_DIR` (if set), otherwise
+- `packages/importer/input`
 
-The ZIP must contain exactly these files:
+## ZIP Contract
 
+### Catalog Import (default)
+
+Required:
 - `books.csv`
 - `editions.csv`
+- `covers/` directory with image files named `<isbn>.<ext>`
+
+Optional:
 - `copies.csv`
 - `wants.csv`
+
+### Inventory-Only Import (`--inventory-only`)
+
+Required:
+- At least one of `copies.csv` or `wants.csv`
+
+Must not include:
+- `books.csv`
+- `editions.csv`
+- `covers/`
+
+Use `--replace-inventory` with `--inventory-only` to clear all existing `copies` and `wants` before importing new inventory rows.
 
 ## CSV Contract
 
@@ -28,33 +50,30 @@ The ZIP must contain exactly these files:
 `id,title,subtitle,language,author_names,category_slugs`
 
 ### `editions.csv`
-`id,book_id,isbn,format,description,publisher,published_year,page_count,cover_image_url,verification_override_note`
+`id,book_id,isbn,format,description,publisher,published_year,page_count,verification_override_note`
 
 ### `copies.csv`
-`id,edition_id,username,condition,notes,share_type,contact_note,status`
+`id,edition_isbn,email,condition,notes,share_type,contact_note,status`
 
 ### `wants.csv`
-`id,edition_id,username,notes`
+`id,edition_isbn,email,notes`
 
 ## Validation Highlights
 
-- Strict create-only mode (`id` collisions in history are rejected).
-- ISBNs are normalized to digits/`X`, must be 10 or 13 chars, and must pass checksum.
+- Strict create-only mode on `id` by entity (unless `--replace-inventory` for copies/wants).
+- ISBNs normalize to digits/`X`, must be 10 or 13 chars, and must pass checksum.
 - Every imported book must have at least one imported ISBN edition.
-- `category_slugs` is required on every book and each slug must already exist in `categories` (BISAC slugs in this project).
-- `cover_image_url` is required on every edition, and may be either:
-  - a reachable `http/https` image URL, or
-  - a local file path (absolute, relative, or `file://`)
-- Cover inputs must resolve to `jpeg/png/webp` and be <= 5MB.
-- Cover images are stored in MinIO at deterministic keys: `edition-covers/<normalized-isbn>.<ext>`.
-- `--actor` resolves against `member_profiles.email` (preferred) or `member_profiles.username`.
-- `copies.csv` / `wants.csv` user identifiers resolve against `member_profiles.email` (preferred) or `member_profiles.username`.
-- `book_id` and `edition_id` links are resolved deterministically.
-- Existing edition ISBNs and existing active wants are treated as conflicts.
+- `category_slugs` is required for every book and each slug must already exist in `categories`.
+- Every imported edition must have exactly one matching cover file in `covers/` by ISBN.
+- Cover files are uploaded to MinIO as `edition-covers/<normalized-isbn>.<ext>`.
+- `--actor` resolves strictly against `member_profiles.email`.
+- `copies.csv` / `wants.csv` resolve users strictly against `member_profiles.email`.
+- `edition_isbn` in copies/wants can reference imported editions or existing DB editions.
+- Wants are validated against active uniqueness (`user + book`) in-batch and against existing DB wants.
 
 ## Commit Behavior
 
-- Commit reads only persisted validated payloads for the given run.
+- Commit reads only persisted validated payloads for the run.
 - Writes happen in one DB transaction:
   - books
   - editions
@@ -62,7 +81,8 @@ The ZIP must contain exactly these files:
   - copies (+ acquired events)
   - wants
   - import entity refs
-- Any failure rolls back the whole transaction.
+- For inventory replacement runs, `wants`, `copies`, and their import refs are cleared first in the same transaction.
+- Any DB failure rolls back the whole transaction.
 
 ## Environment
 
@@ -70,7 +90,7 @@ The ZIP must contain exactly these files:
 
 - `DATABASE_URL`
 - `MINIO_ENDPOINT`
-- `MINIO_PORT`
+- `MINIO_PORT` (required only when `MINIO_ENDPOINT` does not already include a port)
 - `MINIO_ACCESS_KEY`
 - `MINIO_SECRET_KEY`
 - `MINIO_BUCKET`

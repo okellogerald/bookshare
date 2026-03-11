@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Key, Mail, Trash2, UserX } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Card,
@@ -51,6 +52,8 @@ export default function SettingsPage() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [changeEmailDialogOpen, setChangeEmailDialogOpen] = useState(false);
+  const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!myProfile?.email) return;
@@ -138,15 +141,15 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage account security and high-impact account actions.
+          Manage account actions and privacy preferences.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Security</CardTitle>
+          <CardTitle>Actions</CardTitle>
           <CardDescription>
-            Change your login email and password.
+            Select an action to update credentials or manage account status.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -158,194 +161,99 @@ export default function SettingsPage() {
             </p>
           ) : (
             <>
-              <form className="space-y-3" onSubmit={submitEmailChange}>
-                <div className="space-y-2">
-                  <Label htmlFor="security-email">Login Email</Label>
-                  <Input
-                    id="security-email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="name@example.com"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Changing email triggers a verification flow.
+              <div className="rounded-md border p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Active login email
                 </p>
-                <Button type="submit" disabled={changeEmail.isPending || !email.trim()}>
-                  {changeEmail.isPending ? "Updating..." : "Change Email"}
-                </Button>
-                {emailSuccess && (
-                  <p className="text-sm text-emerald-700">{emailSuccess}</p>
-                )}
-                {changeEmail.isError && (
-                  <p className="text-sm text-destructive">
-                    {changeEmail.error instanceof Error
-                      ? changeEmail.error.message
-                      : "Failed to update email."}
-                  </p>
-                )}
-              </form>
+                <p className="text-sm font-medium">{myProfile?.email || "Unknown"}</p>
+              </div>
 
-              <div className="border-t" />
-
-              <form className="space-y-3" onSubmit={submitPasswordChange}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      value={currentPassword}
-                      onChange={(event) => setCurrentPassword(event.target.value)}
-                    />
+              <div className="space-y-3">
+                <div className="flex flex-col items-start justify-between gap-3 rounded-md border p-4 sm:flex-row sm:items-center">
+                  <div className="space-y-1">
+                    <p className="font-medium">Change Email</p>
+                    <p className="text-sm text-muted-foreground">
+                      Update the email used for sign in.
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input
-                      id="new-password"
-                      type="password"
-                      value={newPassword}
-                      onChange={(event) => setNewPassword(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                    />
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEmailSuccess(null);
+                      changeEmail.reset();
+                      setChangeEmailDialogOpen(true);
+                    }}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Change Email
+                  </Button>
                 </div>
-                <Button
-                  type="submit"
-                  disabled={
-                    changePassword.isPending ||
-                    !currentPassword ||
-                    !newPassword ||
-                    !confirmPassword
-                  }
-                >
-                  {changePassword.isPending ? "Updating..." : "Reset Password"}
-                </Button>
-                {passwordSuccess && (
-                  <p className="text-sm text-emerald-700">{passwordSuccess}</p>
-                )}
-                {passwordError && (
-                  <p className="text-sm text-destructive">{passwordError}</p>
-                )}
-                {changePassword.isError && (
-                  <p className="text-sm text-destructive">
-                    {changePassword.error instanceof Error
-                      ? changePassword.error.message
-                      : "Failed to update password."}
-                  </p>
-                )}
-              </form>
+
+                <div className="flex flex-col items-start justify-between gap-3 rounded-md border p-4 sm:flex-row sm:items-center">
+                  <div className="space-y-1">
+                    <p className="font-medium">Change Password</p>
+                    <p className="text-sm text-muted-foreground">
+                      Rotate your password for account security.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPasswordError(null);
+                      setPasswordSuccess(null);
+                      changePassword.reset();
+                      setChangePasswordDialogOpen(true);
+                    }}
+                  >
+                    <Key className="mr-2 h-4 w-4" />
+                    Change Password
+                  </Button>
+                </div>
+
+                <div className="flex flex-col items-start justify-between gap-3 rounded-md border p-4 sm:flex-row sm:items-center">
+                  <div className="space-y-1">
+                    <p className="font-medium">Deactivate Account</p>
+                    <p className="text-sm text-muted-foreground">
+                      Disable login until the account is reactivated.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      deactivateAccount.reset();
+                      setDeactivateDialogOpen(true);
+                    }}
+                  >
+                    <UserX className="mr-2 h-4 w-4" />
+                    Deactivate Account
+                  </Button>
+                </div>
+
+                <div className="flex flex-col items-start justify-between gap-3 rounded-md border border-destructive/40 p-4 sm:flex-row sm:items-center">
+                  <div className="space-y-1">
+                    <p className="font-medium text-destructive">Delete Account</p>
+                    <p className="text-sm text-muted-foreground">
+                      Permanently remove profile and account-owned records.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      deleteAccount.reset();
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Account
+                  </Button>
+                </div>
+              </div>
             </>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dangerous Actions</CardTitle>
-          <CardDescription>
-            Deactivate or permanently delete your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3 rounded-md border p-4">
-            <div>
-              <h3 className="font-semibold">Deactivate Account</h3>
-              <p className="text-sm text-muted-foreground">
-                Deactivation blocks sign-in until reactivated.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="deactivate-password">Password</Label>
-                <Input
-                  id="deactivate-password"
-                  type="password"
-                  value={deactivatePassword}
-                  onChange={(event) => setDeactivatePassword(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="deactivate-confirmation">Type DEACTIVATE</Label>
-                <Input
-                  id="deactivate-confirmation"
-                  value={deactivateConfirmation}
-                  onChange={(event) =>
-                    setDeactivateConfirmation(event.target.value.toUpperCase())
-                  }
-                />
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!deactivateReady || deactivateAccount.isPending}
-              onClick={() => setDeactivateDialogOpen(true)}
-            >
-              {deactivateAccount.isPending ? "Deactivating..." : "Deactivate Account"}
-            </Button>
-            {deactivateAccount.isError && (
-              <p className="text-sm text-destructive">
-                {deactivateAccount.error instanceof Error
-                  ? deactivateAccount.error.message
-                  : "Failed to deactivate account."}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-3 rounded-md border border-destructive/40 p-4">
-            <div>
-              <h3 className="font-semibold text-destructive">Delete Account</h3>
-              <p className="text-sm text-muted-foreground">
-                Profile and copy details are deleted. Books, editions, and authors are not deleted.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="delete-password">Password</Label>
-                <Input
-                  id="delete-password"
-                  type="password"
-                  value={deletePassword}
-                  onChange={(event) => setDeletePassword(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="delete-confirmation">Type DELETE</Label>
-                <Input
-                  id="delete-confirmation"
-                  value={deleteConfirmation}
-                  onChange={(event) =>
-                    setDeleteConfirmation(event.target.value.toUpperCase())
-                  }
-                />
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={!deleteReady || deleteAccount.isPending}
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              {deleteAccount.isPending ? "Deleting..." : "Delete Account"}
-            </Button>
-            {deleteAccount.isError && (
-              <p className="text-sm text-destructive">
-                {deleteAccount.error instanceof Error
-                  ? deleteAccount.error.message
-                  : "Failed to delete account."}
-              </p>
-            )}
-          </div>
         </CardContent>
       </Card>
 
@@ -358,6 +266,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>Your profile stores identity details, contact preferences, and avatar metadata.</p>
+          <p>None of your contact details are shared with any third party.</p>
           <p>Your app activity stores copies, wants, and related history needed for library workflows.</p>
           <p>Deleting your account removes profile and copy details but keeps shared catalog entities.</p>
         </CardContent>
@@ -377,6 +286,129 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Dialog open={changeEmailDialogOpen} onOpenChange={setChangeEmailDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Email</DialogTitle>
+            <DialogDescription>
+              Update your sign-in email. A verification step will be required.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-3" onSubmit={submitEmailChange}>
+            <div className="space-y-2">
+              <Label htmlFor="security-email">Login Email</Label>
+              <Input
+                id="security-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="name@example.com"
+              />
+            </div>
+            {emailSuccess && (
+              <p className="text-sm text-emerald-700">{emailSuccess}</p>
+            )}
+            {changeEmail.isError && (
+              <p className="text-sm text-destructive">
+                {changeEmail.error instanceof Error
+                  ? changeEmail.error.message
+                  : "Failed to update email."}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setChangeEmailDialogOpen(false)}
+                disabled={changeEmail.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={changeEmail.isPending || !email.trim()}>
+                {changeEmail.isPending ? "Updating..." : "Save Email"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={changePasswordDialogOpen}
+        onOpenChange={setChangePasswordDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password, then set a new one.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-3" onSubmit={submitPasswordChange}>
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Current Password</Label>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm New Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </div>
+            {passwordSuccess && (
+              <p className="text-sm text-emerald-700">{passwordSuccess}</p>
+            )}
+            {passwordError && (
+              <p className="text-sm text-destructive">{passwordError}</p>
+            )}
+            {changePassword.isError && (
+              <p className="text-sm text-destructive">
+                {changePassword.error instanceof Error
+                  ? changePassword.error.message
+                  : "Failed to update password."}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setChangePasswordDialogOpen(false)}
+                disabled={changePassword.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  changePassword.isPending ||
+                  !currentPassword ||
+                  !newPassword ||
+                  !confirmPassword
+                }
+              >
+                {changePassword.isPending ? "Updating..." : "Save Password"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -385,6 +417,34 @@ export default function SettingsPage() {
               You are about to deactivate your account. You will not be able to sign in until reactivated.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="deactivate-password">Password</Label>
+              <Input
+                id="deactivate-password"
+                type="password"
+                value={deactivatePassword}
+                onChange={(event) => setDeactivatePassword(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deactivate-confirmation">Type DEACTIVATE</Label>
+              <Input
+                id="deactivate-confirmation"
+                value={deactivateConfirmation}
+                onChange={(event) =>
+                  setDeactivateConfirmation(event.target.value.toUpperCase())
+                }
+              />
+            </div>
+            {deactivateAccount.isError && (
+              <p className="text-sm text-destructive">
+                {deactivateAccount.error instanceof Error
+                  ? deactivateAccount.error.message
+                  : "Failed to deactivate account."}
+              </p>
+            )}
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -413,6 +473,34 @@ export default function SettingsPage() {
               Books, editions, and authors are retained.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="delete-password">Password</Label>
+              <Input
+                id="delete-password"
+                type="password"
+                value={deletePassword}
+                onChange={(event) => setDeletePassword(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirmation">Type DELETE</Label>
+              <Input
+                id="delete-confirmation"
+                value={deleteConfirmation}
+                onChange={(event) =>
+                  setDeleteConfirmation(event.target.value.toUpperCase())
+                }
+              />
+            </div>
+            {deleteAccount.isError && (
+              <p className="text-sm text-destructive">
+                {deleteAccount.error instanceof Error
+                  ? deleteAccount.error.message
+                  : "Failed to delete account."}
+              </p>
+            )}
+          </div>
           <DialogFooter>
             <Button
               variant="outline"

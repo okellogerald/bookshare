@@ -4,6 +4,7 @@ import {
   editions,
   importEntityRefs,
   memberProfiles,
+  wants,
 } from "@bookshare/db";
 import {
   BookFormat,
@@ -15,8 +16,8 @@ import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { compactString, optionalString } from "./csv";
 import {
   CoverImageError,
+  MAX_COVER_BYTES,
   createEditionCoverStorageFromEnv,
-  parseCoverSourceRef,
 } from "./covers";
 import { isValidIsbn, normalizeIsbn } from "./isbn";
 import { parseCategorySlugs, parseDelimitedUniqueList } from "./list-parsing";
@@ -27,6 +28,7 @@ import {
   type CsvFileName,
   type ImportEntityType,
   type ImportIssue,
+  type ImportMode,
   type ImportSummary,
   type NormalizedBookRow,
   type NormalizedCopyRow,
@@ -51,8 +53,13 @@ function emptyPayloads(): NormalizedPayloadSet {
   };
 }
 
-function emptySummary(parsed: ParsedZipInput): ImportSummary {
+function emptySummary(
+  parsed: ParsedZipInput,
+  options: { mode: ImportMode; replaceInventory: boolean }
+): ImportSummary {
   return {
+    mode: options.mode,
+    replaceInventory: options.replaceInventory,
     totalRows: CSV_FILES.reduce(
       (count, fileName) => count + parsed.files[fileName].rows.length,
       0
@@ -93,16 +100,8 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function isEmailIdentifier(value: string): boolean {
-  return value.includes("@");
-}
-
-function readUserIdentifier(row: Record<string, string>): string {
-  return compactString(row.email ?? row.username);
-}
-
-function userIdentifierColumn(row: Record<string, string>): "email" | "username" {
-  return row.email !== undefined ? "email" : "username";
+function readUserEmail(row: Record<string, string>): string {
+  return normalizeEmail(compactString(row.email));
 }
 
 function firstRowNumberForSourceRef(
@@ -209,29 +208,37 @@ function fileSourceRefRowIndex(
 export async function validateParsedInput(
   db: Database,
   parsed: ParsedZipInput,
-  actorUsername: string
+  actorUsername: string,
+  options: { mode: ImportMode; replaceInventory: boolean }
 ): Promise<ValidateResult> {
-  const summary = emptySummary(parsed);
+  const summary = emptySummary(parsed, options);
   const payloads = emptyPayloads();
 
+  if (options.mode !== parsed.mode) {
+    addIssue(summary, {
+      file: "run",
+      code: "mode_mismatch",
+      column: "mode",
+      message: `Validation mode '${options.mode}' does not match ZIP parse mode '${parsed.mode}'`,
+    });
+  }
+
   for (const fileName of CSV_FILES) {
+    if (!parsed.files[fileName].present) continue;
     requiredColumnsPresent(summary, fileName, parsed.files[fileName].headers);
   }
 
   const actorIdentifier = compactString(actorUsername);
   const actorEmail = normalizeEmail(actorIdentifier);
   const actor = await db.query.memberProfiles.findFirst({
-    where: or(
-      and(isNotNull(memberProfiles.email), eq(memberProfiles.email, actorEmail)),
-      eq(memberProfiles.username, actorIdentifier)
-    ),
+    where: and(isNotNull(memberProfiles.email), eq(memberProfiles.email, actorEmail)),
   });
   if (!actor) {
     addIssue(summary, {
       file: "run",
       code: "unknown_actor",
       column: "actor",
-      message: `Actor '${actorUsername}' was not found in member_profiles (checked email and username)`,
+      message: `Actor '${actorUsername}' was not found in member_profiles by email`,
     });
   }
 
@@ -244,7 +251,8 @@ export async function validateParsedInput(
   } as Record<CsvFileName, Set<string>>;
 
   const validBookIds = new Set<string>();
-  const seenEditionIsbns = new Set<string>();
+  const importedEditionIsbns = new Set<string>();
+  const importedEditionsByIsbn = new Map<string, NormalizedEditionRow>();
 
   // ─── Books ─────────────────────────────────────────────────────
   parsed.files["books.csv"].rows.forEach((row, index) => {
@@ -334,7 +342,6 @@ export async function validateParsedInput(
       allCategorySlugs.add(slug);
     }
   }
-
   if (allCategorySlugs.size > 0) {
     const existingCategories = await db
       .select({ slug: categories.slug })
@@ -443,7 +450,7 @@ export async function validateParsedInput(
         code: "invalid_isbn_checksum",
         message: `ISBN '${row.isbn}' failed checksum validation`,
       });
-    } else if (seenEditionIsbns.has(normalizedIsbn)) {
+    } else if (importedEditionIsbns.has(normalizedIsbn)) {
       valid = false;
       addIssue(summary, {
         file: "editions.csv",
@@ -494,32 +501,9 @@ export async function validateParsedInput(
       });
     }
 
-    const coverImageUrl = compactString(row.cover_image_url);
-    if (!coverImageUrl) {
-      valid = false;
-      addIssue(summary, {
-        file: "editions.csv",
-        rowNumber,
-        column: "cover_image_url",
-        sourceRef: sourceRef || undefined,
-        code: "missing_cover_image_url",
-        message: "cover_image_url is required",
-      });
-    } else if (!parseCoverSourceRef(coverImageUrl)) {
-      valid = false;
-      addIssue(summary, {
-        file: "editions.csv",
-        rowNumber,
-        column: "cover_image_url",
-        sourceRef: sourceRef || undefined,
-        code: "invalid_cover_image_url",
-        message: "cover_image_url must be a valid http/https URL or local file path",
-      });
-    }
-
     if (!valid || !sourceRef || !bookIdRef || !normalizedIsbn) return;
 
-    seenEditionIsbns.add(normalizedIsbn);
+    importedEditionIsbns.add(normalizedIsbn);
     const payload: NormalizedEditionRow = {
       sourceRef,
       bookIdRef,
@@ -529,23 +513,26 @@ export async function validateParsedInput(
       publisher: optionalString(row.publisher),
       publishedYear: publishedYear === null ? null : publishedYear,
       pageCount: pageCount === null ? null : pageCount,
-      coverImageUrl,
+      coverImageUrl: "",
       verificationOverrideNote: optionalString(row.verification_override_note),
     };
     payloads.editions.push(payload);
+    importedEditionsByIsbn.set(normalizedIsbn, payload);
   });
 
-  for (const book of payloads.books) {
-    const covered = payloads.editions.some(
-      (edition) => edition.bookIdRef === book.sourceRef
-    );
-    if (!covered) {
-      addIssue(summary, {
-        file: "books.csv",
-        sourceRef: book.sourceRef,
-        code: "book_missing_isbn_backed_edition",
-        message: `Book '${book.sourceRef}' does not have a resolvable edition row with ISBN`,
-      });
+  if (options.mode === "catalog") {
+    for (const book of payloads.books) {
+      const covered = payloads.editions.some(
+        (edition) => edition.bookIdRef === book.sourceRef
+      );
+      if (!covered) {
+        addIssue(summary, {
+          file: "books.csv",
+          sourceRef: book.sourceRef,
+          code: "book_missing_isbn_backed_edition",
+          message: `Book '${book.sourceRef}' does not have a resolvable edition row with ISBN`,
+        });
+      }
     }
   }
 
@@ -562,79 +549,74 @@ export async function validateParsedInput(
     }
   }
 
-  const userIdentifiersNeeded = new Set<string>();
+  // ─── Copies/Wants user resolution ─────────────────────────────
+  const userEmailsNeeded = new Set<string>();
   for (const row of parsed.files["copies.csv"].rows) {
-    const identifier = readUserIdentifier(row);
-    if (identifier) userIdentifiersNeeded.add(identifier);
+    const email = readUserEmail(row);
+    if (email) userEmailsNeeded.add(email);
   }
   for (const row of parsed.files["wants.csv"].rows) {
-    const identifier = readUserIdentifier(row);
-    if (identifier) userIdentifiersNeeded.add(identifier);
+    const email = readUserEmail(row);
+    if (email) userEmailsNeeded.add(email);
   }
 
-  const emailIdentifiers = [...userIdentifiersNeeded]
-    .filter((value) => isEmailIdentifier(value))
-    .map(normalizeEmail);
-  const usernameIdentifiers = [...userIdentifiersNeeded].filter(
-    (value) => !isEmailIdentifier(value)
-  );
-
-  let userRows: Array<{ userId: string; username: string; email: string }> = [];
-  if (emailIdentifiers.length > 0 && usernameIdentifiers.length > 0) {
+  let userRows: Array<{ userId: string; email: string }> = [];
+  if (userEmailsNeeded.size > 0) {
     userRows = await db
       .select({
         userId: memberProfiles.userId,
-        username: memberProfiles.username,
         email: memberProfiles.email,
       })
       .from(memberProfiles)
-      .where(
-        or(
-          inArray(memberProfiles.email, emailIdentifiers),
-          inArray(memberProfiles.username, usernameIdentifiers)
-        )
-      );
-  } else if (emailIdentifiers.length > 0) {
-    userRows = await db
-      .select({
-        userId: memberProfiles.userId,
-        username: memberProfiles.username,
-        email: memberProfiles.email,
-      })
-      .from(memberProfiles)
-      .where(inArray(memberProfiles.email, emailIdentifiers));
-  } else if (usernameIdentifiers.length > 0) {
-    userRows = await db
-      .select({
-        userId: memberProfiles.userId,
-        username: memberProfiles.username,
-        email: memberProfiles.email,
-      })
-      .from(memberProfiles)
-      .where(inArray(memberProfiles.username, usernameIdentifiers));
+      .where(inArray(memberProfiles.email, [...userEmailsNeeded]));
   }
 
   const usersByEmail = new Map<string, { userId: string; email: string }>();
-  const usersByUsername = new Map<string, { userId: string; username: string }>();
   for (const row of userRows) {
     usersByEmail.set(normalizeEmail(row.email), {
       userId: row.userId,
       email: row.email,
     });
-    usersByUsername.set(row.username, {
-      userId: row.userId,
-      username: row.username,
-    });
   }
 
-  function resolveUser(identifier: string) {
-    if (isEmailIdentifier(identifier)) {
-      return usersByEmail.get(normalizeEmail(identifier)) ?? null;
+  function resolveUserByEmail(email: string) {
+    return usersByEmail.get(normalizeEmail(email)) ?? null;
+  }
+
+  function resolveEditionIsbnInBatchOrDb(normalizedIsbn: string): boolean {
+    return (
+      importedEditionsByIsbn.has(normalizedIsbn) ||
+      existingEditionsByIsbn.has(normalizedIsbn)
+    );
+  }
+
+  const wantsByUserBook = new Set<string>();
+  const wantsCsvRowsByExistingUserBook = new Map<
+    string,
+    Array<{ rowNumber: number; sourceRef: string }>
+  >();
+
+  function resolveWantBookIdentity(
+    normalizedEditionIsbn: string
+  ): { identity: string; existingBookId: string | null } | null {
+    const importedEdition = importedEditionsByIsbn.get(normalizedEditionIsbn);
+    if (importedEdition) {
+      return {
+        identity: `import:${importedEdition.bookIdRef}`,
+        existingBookId: null,
+      };
     }
-    return usersByUsername.get(identifier) ?? null;
-  }
 
-  const wantsByUserEdition = new Set<string>();
+    const existingEdition = existingEditionsByIsbn.get(normalizedEditionIsbn);
+    if (existingEdition) {
+      return {
+        identity: `db:${existingEdition.bookId}`,
+        existingBookId: existingEdition.bookId,
+      };
+    }
+
+    return null;
+  }
 
   // ─── Copies ────────────────────────────────────────────────────
   parsed.files["copies.csv"].rows.forEach((row, index) => {
@@ -665,50 +647,69 @@ export async function validateParsedInput(
       seenSourceRefsByFile["copies.csv"].add(sourceRef);
     }
 
-    const userIdentifier = readUserIdentifier(row);
-    const identifierColumn = userIdentifierColumn(row);
-    if (!userIdentifier) {
+    const userEmail = readUserEmail(row);
+    if (!userEmail) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: identifierColumn,
+        column: "email",
         sourceRef: sourceRef || undefined,
-        code: "missing_user_identifier",
-        message: `${identifierColumn} is required`,
+        code: "missing_user_email",
+        message: "email is required",
       });
-    } else if (!resolveUser(userIdentifier)) {
+    } else if (!resolveUserByEmail(userEmail)) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: identifierColumn,
+        column: "email",
         sourceRef: sourceRef || undefined,
-        code: "unknown_user_identifier",
-        message: `Identifier '${userIdentifier}' was not found in member_profiles (checked email and username)`,
+        code: "unknown_user_email",
+        message: `Email '${userEmail}' was not found in member_profiles`,
       });
     }
 
-    const editionIdRef = compactString(row.edition_id);
-    if (!editionIdRef) {
+    const editionIsbn = normalizeIsbn(row.edition_isbn ?? "");
+    if (!editionIsbn) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "edition_id",
+        column: "edition_isbn",
         sourceRef: sourceRef || undefined,
-        code: "missing_edition_id",
-        message: "edition_id is required",
+        code: "missing_edition_isbn",
+        message: "edition_isbn is required",
       });
-    } else if (!seenSourceRefsByFile["editions.csv"].has(editionIdRef)) {
+    } else if (!(editionIsbn.length === 10 || editionIsbn.length === 13)) {
       valid = false;
       addIssue(summary, {
         file: "copies.csv",
         rowNumber,
-        column: "edition_id",
+        column: "edition_isbn",
         sourceRef: sourceRef || undefined,
-        code: "unknown_edition_id",
-        message: `edition_id '${editionIdRef}' does not match a valid editions.id`,
+        code: "invalid_edition_isbn_length",
+        message: "edition_isbn must normalize to 10 or 13 characters",
+      });
+    } else if (!isValidIsbn(editionIsbn)) {
+      valid = false;
+      addIssue(summary, {
+        file: "copies.csv",
+        rowNumber,
+        column: "edition_isbn",
+        sourceRef: sourceRef || undefined,
+        code: "invalid_edition_isbn_checksum",
+        message: `edition_isbn '${row.edition_isbn}' failed checksum validation`,
+      });
+    } else if (!resolveEditionIsbnInBatchOrDb(editionIsbn)) {
+      valid = false;
+      addIssue(summary, {
+        file: "copies.csv",
+        rowNumber,
+        column: "edition_isbn",
+        sourceRef: sourceRef || undefined,
+        code: "unknown_edition_isbn",
+        message: `edition_isbn '${editionIsbn}' does not match imported or existing editions`,
       });
     }
 
@@ -751,15 +752,15 @@ export async function validateParsedInput(
       });
     }
 
-    if (!valid || !sourceRef || !userIdentifier || !editionIdRef) return;
+    if (!valid || !sourceRef || !userEmail || !editionIsbn) return;
 
-    const resolvedUser = resolveUser(userIdentifier);
+    const resolvedUser = resolveUserByEmail(userEmail);
     if (!resolvedUser) return;
 
     payloads.copies.push({
       sourceRef,
-      editionIdRef,
-      username: userIdentifier,
+      editionIsbn,
+      email: userEmail,
       userId: resolvedUser.userId,
       condition: condition as NormalizedCopyRow["condition"],
       notes: optionalString(row.notes),
@@ -800,83 +801,163 @@ export async function validateParsedInput(
       seenSourceRefsByFile["wants.csv"].add(sourceRef);
     }
 
-    const userIdentifier = readUserIdentifier(row);
-    const identifierColumn = userIdentifierColumn(row);
-    if (!userIdentifier) {
+    const userEmail = readUserEmail(row);
+    if (!userEmail) {
       valid = false;
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
-        column: identifierColumn,
+        column: "email",
         sourceRef: sourceRef || undefined,
-        code: "missing_user_identifier",
-        message: `${identifierColumn} is required`,
+        code: "missing_user_email",
+        message: "email is required",
       });
-    } else if (!resolveUser(userIdentifier)) {
+    } else if (!resolveUserByEmail(userEmail)) {
       valid = false;
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
-        column: identifierColumn,
+        column: "email",
         sourceRef: sourceRef || undefined,
-        code: "unknown_user_identifier",
-        message: `Identifier '${userIdentifier}' was not found in member_profiles (checked email and username)`,
-      });
-    }
-
-    const editionIdRef = compactString(row.edition_id);
-    if (!editionIdRef) {
-      valid = false;
-      addIssue(summary, {
-        file: "wants.csv",
-        rowNumber,
-        column: "edition_id",
-        sourceRef: sourceRef || undefined,
-        code: "missing_edition_id",
-        message: "edition_id is required",
-      });
-    } else if (!seenSourceRefsByFile["editions.csv"].has(editionIdRef)) {
-      valid = false;
-      addIssue(summary, {
-        file: "wants.csv",
-        rowNumber,
-        column: "edition_id",
-        sourceRef: sourceRef || undefined,
-        code: "unknown_edition_id",
-        message: `edition_id '${editionIdRef}' does not match a valid editions.id`,
+        code: "unknown_user_email",
+        message: `Email '${userEmail}' was not found in member_profiles`,
       });
     }
 
-    if (!valid || !sourceRef || !userIdentifier || !editionIdRef) return;
+    const editionIsbn = normalizeIsbn(row.edition_isbn ?? "");
+    if (!editionIsbn) {
+      valid = false;
+      addIssue(summary, {
+        file: "wants.csv",
+        rowNumber,
+        column: "edition_isbn",
+        sourceRef: sourceRef || undefined,
+        code: "missing_edition_isbn",
+        message: "edition_isbn is required",
+      });
+    } else if (!(editionIsbn.length === 10 || editionIsbn.length === 13)) {
+      valid = false;
+      addIssue(summary, {
+        file: "wants.csv",
+        rowNumber,
+        column: "edition_isbn",
+        sourceRef: sourceRef || undefined,
+        code: "invalid_edition_isbn_length",
+        message: "edition_isbn must normalize to 10 or 13 characters",
+      });
+    } else if (!isValidIsbn(editionIsbn)) {
+      valid = false;
+      addIssue(summary, {
+        file: "wants.csv",
+        rowNumber,
+        column: "edition_isbn",
+        sourceRef: sourceRef || undefined,
+        code: "invalid_edition_isbn_checksum",
+        message: `edition_isbn '${row.edition_isbn}' failed checksum validation`,
+      });
+    } else if (!resolveEditionIsbnInBatchOrDb(editionIsbn)) {
+      valid = false;
+      addIssue(summary, {
+        file: "wants.csv",
+        rowNumber,
+        column: "edition_isbn",
+        sourceRef: sourceRef || undefined,
+        code: "unknown_edition_isbn",
+        message: `edition_isbn '${editionIsbn}' does not match imported or existing editions`,
+      });
+    }
 
-    const resolvedUser = resolveUser(userIdentifier);
+    if (!valid || !sourceRef || !userEmail || !editionIsbn) return;
+
+    const resolvedUser = resolveUserByEmail(userEmail);
     if (!resolvedUser) return;
     const userId = resolvedUser.userId;
-    const duplicateKey = `${userId}::${editionIdRef}`;
-    if (wantsByUserEdition.has(duplicateKey)) {
+    const bookIdentity = resolveWantBookIdentity(editionIsbn);
+    if (!bookIdentity) return;
+
+    const duplicateKey = `${userId}::${bookIdentity.identity}`;
+    if (wantsByUserBook.has(duplicateKey)) {
       addIssue(summary, {
         file: "wants.csv",
         rowNumber,
         sourceRef,
         code: "duplicate_want_in_batch",
         message:
-          "Duplicate active want for the same user/edition combination in this batch",
+          "Duplicate active want for the same user/book combination in this batch",
       });
       return;
     }
-    wantsByUserEdition.add(duplicateKey);
+    wantsByUserBook.add(duplicateKey);
+
+    if (bookIdentity.existingBookId) {
+      const existingBookKey = `${userId}::${bookIdentity.existingBookId}`;
+      const rows = wantsCsvRowsByExistingUserBook.get(existingBookKey) ?? [];
+      rows.push({ rowNumber, sourceRef });
+      wantsCsvRowsByExistingUserBook.set(existingBookKey, rows);
+    }
 
     payloads.wants.push({
       sourceRef,
-      editionIdRef,
-      username: userIdentifier,
+      editionIsbn,
+      email: userEmail,
       userId,
       notes: optionalString(row.notes),
     });
   });
 
-  // Historical id (source_ref storage key) create-only checks
+  if (!options.replaceInventory && wantsCsvRowsByExistingUserBook.size > 0) {
+    const userIds = new Set<string>();
+    const bookIds = new Set<string>();
+    for (const key of wantsCsvRowsByExistingUserBook.keys()) {
+      const [userId, bookId] = key.split("::");
+      if (!userId || !bookId) continue;
+      userIds.add(userId);
+      bookIds.add(bookId);
+    }
+
+    if (userIds.size > 0 && bookIds.size > 0) {
+      const existingActiveWants = await db
+        .select({
+          userId: wants.userId,
+          bookId: wants.bookId,
+        })
+        .from(wants)
+        .where(
+          and(
+            inArray(wants.userId, [...userIds]),
+            inArray(wants.bookId, [...bookIds]),
+            eq(wants.status, "active")
+          )
+        );
+
+      for (const conflict of existingActiveWants) {
+        const rows =
+          wantsCsvRowsByExistingUserBook.get(
+            `${conflict.userId}::${conflict.bookId}`
+          ) ?? [];
+        for (const row of rows) {
+          addIssue(summary, {
+            file: "wants.csv",
+            rowNumber: row.rowNumber,
+            sourceRef: row.sourceRef,
+            column: "edition_isbn",
+            code: "active_want_already_exists",
+            message: `Active want already exists for user '${conflict.userId}' and book '${conflict.bookId}'`,
+          });
+        }
+      }
+    }
+  }
+
+  // Historical source_ref create-only checks
   for (const fileName of CSV_FILES) {
+    if (
+      options.replaceInventory &&
+      (fileName === "copies.csv" || fileName === "wants.csv")
+    ) {
+      continue;
+    }
+
     const entityType = ENTITY_FROM_FILE[fileName];
     const sourceRefs = [...seenSourceRefsByFile[fileName]];
     if (sourceRefs.length === 0) continue;
@@ -897,7 +978,77 @@ export async function validateParsedInput(
     }
   }
 
-  if (summary.issues.length === 0) {
+  // Cover file checks for catalog imports.
+  const coversByIsbn = new Map<string, typeof parsed.covers>();
+  for (const cover of parsed.covers) {
+    const covers = coversByIsbn.get(cover.isbn) ?? [];
+    covers.push(cover);
+    coversByIsbn.set(cover.isbn, covers);
+  }
+
+  if (options.mode === "catalog") {
+    const expectedEditionIsbns = new Set(payloads.editions.map((edition) => edition.isbn));
+
+    for (const edition of payloads.editions) {
+      const coverCandidates = coversByIsbn.get(edition.isbn) ?? [];
+      if (coverCandidates.length === 0) {
+        addIssue(summary, {
+          file: "editions.csv",
+          rowNumber: firstRowNumberForSourceRef(
+            sourceRefRows["editions.csv"],
+            edition.sourceRef
+          ),
+          column: "isbn",
+          sourceRef: edition.sourceRef,
+          code: "missing_cover_file_for_isbn",
+          message: `No cover file found in covers/ for ISBN '${edition.isbn}'`,
+        });
+      } else if (coverCandidates.length > 1) {
+        addIssue(summary, {
+          file: "editions.csv",
+          rowNumber: firstRowNumberForSourceRef(
+            sourceRefRows["editions.csv"],
+            edition.sourceRef
+          ),
+          column: "isbn",
+          sourceRef: edition.sourceRef,
+          code: "duplicate_cover_files_for_isbn",
+          message: `Multiple cover files found for ISBN '${edition.isbn}': ${coverCandidates
+            .map((cover) => cover.fileName)
+            .join(", ")}`,
+        });
+      } else {
+        const cover = coverCandidates[0]!;
+        if (cover.bytes.length === 0) {
+          addIssue(summary, {
+            file: "zip",
+            sourceRef: edition.sourceRef,
+            code: "cover_file_empty",
+            message: `Cover file '${cover.zipPath}' is empty`,
+          });
+        } else if (cover.bytes.length > MAX_COVER_BYTES) {
+          addIssue(summary, {
+            file: "zip",
+            sourceRef: edition.sourceRef,
+            code: "cover_too_large",
+            message: `Cover file '${cover.zipPath}' is too large (${cover.bytes.length} bytes)`,
+          });
+        }
+      }
+    }
+
+    for (const cover of parsed.covers) {
+      if (expectedEditionIsbns.has(cover.isbn)) continue;
+      addIssue(summary, {
+        file: "zip",
+        code: "orphan_cover_file",
+        message: `Cover file '${cover.zipPath}' does not match any edition ISBN in editions.csv`,
+      });
+    }
+  }
+
+  // Upload covers only if all checks have passed.
+  if (summary.issues.length === 0 && payloads.editions.length > 0) {
     let coverStorage: ReturnType<typeof createEditionCoverStorageFromEnv> | null =
       null;
     try {
@@ -909,7 +1060,7 @@ export async function validateParsedInput(
           : "Cover storage configuration is invalid";
       addIssue(summary, {
         file: "run",
-        column: "cover_image_url",
+        column: "covers",
         code: "cover_storage_config_missing",
         message,
       });
@@ -917,10 +1068,14 @@ export async function validateParsedInput(
 
     if (coverStorage) {
       for (const edition of payloads.editions) {
+        const cover = coversByIsbn.get(edition.isbn)?.[0];
+        if (!cover) continue;
+
         try {
-          const uploaded = await coverStorage.uploadFromSource({
+          const uploaded = await coverStorage.uploadBuffer({
             isbn: edition.isbn,
-            sourceUrl: edition.coverImageUrl,
+            extension: cover.extension,
+            bytes: cover.bytes,
           });
           edition.coverImageUrl = uploaded.publicUrl;
         } catch (error) {
@@ -932,8 +1087,8 @@ export async function validateParsedInput(
             addIssue(summary, {
               file: "editions.csv",
               rowNumber,
-              column: "cover_image_url",
               sourceRef: edition.sourceRef,
+              column: "isbn",
               code: error.code,
               message: error.message,
             });
@@ -943,8 +1098,8 @@ export async function validateParsedInput(
           addIssue(summary, {
             file: "editions.csv",
             rowNumber,
-            column: "cover_image_url",
             sourceRef: edition.sourceRef,
+            column: "isbn",
             code: "cover_upload_failed",
             message:
               error instanceof Error

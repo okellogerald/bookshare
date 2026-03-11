@@ -51,6 +51,9 @@ export default async function RegisterPage({
       { href: "/register/reset", label: "Use a different email" },
     ]
     : [{ href: loginHref, label: "Back to sign in" }];
+  const fieldAllowlist = isCodeStep
+    ? ["code"]
+    : ["traits.email"];
 
   return (
     <KratosFlowForm
@@ -58,7 +61,7 @@ export default async function RegisterPage({
       title={isCodeStep ? "Verify your email" : "Create account"}
       description={description}
       sectionGroups={["code"]}
-      fieldAllowlist={["traits.email", "code"]}
+      fieldAllowlist={fieldAllowlist}
       submitAllowlist={["method"]}
       hideBackOnlySections
       links={links}

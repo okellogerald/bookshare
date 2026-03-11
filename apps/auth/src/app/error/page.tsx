@@ -1,4 +1,5 @@
-import Link from "next/link";
+import NextLink from "next/link";
+import { AuthShell } from "@/components/auth-shell";
 import { getFlowErrorById } from "@/lib/kratos";
 import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
 
@@ -23,18 +24,20 @@ export default async function ErrorPage({
     "Authentication flow failed. Please retry.";
 
   return (
-    <div className="page">
-      <div className="card">
-        <h1 className="title">Authentication error</h1>
-        <p className="subtitle">{errorMessage}</p>
-        {flowError?.error ? (
-          <pre className="code-block">{JSON.stringify(flowError.error, null, 2)}</pre>
-        ) : null}
-        <div className="footer-links">
-          <Link href="/login">Back to sign in</Link>
-          <Link href="/register">Create account</Link>
-        </div>
+    <AuthShell title="Authentication error" description={errorMessage}>
+      {flowError?.error ? (
+        <pre className="flow-error-block flow-error-code">
+          {JSON.stringify(flowError.error, null, 2)}
+        </pre>
+      ) : null}
+      <div className="flow-footer-links">
+        <NextLink href="/login" className="auth-home-link">
+          Back to sign in
+        </NextLink>
+        <NextLink href="/register" className="auth-home-link">
+          Create account
+        </NextLink>
       </div>
-    </div>
+    </AuthShell>
   );
 }

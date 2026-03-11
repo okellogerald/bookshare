@@ -1,5 +1,5 @@
 import { createDb, importRunPayloads, importRuns } from "@bookshare/db";
-import type { ImportEntityType } from "../types";
+import type { ImportEntityType, ImportMode } from "../types";
 import { requireDatabaseUrl } from "../env";
 import { validateParsedInput } from "../validation";
 import { parseZipFile } from "../zip";
@@ -21,13 +21,23 @@ function payloadRowsForEntity(
 export async function runValidateCommand(params: {
   zipPath: string;
   actorUsername: string;
+  inventoryOnly: boolean;
+  replaceInventory: boolean;
 }) {
   const databaseUrl = requireDatabaseUrl();
   const db = createDb(databaseUrl);
   const actorIdentifier = params.actorUsername.trim();
+  const mode: ImportMode = params.inventoryOnly ? "inventory_only" : "catalog";
 
-  const parsedZip = await parseZipFile(params.zipPath);
-  const validation = await validateParsedInput(db, parsedZip, actorIdentifier);
+  if (params.replaceInventory && mode !== "inventory_only") {
+    throw new Error("--replace-inventory is only allowed with --inventory-only");
+  }
+
+  const parsedZip = await parseZipFile(params.zipPath, { mode });
+  const validation = await validateParsedInput(db, parsedZip, actorIdentifier, {
+    mode,
+    replaceInventory: params.replaceInventory,
+  });
 
   const now = new Date();
   const [run] = await db
