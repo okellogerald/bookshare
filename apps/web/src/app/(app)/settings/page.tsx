@@ -267,7 +267,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>Your profile stores identity details, contact preferences, and avatar metadata.</p>
           <p>None of your contact details are shared with any third party.</p>
-          <p>Your app activity stores copies, wants, and related history needed for library workflows.</p>
+          <p>Your app activity stores copies, wishlist entries, and related history needed for library workflows.</p>
           <p>Deleting your account removes profile and copy details but keeps shared catalog entities.</p>
         </CardContent>
       </Card>

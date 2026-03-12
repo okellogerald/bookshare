@@ -41,7 +41,7 @@ const conditionLabels: Record<string, string> = {
 
 const listingStatusLabels: Record<string, string> = {
   available: "Available",
-  lent: "Lent Out",
+  lent: "Lent",
 };
 
 function getCategoryDisplayName(name: string) {
@@ -291,6 +291,11 @@ export function BookDetailsDialog({
                                 ? ` (${listing.owner_display_name})`
                                 : ""}
                             </p>
+                            {listing.contact_note && (
+                              <p className="text-sm text-muted-foreground">
+                                Contact note: {listing.contact_note}
+                              </p>
+                            )}
                             {listing.status === "lent" && (
                               <p className="text-sm text-muted-foreground">
                                 {listing.borrower_username

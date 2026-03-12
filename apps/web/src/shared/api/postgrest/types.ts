@@ -216,8 +216,8 @@ export interface PgCategoryTree extends PgCategory {
   parent_name: string | null;
 }
 
-/** wants table — user-scoped via RLS */
-export interface PgWant {
+/** wishes table — user-scoped via RLS */
+export interface PgWish {
   id: string;
   user_id: string;
   book_id: string;
@@ -232,15 +232,16 @@ export interface PgWant {
   updated_at: string;
 }
 
-/** wants table with embedded book via select=*,book:books(*) */
-export interface PgWantWithBook extends PgWant {
+/** wishes table with embedded book via select=*,book:books(*) */
+export interface PgWishWithBook extends PgWish {
   book: PgBook | null;
 }
 
-/** browse_wants view — cross-user, grouped active wants by book */
-export interface PgBrowseWant {
+/** browse_wishes view — cross-user, grouped active wishes by book */
+export interface PgBrowseWish {
   book_id: string;
   edition_id: string | null;
+  wish_count: number;
   want_count: number;
   book_title: string;
   book_subtitle: string | null;
@@ -250,7 +251,7 @@ export interface PgBrowseWant {
   edition_format: string | null;
   edition_cover_image_url: string | null;
   authors: Array<{ id: string; name: string }>;
-  wanters: Array<{
+  wishers: Array<{
     user_id: string;
     username: string | null;
     display_name: string | null;
@@ -259,10 +260,12 @@ export interface PgBrowseWant {
     created_at: string;
     last_confirmed_at: string | null;
   }>;
+  wanters: PgBrowseWish["wishers"];
 }
 
-/** fulfilled_wants_history view — per-user exchange history for recipient/fulfiller */
-export interface PgFulfilledWantHistory {
+/** fulfilled_wishes_history view — per-user exchange history for recipient/fulfiller */
+export interface PgFulfilledWishHistory {
+  wish_id: string;
   want_id: string;
   recipient_user_id: string;
   recipient_username: string | null;
@@ -275,18 +278,23 @@ export interface PgFulfilledWantHistory {
   book_id: string;
   book_title: string;
   book_subtitle: string | null;
+  wished_edition_id: string | null;
   wanted_edition_id: string | null;
+  wished_edition_isbn: string | null;
   wanted_edition_isbn: string | null;
+  wished_edition_format: string | null;
   wanted_edition_format: string | null;
+  wished_edition_cover_image_url: string | null;
   wanted_edition_cover_image_url: string | null;
   fulfilled_copy_id: string | null;
   fulfilled_edition_id: string | null;
   fulfilled_edition_isbn: string | null;
   fulfilled_edition_format: string | null;
   fulfilled_edition_cover_image_url: string | null;
+  wisher_notes: string | null;
   wanter_notes: string | null;
   fulfilled_at: string | null;
-  fulfillment_type: "lent" | "sold" | "given_away" | null;
+  fulfillment_type: "lent" | "gone" | null;
   fulfillment_notes: string | null;
   fulfillment_recorded_at: string | null;
 }
@@ -302,3 +310,9 @@ export type PgCollectionWithCopies = PgCollection & {
   }>;
 };
 export type PgCopyEventWithCopy = PgCopyEventDetail;
+
+// Temporary aliases while downstream modules finish the rename.
+export type PgWant = PgWish;
+export type PgWantWithBook = PgWishWithBook;
+export type PgBrowseWant = PgBrowseWish;
+export type PgFulfilledWantHistory = PgFulfilledWishHistory;

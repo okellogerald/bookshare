@@ -1,0 +1,14 @@
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl bash && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://install.iii.dev/console/main/install.sh | bash -s -- --no-modify-path && \
+    cp /root/.local/bin/iii-console /usr/local/bin/iii-console
+
+EXPOSE 3113
+
+CMD ["iii-console", "--host", "0.0.0.0", "--engine-host", "workflows.localhost", "--engine-port", "3335", "--ws-port", "3112", "--bridge-port", "49134"]

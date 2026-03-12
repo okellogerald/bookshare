@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   LogOut,
   Mail,
   BookMarked,
@@ -24,6 +25,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { UserProvider } from "@/shared/providers/user-provider";
 import { useMyProfile } from "@/shared/queries/profile";
+import { useUnreadNotificationsCount } from "@/shared/queries/notifications";
 import { cn } from "@/shared/lib/utils";
 
 interface User {
@@ -36,7 +38,7 @@ interface User {
 
 const navItems = [
   { href: "/browse", label: "Browse", icon: Search },
-  { href: "/wanted", label: "Wanted", icon: Heart },
+  { href: "/community-wishlist", label: "Community Wishlist", icon: Heart },
   { href: "/community", label: "Community", icon: Users },
 ];
 
@@ -65,6 +67,9 @@ export function AppShellClient({
   const syncedProfile = useRef(false);
   const isEmailVerified = user?.emailVerified === true;
   const { data: myProfile } = useMyProfile({ enabled: !!user && isEmailVerified });
+  const { data: unreadNotifications } = useUnreadNotificationsCount({
+    enabled: !!user && isEmailVerified,
+  });
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   useEffect(() => {
@@ -89,6 +94,7 @@ export function AppShellClient({
     "U";
   const avatarUrl = myProfile?.avatarUrl?.trim() || null;
   const avatarInitials = getInitials(avatarLabel);
+  const unreadCount = unreadNotifications?.count ?? 0;
 
   useEffect(() => {
     setAvatarLoadFailed(false);
@@ -128,6 +134,23 @@ export function AppShellClient({
             <div className="flex items-center gap-1">
               {isEmailVerified ? (
                 <>
+                  <Link href="/notifications">
+                    <Button
+                      variant={
+                        pathname.startsWith("/notifications") ? "secondary" : "ghost"
+                      }
+                      size="sm"
+                      className="relative gap-2"
+                    >
+                      <Bell className="h-4 w-4" />
+                      <span className="hidden md:inline">Notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </Button>
+                  </Link>
                   <Link href="/my-library">
                     <Button
                       variant={pathname.startsWith("/my-library") ? "secondary" : "ghost"}
@@ -138,14 +161,14 @@ export function AppShellClient({
                       <span className="hidden md:inline">My Library</span>
                     </Button>
                   </Link>
-                  <Link href="/my-wants">
+                  <Link href="/my-wishlist">
                     <Button
-                      variant={pathname.startsWith("/my-wants") ? "secondary" : "ghost"}
+                      variant={pathname.startsWith("/my-wishlist") ? "secondary" : "ghost"}
                       size="sm"
                       className="gap-2"
                     >
                       <BookMarked className="h-4 w-4" />
-                      <span className="hidden md:inline">My Wants</span>
+                      <span className="hidden md:inline">My Wishlist</span>
                     </Button>
                   </Link>
                 </>

@@ -2,7 +2,7 @@ import { relations } from "drizzle-orm";
 import { pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
 import { copies } from "./copies";
 import { copyLoans } from "./copy-loans";
-import { wants } from "./wants";
+import { wishes } from "./wishes";
 
 // Community member profile mirror sourced from the identity provider.
 export const memberProfiles = pgTable("member_profiles", {
@@ -31,7 +31,7 @@ export const memberProfiles = pgTable("member_profiles", {
 });
 
 export const memberProfilesRelations = relations(memberProfiles, ({ many }) => ({
-  wants: many(wants),
+  wishes: many(wishes),
   ownedCopies: many(copies, { relationName: "ownerProfile" }),
   ownedLoans: many(copyLoans, { relationName: "loanOwnerProfile" }),
   counterpartyLoans: many(copyLoans, { relationName: "loanCounterpartyProfile" }),

@@ -5,6 +5,7 @@ import {
   IsUUID,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { CopyStatus } from "@bookshare/shared";
 
 export class CreateCopyDto {
   @ApiProperty()
@@ -18,33 +19,11 @@ export class CreateCopyDto {
   condition!: string;
 
   @ApiPropertyOptional({
-    enum: [
-      "available",
-      "reserved",
-      "lent",
-      "rented",
-      "checked_out",
-      "sold",
-      "donated",
-      "given_away",
-      "lost",
-      "damaged",
-    ],
+    enum: Object.values(CopyStatus),
     default: "available",
   })
   @IsOptional()
-  @IsEnum([
-    "available",
-    "reserved",
-    "lent",
-    "rented",
-    "checked_out",
-    "sold",
-    "donated",
-    "given_away",
-    "lost",
-    "damaged",
-  ])
+  @IsEnum(CopyStatus)
   status?: string;
 
   @ApiPropertyOptional()

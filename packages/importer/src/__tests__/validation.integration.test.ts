@@ -6,7 +6,7 @@ import {
   createDb,
   editions,
   memberProfiles,
-  wants,
+  wishes,
 } from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import { validateParsedInput } from "../validation";
@@ -105,8 +105,8 @@ function parsedInputFor(params: {
         headers: [],
         rows: [],
       },
-      "wants.csv": {
-        fileName: "wants.csv",
+      "wishes.csv": {
+        fileName: "wishes.csv",
         present: false,
         headers: [],
         rows: [],
@@ -128,7 +128,7 @@ function parsedInputFor(params: {
 
 describe("importer validation integration", () => {
   integrationTest(
-    "fails when an active want already exists for the same user/book",
+    "fails when an active wish already exists for the same user/book",
     async () => {
       if (!databaseUrl) return;
       const db = createDb(databaseUrl);
@@ -152,7 +152,7 @@ describe("importer validation integration", () => {
         const [createdBook] = await db
           .insert(books)
           .values({
-            title: `Existing Want Book ${suffix}`,
+            title: `Existing Wish Book ${suffix}`,
             subtitle: null,
             language: "en",
           })
@@ -174,12 +174,12 @@ describe("importer validation integration", () => {
           .returning({ id: editions.id });
         editionId = createdEdition!.id;
 
-        await db.insert(wants).values({
+        await db.insert(wishes).values({
           userId: actorUserId,
           bookId,
           editionId,
           status: "active",
-          notes: "existing want",
+          notes: "existing wish",
         });
 
         const parsed: ParsedZipInput = {
@@ -205,8 +205,8 @@ describe("importer validation integration", () => {
               headers: [],
               rows: [],
             },
-            "wants.csv": {
-              fileName: "wants.csv",
+            "wishes.csv": {
+              fileName: "wishes.csv",
               present: true,
               headers: ["id", "edition_isbn", "email", "notes"],
               rows: [
@@ -214,7 +214,7 @@ describe("importer validation integration", () => {
                   id: "want_new_1",
                   edition_isbn: isbn,
                   email: actorEmail,
-                  notes: "new want from import",
+                  notes: "new wish from import",
                 },
               ],
             },
@@ -234,7 +234,7 @@ describe("importer validation integration", () => {
           )
         ).toBe(true);
       } finally {
-        await db.delete(wants).where(eq(wants.userId, actorUserId));
+        await db.delete(wishes).where(eq(wishes.userId, actorUserId));
         if (editionId) {
           await db.delete(editions).where(eq(editions.id, editionId));
         }

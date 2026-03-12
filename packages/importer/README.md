@@ -30,19 +30,19 @@ Required:
 
 Optional:
 - `copies.csv`
-- `wants.csv`
+- `wishes.csv`
 
 ### Inventory-Only Import (`--inventory-only`)
 
 Required:
-- At least one of `copies.csv` or `wants.csv`
+- At least one of `copies.csv` or `wishes.csv`
 
 Must not include:
 - `books.csv`
 - `editions.csv`
 - `covers/`
 
-Use `--replace-inventory` with `--inventory-only` to clear all existing `copies` and `wants` before importing new inventory rows.
+Use `--replace-inventory` with `--inventory-only` to clear all existing `copies` and `wishes` before importing new inventory rows.
 
 ## CSV Contract
 
@@ -55,21 +55,21 @@ Use `--replace-inventory` with `--inventory-only` to clear all existing `copies`
 ### `copies.csv`
 `id,edition_isbn,email,condition,notes,share_type,contact_note,status`
 
-### `wants.csv`
+### `wishes.csv`
 `id,edition_isbn,email,notes`
 
 ## Validation Highlights
 
-- Strict create-only mode on `id` by entity (unless `--replace-inventory` for copies/wants).
+- Strict create-only mode on `id` by entity (unless `--replace-inventory` for copies/wishes).
 - ISBNs normalize to digits/`X`, must be 10 or 13 chars, and must pass checksum.
 - Every imported book must have at least one imported ISBN edition.
 - `category_slugs` is required for every book and each slug must already exist in `categories`.
 - Every imported edition must have exactly one matching cover file in `covers/` by ISBN.
 - Cover files are uploaded to MinIO as `edition-covers/<normalized-isbn>.<ext>`.
 - `--actor` resolves strictly against `member_profiles.email`.
-- `copies.csv` / `wants.csv` resolve users strictly against `member_profiles.email`.
-- `edition_isbn` in copies/wants can reference imported editions or existing DB editions.
-- Wants are validated against active uniqueness (`user + book`) in-batch and against existing DB wants.
+- `copies.csv` / `wishes.csv` resolve users strictly against `member_profiles.email`.
+- `edition_isbn` in copies/wishes can reference imported editions or existing DB editions.
+- Wants are validated against active uniqueness (`user + book`) in-batch and against existing DB wishes.
 
 ## Commit Behavior
 
@@ -78,10 +78,10 @@ Use `--replace-inventory` with `--inventory-only` to clear all existing `copies`
   - books
   - editions
   - book_categories
-  - copies (+ acquired events)
-  - wants
+  - copies (+ listed events)
+  - wishes
   - import entity refs
-- For inventory replacement runs, `wants`, `copies`, and their import refs are cleared first in the same transaction.
+- For inventory replacement runs, `wishes`, `copies`, and their import refs are cleared first in the same transaction.
 - Any DB failure rolls back the whole transaction.
 
 ## Environment

@@ -9,7 +9,9 @@ declare module 'motia' {
 
   interface Enqueues {
     'stale_listings.report': unknown
+    'copy.created': unknown
+    'copy.status_changed': unknown
+    'wish.created': unknown
     'edition.enriched': unknown
-    'copy_event.created': unknown
   }
 }

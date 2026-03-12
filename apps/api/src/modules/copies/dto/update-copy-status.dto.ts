@@ -1,33 +1,12 @@
 import { IsString, IsOptional, IsEnum } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { CopyStatus, GoneReason } from "@bookshare/shared";
 
 export class UpdateCopyStatusDto {
   @ApiProperty({
-    enum: [
-      "available",
-      "reserved",
-      "lent",
-      "rented",
-      "checked_out",
-      "sold",
-      "donated",
-      "given_away",
-      "lost",
-      "damaged",
-    ],
+    enum: Object.values(CopyStatus),
   })
-  @IsEnum([
-    "available",
-    "reserved",
-    "lent",
-    "rented",
-    "checked_out",
-    "sold",
-    "donated",
-    "given_away",
-    "lost",
-    "damaged",
-  ])
+  @IsEnum(CopyStatus)
   status!: string;
 
   @ApiPropertyOptional()
@@ -37,7 +16,16 @@ export class UpdateCopyStatusDto {
 
   @ApiPropertyOptional({
     description:
-      "Required for lent/rented/checked_out/sold/given_away",
+      "Required when status=gone to record why the copy left the library",
+    enum: Object.values(GoneReason),
+  })
+  @IsOptional()
+  @IsEnum(GoneReason)
+  goneReason?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Optional for lent or gone when you want to record who received the copy",
     enum: ["member", "external"],
   })
   @IsOptional()

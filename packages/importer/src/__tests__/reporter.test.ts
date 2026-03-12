@@ -14,7 +14,7 @@ describe("summaryIssuesToCsv", () => {
         "books.csv": { rowCount: 1 },
         "editions.csv": { rowCount: 1 },
         "copies.csv": { rowCount: 0 },
-        "wants.csv": { rowCount: 0 },
+        "wishes.csv": { rowCount: 0 },
       },
       issues: [
         {

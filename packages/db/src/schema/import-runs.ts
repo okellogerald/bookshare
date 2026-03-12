@@ -20,7 +20,7 @@ export const importEntityTypeEnum = pgEnum("import_entity_type", [
   "books",
   "editions",
   "copies",
-  "wants",
+  "wishes",
 ]);
 
 // High-level record for each importer execution.

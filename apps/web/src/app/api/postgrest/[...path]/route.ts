@@ -17,7 +17,7 @@ const POSTGREST_URL =
 
 const PUBLIC_POSTGREST_PATHS = new Set([
   "browse_listings",
-  "browse_wants",
+  "browse_wishes",
   "books_with_authors",
   "books_with_categories",
   "editions",
@@ -115,28 +115,28 @@ function sanitizePostgrestData(tablePath: string, data: unknown) {
       });
   }
 
-  if (tablePath === "browse_wants") {
+  if (tablePath === "browse_wishes") {
     return data
       .map((row) => {
         const typed = row as Record<string, unknown>;
-        const wanters = Array.isArray(typed.wanters)
-          ? typed.wanters.filter(
-              (wanter) =>
-                !isHiddenUsername((wanter as { username?: unknown })?.username, hiddenUsernames) &&
-                !isHiddenUserId((wanter as { user_id?: unknown })?.user_id, hiddenUserIds)
+        const wishers = Array.isArray(typed.wishers)
+          ? typed.wishers.filter(
+              (wisher) =>
+                !isHiddenUsername((wisher as { username?: unknown })?.username, hiddenUsernames) &&
+                !isHiddenUserId((wisher as { user_id?: unknown })?.user_id, hiddenUserIds)
             )
           : [];
 
         return {
           ...typed,
-          wanters,
-          want_count: wanters.length,
+          wishers,
+          wish_count: wishers.length,
         };
       })
       .filter(
         (row) =>
-          typeof (row as { want_count?: unknown }).want_count === "number" &&
-          ((row as { want_count: number }).want_count > 0)
+          typeof (row as { wish_count?: unknown }).wish_count === "number" &&
+          ((row as { wish_count: number }).wish_count > 0)
       );
   }
 

@@ -90,19 +90,19 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
               {formatLabels[listing.format] ?? listing.format}
             </Badge>
           </div>
-
+{/* 
           {listing.isbn && (
             <p className="text-xs text-muted-foreground">
               ISBN: {listing.isbn}
             </p>
-          )}
+          )} */}
 
-          <p className="text-xs text-muted-foreground">
+          {/* <p className="text-xs text-muted-foreground">
             Listed by @{listing.owner_username ?? "member"}
             {listing.owner_display_name
               ? ` • ${listing.owner_display_name}`
               : ""}
-          </p>
+          </p> */}
 
           {listing.status === "lent" && (
             <p className="text-xs text-muted-foreground">

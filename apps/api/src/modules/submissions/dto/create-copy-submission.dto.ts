@@ -62,6 +62,11 @@ export class CreateCopySubmissionDto {
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  contactNote?: string;
+
   @ApiPropertyOptional({ type: [String], maxItems: 5 })
   @IsOptional()
   @Type(() => String)

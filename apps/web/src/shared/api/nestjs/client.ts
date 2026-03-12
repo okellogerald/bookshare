@@ -23,7 +23,7 @@ import { apiContract } from "../contracts";
  * // Update a copy's status
  * const { status, body } = await api.copies.updateStatus({
  *   params: { id: "some-uuid" },
- *   body: { status: "sold", counterpartyType: "external", externalCounterpartyName: "Neighborhood swap" },
+ *   body: { status: "gone", goneReason: "sold", counterpartyType: "external", externalCounterpartyName: "Neighborhood swap" },
  * });
  */
 export function createApiClient() {

@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { useBrowseBookCategoryIndex, useBrowseListings } from "@/shared/queries/browse";
-import { useCreateWant, useDeleteWant, useMyWants } from "@/shared/queries/my-wants";
+import { useCreateWant, useDeleteWant, useMyWants } from "@/shared/queries/my-wishlist";
 import { useAllCategories, useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import { ListingCard } from "./listing-card";
@@ -193,11 +193,11 @@ export default function BrowsePage() {
           const message =
             error instanceof Error &&
             error.message.toLowerCase().includes("already have a want")
-              ? "This book is already in your wants list."
+              ? "This book is already in your wishlist."
               : error instanceof Error &&
                 error.message.toLowerCase().includes("active copy")
                 ? "You already have an active copy of this book in your library."
-              : "Could not add this book to your wants list.";
+              : "Could not add this book to your wishlist.";
           setAddWantError(message);
         },
       }
@@ -400,7 +400,7 @@ export default function BrowsePage() {
                   ? "Already in My Library"
                   : createWant.isPending
                     ? "Adding..."
-                    : "Add to My Wants"}
+                    : "Add to My Wishlist"}
               </Button>
             )}
             {addWantError && (

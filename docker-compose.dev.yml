@@ -199,6 +199,41 @@ services:
       minio:
         condition: service_healthy
 
+  # ─── Workflows (Motia) ─────────────────────────────────────
+  workflows:
+    build:
+      context: .
+      dockerfile: apps/workflows/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 3335
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
+    ports:
+      - "3335:3335"
+      - "3112:3112"
+      - "49134:49134"
+    volumes:
+      - ./apps/workflows:/app/apps/workflows
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/db/src:/app/packages/db/src
+      - workflows_state:/app/apps/workflows/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  workflows-console:
+    build:
+      context: .
+      dockerfile: apps/workflows/Dockerfile.console.dev
+    restart: unless-stopped
+    ports:
+      - "3113:3113"
+    extra_hosts:
+      - "workflows.localhost:host-gateway"
+    depends_on:
+      workflows:
+        condition: service_started
+
   # ─── API (NestJS) ────────────────────────────────────────────
   api:
     build:
@@ -220,6 +255,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
+      WORKFLOWS_URL: ${WORKFLOWS_URL:-http://workflows:3335}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -236,6 +272,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      workflows:
+        condition: service_started
 
   # ─── Web (Next.js) ───────────────────────────────────────────
   web:
@@ -285,3 +323,4 @@ volumes:
   hydra_data:
   kratos_data:
   postgrest_jwt:
+  workflows_state:

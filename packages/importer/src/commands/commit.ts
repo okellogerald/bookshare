@@ -12,8 +12,9 @@ import {
   importRunPayloads,
   importRuns,
   memberProfiles,
-  wants,
+  wishes,
 } from "@bookshare/db";
+import { WorkflowTopic, type WorkflowEventEnvelope } from "@bookshare/shared";
 import type {
   ImportSummary,
   NormalizedBookRow,
@@ -22,13 +23,14 @@ import type {
   NormalizedWantRow,
 } from "../types";
 import { requireDatabaseUrl } from "../env";
+import { publishWorkflowEvents } from "../workflows";
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 interface GroupedPayloads {
   books: NormalizedBookRow[];
   editions: NormalizedEditionRow[];
   copies: NormalizedCopyRow[];
-  wants: NormalizedWantRow[];
+  wishes: NormalizedWantRow[];
 }
 
 function reportProgress(stage: string, detail?: string) {
@@ -64,7 +66,7 @@ function toPayloadGroups(rows: Array<{ entityType: string; payload: unknown }>):
     books: [],
     editions: [],
     copies: [],
-    wants: [],
+    wishes: [],
   };
 
   for (const row of rows) {
@@ -72,14 +74,14 @@ function toPayloadGroups(rows: Array<{ entityType: string; payload: unknown }>):
     if (row.entityType === "editions")
       grouped.editions.push(row.payload as NormalizedEditionRow);
     if (row.entityType === "copies") grouped.copies.push(row.payload as NormalizedCopyRow);
-    if (row.entityType === "wants") grouped.wants.push(row.payload as NormalizedWantRow);
+    if (row.entityType === "wishes") grouped.wishes.push(row.payload as NormalizedWantRow);
   }
 
   return grouped;
 }
 
 async function assertNoExistingEntityRefs(
-  refs: Array<{ entityType: "books" | "editions" | "copies" | "wants"; sourceRef: string }>,
+  refs: Array<{ entityType: "books" | "editions" | "copies" | "wishes"; sourceRef: string }>,
   tx: any
 ) {
   const grouped = new Map<string, string[]>();
@@ -132,16 +134,17 @@ async function loadExistingEditionMaps(
 }
 
 async function clearInventoryState(tx: any) {
-  await tx.delete(wants);
+  await tx.delete(wishes);
   await tx.delete(copies);
   await tx
     .delete(importEntityRefs)
-    .where(inArray(importEntityRefs.entityType, ["copies", "wants"] as any));
+    .where(inArray(importEntityRefs.entityType, ["copies", "wishes"] as any));
 }
 
 export async function runCommitCommand(params: { runId: string }) {
   const databaseUrl = requireDatabaseUrl();
   const db = createDb(databaseUrl);
+  const workflowEvents: WorkflowEventEnvelope[] = [];
   reportProgress("starting", `run_id=${params.runId}`);
 
   const run = await db.query.importRuns.findFirst({
@@ -183,7 +186,7 @@ export async function runCommitCommand(params: { runId: string }) {
   const payloads = toPayloadGroups(payloadRows);
   reportProgress(
     "payload loaded",
-    `mode=${mode}, replace_inventory=${replaceInventory}, books=${payloads.books.length}, editions=${payloads.editions.length}, copies=${payloads.copies.length}, wants=${payloads.wants.length}`
+    `mode=${mode}, replace_inventory=${replaceInventory}, books=${payloads.books.length}, editions=${payloads.editions.length}, copies=${payloads.copies.length}, wishes=${payloads.wishes.length}`
   );
 
   try {
@@ -230,8 +233,8 @@ export async function runCommitCommand(params: { runId: string }) {
             }))),
         ...(replaceInventory
           ? []
-          : payloads.wants.map((row) => ({
-              entityType: "wants" as const,
+          : payloads.wishes.map((row) => ({
+              entityType: "wishes" as const,
               sourceRef: row.sourceRef,
             }))),
       ];
@@ -251,7 +254,7 @@ export async function runCommitCommand(params: { runId: string }) {
 
       if (replaceInventory) {
         await clearInventoryState(tx);
-        reportProgress("inventory cleared", "wants/copies/import refs reset");
+        reportProgress("inventory cleared", "wishes/copies/import refs reset");
       }
 
       const bookIdBySourceRef = new Map<string, string>();
@@ -428,7 +431,7 @@ export async function runCommitCommand(params: { runId: string }) {
 
       const now = new Date();
       const createdEntityRefs: Array<{
-        entityType: "books" | "editions" | "copies" | "wants";
+        entityType: "books" | "editions" | "copies" | "wishes";
         sourceRef: string;
         entityId: string;
       }> = [];
@@ -491,7 +494,7 @@ export async function runCommitCommand(params: { runId: string }) {
         await tx.insert(copyEvents).values({
           userId: row.userId,
           copyId: createdCopy.id,
-          eventType: "acquired",
+          eventType: "listed",
           toStatus: row.status as any,
           performedBy: actor.userId,
           notes: `Imported via run ${params.runId}`,
@@ -502,14 +505,21 @@ export async function runCommitCommand(params: { runId: string }) {
           sourceRef: row.sourceRef,
           entityId: createdCopy.id,
         });
+        workflowEvents.push({
+          topic: WorkflowTopic.COPY_CREATED,
+          data: {
+            copyId: createdCopy.id,
+            userId: row.userId,
+          },
+        });
         reportCopiesProgress(index + 1);
       }
 
-      const candidateWantRows = payloads.wants.map((row) => {
+      const candidateWantRows = payloads.wishes.map((row) => {
         const edition = editionByIsbn.get(row.editionIsbn);
         if (!edition) {
           throw new Error(
-            `Cannot resolve edition_isbn '${row.editionIsbn}' for want '${row.sourceRef}'`
+            `Cannot resolve edition_isbn '${row.editionIsbn}' for wish '${row.sourceRef}'`
           );
         }
 
@@ -527,26 +537,26 @@ export async function runCommitCommand(params: { runId: string }) {
         const bookIds = [...new Set(candidateWantRows.map((row) => row.bookId))];
 
         const existingActiveWants = await tx
-          .select({ userId: wants.userId, bookId: wants.bookId })
-          .from(wants)
+          .select({ userId: wishes.userId, bookId: wishes.bookId })
+          .from(wishes)
           .where(
             and(
-              inArray(wants.userId, userIds),
-              inArray(wants.bookId, bookIds),
-              eq(wants.status, "active")
+              inArray(wishes.userId, userIds),
+              inArray(wishes.bookId, bookIds),
+              eq(wishes.status, "active")
             )
           );
 
         if (existingActiveWants.length > 0) {
           const first = existingActiveWants[0]!;
           throw new Error(
-            `Create-only conflict: active want already exists for user '${first.userId}' and book '${first.bookId}'`
+            `Create-only conflict: active wish already exists for user '${first.userId}' and book '${first.bookId}'`
           );
         }
       }
 
       const reportWantsProgress = stageProgressReporter(
-        "wants inserted",
+        "wishes inserted",
         candidateWantRows.length
       );
       const seenWantBookKeys = new Set<string>();
@@ -555,13 +565,13 @@ export async function runCommitCommand(params: { runId: string }) {
         const wantBookKey = `${row.userId}::${row.bookId}`;
         if (seenWantBookKeys.has(wantBookKey)) {
           throw new Error(
-            `Duplicate active want in run for user '${row.userId}' and book '${row.bookId}'`
+            `Duplicate active wish in run for user '${row.userId}' and book '${row.bookId}'`
           );
         }
         seenWantBookKeys.add(wantBookKey);
 
         const [createdWant] = await tx
-          .insert(wants)
+          .insert(wishes)
           .values({
             userId: row.userId,
             bookId: row.bookId,
@@ -570,16 +580,23 @@ export async function runCommitCommand(params: { runId: string }) {
             status: "active",
             lastConfirmedAt: now,
           })
-          .returning({ id: wants.id });
+          .returning({ id: wishes.id });
 
         if (!createdWant) {
-          throw new Error(`Failed to create want '${row.sourceRef}'`);
+          throw new Error(`Failed to create wish '${row.sourceRef}'`);
         }
 
         createdEntityRefs.push({
-          entityType: "wants",
+          entityType: "wishes",
           sourceRef: row.sourceRef,
           entityId: createdWant.id,
+        });
+        workflowEvents.push({
+          topic: WorkflowTopic.WISH_CREATED,
+          data: {
+            wishId: createdWant.id,
+            userId: row.userId,
+          },
         });
         reportWantsProgress(index + 1);
       }
@@ -616,6 +633,11 @@ export async function runCommitCommand(params: { runId: string }) {
     throw error;
   }
 
+  const publishResult = await publishWorkflowEvents(workflowEvents);
+  reportProgress(
+    "workflow events published",
+    `${publishResult.delivered}/${publishResult.attempted}`
+  );
   reportProgress("completed", `run_id=${params.runId}`);
 
   console.log(

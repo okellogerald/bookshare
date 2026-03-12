@@ -365,6 +365,9 @@ export default function ProfilePage() {
                 onChange={(event) => setContactHandle(event.target.value)}
                 placeholder="e.g. @telegram / phone / email"
               />
+              <p className="text-xs text-muted-foreground">
+                This is your primary contact method for book exchanges. It will be visible to all members on the platform.
+              </p>
             </div>
             <Button
               type="submit"

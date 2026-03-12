@@ -7,7 +7,7 @@ import type { NextRequest } from "next/server";
 const protectedPagePrefixes = [
   "/community",
   "/my-library",
-  "/my-wants",
+  "/my-wishlist",
   "/profile",
   "/settings",
 ];

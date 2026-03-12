@@ -71,7 +71,7 @@ modules:
   - class: modules::shell::ExecModule
     config:
       watch:
-        - steps/**/*.ts
+        - src/**/*.ts
       exec:
         - bun run dev:build
         - bun dist/index-dev.js

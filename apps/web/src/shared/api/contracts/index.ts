@@ -133,6 +133,7 @@ export interface UpdateCopyBody {
 export interface UpdateCopyStatusBody {
   status: string;
   notes?: string;
+  goneReason?: string;
   counterpartyType?: string;
   counterpartyUserId?: string;
   externalCounterpartyName?: string;
@@ -230,6 +231,39 @@ export interface CategoryResponse {
   parentId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// Notifications
+export interface NotificationResponse {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  body: string;
+  metadata: Record<string, unknown> | null;
+  read: boolean;
+  linkTo: string | null;
+  createdAt: string;
+}
+
+export interface NotificationListQuery {
+  limit?: number;
+  offset?: number;
+}
+
+export interface NotificationListResponse {
+  items: NotificationResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface UnreadNotificationsCountResponse {
+  count: number;
+}
+
+export interface MarkAllNotificationsReadResponse {
+  updated: number;
 }
 
 // ─── Contracts ──────────────────────────────────────────────
@@ -426,18 +460,18 @@ export const categoriesContract = c.router({
   },
 });
 
-// Wants
-export interface CreateWantBody {
+// Wishes
+export interface CreateWishBody {
   bookId: string;
   editionId?: string;
   notes?: string;
 }
 
-export interface UpdateWantBody {
+export interface UpdateWishBody {
   notes?: string;
 }
 
-export interface WantSearchResult {
+export interface WishSearchResult {
   bookId: string;
   title: string;
   subtitle: string | null;
@@ -453,7 +487,7 @@ export interface WantSearchResult {
   hasCommunityCopy: boolean;
 }
 
-export interface WantResponse {
+export interface WishResponse {
   id: string;
   userId: string;
   bookId: string;
@@ -468,37 +502,43 @@ export interface WantResponse {
   updatedAt: string;
 }
 
-export const wantsContract = c.router({
+export const wishesContract = c.router({
   search: {
     method: "GET",
-    path: "/api/nestjs/wants/search",
-    responses: { 200: c.type<WantSearchResult[]>() },
+    path: "/api/nestjs/wishes/search",
+    responses: { 200: c.type<WishSearchResult[]>() },
   },
   create: {
     method: "POST",
-    path: "/api/nestjs/wants",
-    body: c.type<CreateWantBody>(),
-    responses: { 201: c.type<WantResponse>() },
+    path: "/api/nestjs/wishes",
+    body: c.type<CreateWishBody>(),
+    responses: { 201: c.type<WishResponse>() },
   },
   confirm: {
     method: "PATCH",
-    path: "/api/nestjs/wants/:id/confirm",
+    path: "/api/nestjs/wishes/:id/confirm",
     body: null,
-    responses: { 200: c.type<WantResponse>() },
+    responses: { 200: c.type<WishResponse>() },
   },
   update: {
     method: "PATCH",
-    path: "/api/nestjs/wants/:id",
-    body: c.type<UpdateWantBody>(),
-    responses: { 200: c.type<WantResponse>() },
+    path: "/api/nestjs/wishes/:id",
+    body: c.type<UpdateWishBody>(),
+    responses: { 200: c.type<WishResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/wants/:id",
+    path: "/api/nestjs/wishes/:id",
     body: null,
     responses: { 200: c.type<{ deleted: boolean }>() },
   },
 });
+
+export type CreateWantBody = CreateWishBody;
+export type UpdateWantBody = UpdateWishBody;
+export type WantSearchResult = WishSearchResult;
+export type WantResponse = WishResponse;
+export const wantsContract = wishesContract;
 
 export interface CreateCopySubmissionBody {
   title: string;
@@ -509,6 +549,7 @@ export interface CreateCopySubmissionBody {
   condition?: string;
   shareType?: string;
   notes?: string;
+  contactNote?: string;
   imageUrls?: string[];
 }
 
@@ -627,6 +668,32 @@ export const profilesContract = c.router({
   },
 });
 
+export const notificationsContract = c.router({
+  list: {
+    method: "GET",
+    path: "/api/nestjs/notifications",
+    query: c.type<NotificationListQuery>(),
+    responses: { 200: c.type<NotificationListResponse>() },
+  },
+  unreadCount: {
+    method: "GET",
+    path: "/api/nestjs/notifications/unread-count",
+    responses: { 200: c.type<UnreadNotificationsCountResponse>() },
+  },
+  markRead: {
+    method: "PATCH",
+    path: "/api/nestjs/notifications/:id/read",
+    body: null,
+    responses: { 200: c.type<NotificationResponse>() },
+  },
+  markAllRead: {
+    method: "PATCH",
+    path: "/api/nestjs/notifications/read-all",
+    body: null,
+    responses: { 200: c.type<MarkAllNotificationsReadResponse>() },
+  },
+});
+
 export const uploadContract = c.router({
   createCopyImagePresign: {
     method: "POST",
@@ -680,7 +747,8 @@ export const apiContract = c.router({
   collections: collectionsContract,
   events: eventsContract,
   categories: categoriesContract,
-  wants: wantsContract,
+  wishes: wishesContract,
+  notifications: notificationsContract,
   submissions: submissionsContract,
   profiles: profilesContract,
   upload: uploadContract,

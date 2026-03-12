@@ -41,3 +41,26 @@ export function requireDatabaseUrl(): string {
   }
   return databaseUrl;
 }
+
+export function getWorkflowsUrl(): string | null {
+  if (!process.env.WORKFLOWS_URL) {
+    const cwd = process.cwd();
+    const candidateEnvFiles = [
+      resolve(cwd, ".env"),
+      resolve(cwd, "..", ".env"),
+      resolve(cwd, "..", "..", ".env"),
+    ];
+
+    for (const envPath of candidateEnvFiles) {
+      loadDotEnvFile(envPath);
+      if (process.env.WORKFLOWS_URL) break;
+    }
+  }
+
+  const configuredUrl = process.env.WORKFLOWS_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, "");
+  }
+
+  return "http://localhost:3335";
+}

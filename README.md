@@ -8,6 +8,8 @@ A closed-access platform where approved community members list books they're wil
 |---|---|---|
 | Frontend | Next.js 15, ShadCN, Tailwind, TanStack Query | 3334 |
 | Write API | NestJS | 3333 |
+| Workflows Engine | Motia / iii | 3335 |
+| Workflows Console | iii-console | 3113 |
 | Read API | PostgREST | 3336 |
 | Database | PostgreSQL 16 + Drizzle ORM | 5434 |
 | Auth | Ory (Hydra + Kratos + Auth Portal) | 4444 / 4433 / 3337 |
@@ -21,7 +23,7 @@ A closed-access platform where approved community members list books they're wil
 │   ├── api/          # NestJS write API
 │   ├── auth/         # Reusable Auth Portal (Kratos flows + Hydra challenges)
 │   ├── web/          # Next.js frontend
-│   └── workflows/    # Optional background workflows (not in default compose)
+│   └── workflows/    # Background workflows + iii console
 ├── packages/
 │   ├── db/           # Drizzle schema, migrations
 │   └── shared/       # Shared types, enums, constants

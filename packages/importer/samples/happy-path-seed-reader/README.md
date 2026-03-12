@@ -4,7 +4,7 @@ This sample matches the current CSV contract:
 - books.csv
 - editions.csv
 - copies.csv (optional)
-- wants.csv (optional)
+- wishes.csv (optional)
 - covers/ (required for catalog imports)
 
 ## Use
@@ -19,7 +19,7 @@ bun run import:commit --run-id <RUN_ID_FROM_VALIDATE>
 
 ## Notes
 
-- Emails in `copies.csv` and `wants.csv` must already exist in `member_profiles.email`.
+- Emails in `copies.csv` and `wishes.csv` must already exist in `member_profiles.email`.
 - Category slugs in `books.csv` must already exist in `categories` (BISAC slugs).
 - Cover files in `covers/` must be named `<isbn>.<ext>` and match ISBNs in `editions.csv`.
 - Cover images are uploaded to MinIO using ISBN-based object keys.

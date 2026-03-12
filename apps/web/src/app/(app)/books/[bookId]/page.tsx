@@ -244,6 +244,11 @@ export default function BookDetailPage() {
                         ? ` • ${listing.owner_display_name}`
                         : ""}
                     </p>
+                    {listing.contact_note && (
+                      <p className="text-xs text-muted-foreground">
+                        Contact note: {listing.contact_note}
+                      </p>
+                    )}
                     {listing.status === "lent" && (
                       <p className="text-xs text-muted-foreground">
                         {listing.borrower_username

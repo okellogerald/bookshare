@@ -72,7 +72,7 @@ describe("importer commit integration", () => {
               "books.csv": { rowCount: 1 },
               "editions.csv": { rowCount: 1 },
               "copies.csv": { rowCount: 0 },
-              "wants.csv": { rowCount: 1 },
+              "wishes.csv": { rowCount: 1 },
             },
             issues: [],
           },
@@ -116,7 +116,7 @@ describe("importer commit integration", () => {
         },
         {
           runId,
-          entityType: "wants",
+          entityType: "wishes",
           rowNumber: 1,
           sourceRef: "w_new",
           payload: {
@@ -130,7 +130,7 @@ describe("importer commit integration", () => {
       ]);
 
       await expect(runCommitCommand({ runId })).rejects.toThrow(
-        "Cannot resolve edition_isbn '9780000000002' for want 'w_new'"
+        "Cannot resolve edition_isbn '9780000000002' for wish 'w_new'"
       );
 
       const createdNewBook = await db.query.books.findFirst({

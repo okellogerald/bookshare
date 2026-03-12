@@ -13,9 +13,10 @@ import { EventsModule } from "./modules/events/events.module";
 import { UploadModule } from "./modules/upload/upload.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { CollectionsModule } from "./modules/collections/collections.module";
-import { WantsModule } from "./modules/wants/wants.module";
+import { WishesModule } from "./modules/wishes/wishes.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { SubmissionsModule } from "./modules/submissions/submissions.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { SubmissionsModule } from "./modules/submissions/submissions.module";
     UploadModule,
     CategoriesModule,
     CollectionsModule,
-    WantsModule,
+    WishesModule,
+    NotificationsModule,
     ProfilesModule,
     SubmissionsModule,
   ],

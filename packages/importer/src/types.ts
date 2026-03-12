@@ -5,11 +5,11 @@ export const CSV_FILES = [
   "books.csv",
   "editions.csv",
   "copies.csv",
-  "wants.csv",
+  "wishes.csv",
 ] as const;
 
 export type CsvFileName = (typeof CSV_FILES)[number];
-export type ImportEntityType = "books" | "editions" | "copies" | "wants";
+export type ImportEntityType = "books" | "editions" | "copies" | "wishes";
 export type RunStatus = "invalid" | "validated" | "committed";
 export type ImportMode = "catalog" | "inventory_only";
 
@@ -17,7 +17,7 @@ export const ENTITY_FROM_FILE: Record<CsvFileName, ImportEntityType> = {
   "books.csv": "books",
   "editions.csv": "editions",
   "copies.csv": "copies",
-  "wants.csv": "wants",
+  "wishes.csv": "wishes",
 };
 
 export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
@@ -50,7 +50,7 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "contact_note",
     "status",
   ],
-  "wants.csv": ["id", "edition_isbn", "email", "notes"],
+  "wishes.csv": ["id", "edition_isbn", "email", "notes"],
 };
 
 export interface ImportIssue {
@@ -129,7 +129,7 @@ export interface NormalizedCopyRow {
   status: CopyStatus;
 }
 
-export interface NormalizedWantRow {
+export interface NormalizedWishRow {
   sourceRef: string;
   editionIsbn: string;
   email: string;
@@ -141,7 +141,7 @@ export interface NormalizedPayloadSet {
   books: NormalizedBookRow[];
   editions: NormalizedEditionRow[];
   copies: NormalizedCopyRow[];
-  wants: NormalizedWantRow[];
+  wishes: NormalizedWishRow[];
 }
 
 export interface ValidateResult {
@@ -149,3 +149,5 @@ export interface ValidateResult {
   summary: ImportSummary;
   payloads: NormalizedPayloadSet;
 }
+
+export type NormalizedWantRow = NormalizedWishRow;

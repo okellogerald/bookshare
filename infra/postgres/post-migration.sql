@@ -19,6 +19,7 @@ ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_copies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE member_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE copy_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Ensure helper exists even on pre-existing DBs where init.sql wasn't re-run
 CREATE OR REPLACE FUNCTION current_user_id() RETURNS TEXT AS $$
@@ -39,7 +40,7 @@ BEGIN
 
     IF request_relation NOT IN (
       'browse_listings',
-      'browse_wants',
+      'browse_wishes',
       'books_with_authors',
       'books_with_categories',
       'editions',
@@ -143,17 +144,29 @@ CREATE POLICY copy_images_auth_select ON copy_images
   FOR SELECT TO postgrest_auth
   USING (true);
 
--- ─── RLS Policies: wants ───────────────────────────────────
+-- ─── RLS Policies: notifications ───────────────────────────
 
-ALTER TABLE wants ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS wants_anon_deny ON wants;
-CREATE POLICY wants_anon_deny ON wants
+DROP POLICY IF EXISTS notifications_anon_deny ON notifications;
+CREATE POLICY notifications_anon_deny ON notifications
   FOR SELECT TO postgrest_anon
   USING (false);
 
-DROP POLICY IF EXISTS wants_auth_select ON wants;
-CREATE POLICY wants_auth_select ON wants
+DROP POLICY IF EXISTS notifications_auth_select ON notifications;
+CREATE POLICY notifications_auth_select ON notifications
+  FOR SELECT TO postgrest_auth
+  USING (user_id = current_user_id());
+
+-- ─── RLS Policies: wishes ───────────────────────────────────
+
+ALTER TABLE wishes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS wishes_anon_deny ON wishes;
+CREATE POLICY wishes_anon_deny ON wishes
+  FOR SELECT TO postgrest_anon
+  USING (false);
+
+DROP POLICY IF EXISTS wishes_auth_select ON wishes;
+CREATE POLICY wishes_auth_select ON wishes
   FOR SELECT TO postgrest_auth
   USING (user_id = current_user_id());
 
@@ -321,17 +334,18 @@ GROUP BY
 -- Grant browse view to authenticated users only
 GRANT SELECT ON browse_listings TO postgrest_auth;
 
--- ─── Browse Wants View ────────────────────────────────────
--- Cross-user grouped view of active wants by book + edition preference.
+-- ─── Browse Wishlist View ─────────────────────────────────
+-- Cross-user grouped view of active wishes by book + edition preference.
 -- Does NOT use security_invoker — intentionally bypasses RLS so all
--- authenticated users can browse all wanted books.
+-- authenticated users can browse the community wishlist.
 
 DROP VIEW IF EXISTS browse_wants;
-CREATE OR REPLACE VIEW browse_wants AS
+DROP VIEW IF EXISTS browse_wishes;
+CREATE OR REPLACE VIEW browse_wishes AS
 SELECT
   b.id AS book_id,
   wb.edition_id,
-  wb.want_count,
+  wb.wish_count,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
   e.description AS edition_description,
@@ -339,7 +353,7 @@ SELECT
   e.isbn AS edition_isbn,
   e.format AS edition_format,
   e.cover_image_url AS edition_cover_image_url,
-  wb.wanters,
+  wb.wishers,
   COALESCE(
     authors_data.authors,
     '[]'::json
@@ -359,7 +373,7 @@ JOIN (
   SELECT
     w.book_id,
     w.edition_id,
-    COUNT(*)::int AS want_count,
+    COUNT(*)::int AS wish_count,
     json_agg(
       json_build_object(
         'user_id', w.user_id,
@@ -374,27 +388,28 @@ JOIN (
         'last_confirmed_at', w.last_confirmed_at
       )
       ORDER BY w.created_at DESC
-    ) AS wanters
-  FROM wants w
+    ) AS wishers
+  FROM wishes w
   LEFT JOIN member_profiles mp ON mp.user_id = w.user_id
   WHERE w.status = 'active'
   GROUP BY w.book_id, w.edition_id
 ) AS wb ON wb.book_id = b.id
 LEFT JOIN editions e ON e.id = wb.edition_id;
 
--- Grant browse wants view to authenticated users only
-GRANT SELECT ON browse_wants TO postgrest_auth;
+-- Grant browse wishes view to authenticated users only
+GRANT SELECT ON browse_wishes TO postgrest_auth;
 
--- ─── Fulfilled Wants History View ──────────────────────────
+-- ─── Fulfilled Wishlist History View ───────────────────────
 -- Per-user history for both sides of a fulfilled exchange:
--- 1) wants fulfilled for me (recipient), and
--- 2) wants I fulfilled for others (fulfiller).
+-- 1) wishes fulfilled for me (recipient), and
+-- 2) wishes I fulfilled for others (fulfiller).
 -- Intentionally bypasses RLS but hard-filters by current_user_id().
 
 DROP VIEW IF EXISTS fulfilled_wants_history;
-CREATE OR REPLACE VIEW fulfilled_wants_history AS
+DROP VIEW IF EXISTS fulfilled_wishes_history;
+CREATE OR REPLACE VIEW fulfilled_wishes_history AS
 SELECT
-  w.id AS want_id,
+  w.id AS wish_id,
   w.user_id AS recipient_user_id,
   recipient.username AS recipient_username,
   COALESCE(
@@ -412,23 +427,23 @@ SELECT
   w.book_id,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
-  w.edition_id AS wanted_edition_id,
-  wanted_edition.isbn AS wanted_edition_isbn,
-  wanted_edition.format AS wanted_edition_format,
-  wanted_edition.cover_image_url AS wanted_edition_cover_image_url,
+  w.edition_id AS wished_edition_id,
+  wished_edition.isbn AS wished_edition_isbn,
+  wished_edition.format AS wished_edition_format,
+  wished_edition.cover_image_url AS wished_edition_cover_image_url,
   w.fulfilled_by_copy_id AS fulfilled_copy_id,
   fulfilled_copy.edition_id AS fulfilled_edition_id,
   fulfilled_edition.isbn AS fulfilled_edition_isbn,
   fulfilled_edition.format AS fulfilled_edition_format,
   fulfilled_edition.cover_image_url AS fulfilled_edition_cover_image_url,
-  w.notes AS wanter_notes,
+  w.notes AS wisher_notes,
   w.fulfilled_at,
   fulfillment_event.to_status AS fulfillment_type,
   fulfillment_event.notes AS fulfillment_notes,
   fulfillment_event.created_at AS fulfillment_recorded_at
-FROM wants w
+FROM wishes w
 JOIN books b ON b.id = w.book_id
-LEFT JOIN editions wanted_edition ON wanted_edition.id = w.edition_id
+LEFT JOIN editions wished_edition ON wished_edition.id = w.edition_id
 LEFT JOIN copies fulfilled_copy ON fulfilled_copy.id = w.fulfilled_by_copy_id
 LEFT JOIN editions fulfilled_edition ON fulfilled_edition.id = fulfilled_copy.edition_id
 LEFT JOIN member_profiles recipient ON recipient.user_id = w.user_id
@@ -441,7 +456,7 @@ LEFT JOIN LATERAL (
   FROM copy_events ce
   WHERE ce.copy_id = w.fulfilled_by_copy_id
     AND ce.performed_by = w.fulfilled_by_user_id
-    AND ce.to_status IN ('lent', 'sold', 'given_away')
+    AND ce.to_status IN ('lent', 'gone')
     AND (
       ce.metadata ->> 'counterpartyUserId' = w.user_id
       OR ce.metadata ->> 'counterparty_user_id' = w.user_id
@@ -456,7 +471,7 @@ WHERE w.status = 'fulfilled'
     OR w.fulfilled_by_user_id = current_user_id()
   );
 
-GRANT SELECT ON fulfilled_wants_history TO postgrest_auth;
+GRANT SELECT ON fulfilled_wishes_history TO postgrest_auth;
 
 -- ─── Book Quotes with Book ID View ───────────────────────────
 -- Joins quotes through editions to expose book_id for easy filtering.

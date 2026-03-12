@@ -75,6 +75,26 @@ services:
       minio:
         condition: service_healthy
 
+  # ─── Workflows (Motia) ─────────────────────────────────────
+  workflows:
+    build:
+      context: .
+      dockerfile: apps/workflows/Dockerfile.prod
+    restart: always
+    environment:
+      PORT: 3335
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bookshare
+      SERVICE_VERSION: ${SERVICE_VERSION:-0.1.1}
+    volumes:
+      - workflows_state:/app/apps/workflows/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   # ─── API (NestJS) ────────────────────────────────────────────
   api:
     build:
@@ -97,6 +117,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET_PROD:-bookshare-media-prod}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
       CORS_ORIGIN: ${CORS_ORIGIN}
+      WORKFLOWS_URL: ${WORKFLOWS_URL:-http://workflows:3335}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -107,6 +128,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      workflows:
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -164,3 +187,4 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  workflows_state:

@@ -184,6 +184,7 @@ export class SubmissionsService {
       `Condition: ${dto.condition || "-"}`,
       `Share Type: ${dto.shareType || "-"}`,
       `Notes: ${dto.notes?.trim() || "-"}`,
+      `Contact Note: ${dto.contactNote?.trim() || "-"}`,
       "",
       "Copy Images",
     ];

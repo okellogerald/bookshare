@@ -12,7 +12,7 @@ TRUNCATE TABLE
   copy_loans,
   copy_events,
   copy_images,
-  wants,
+  wishes,
   copies,
   member_profiles,
   book_quotes

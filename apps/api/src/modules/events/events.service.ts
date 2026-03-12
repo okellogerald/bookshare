@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { type Database, copyEvents } from "@bookshare/db";
+import { CopyEventType } from "@bookshare/shared";
 import { CreateEventNoteDto } from "./dto";
 
 @Injectable()
@@ -13,7 +14,7 @@ export class EventsService {
       .values({
         userId,
         copyId: dto.copyId,
-        eventType: "note_added",
+        eventType: CopyEventType.NOTE_ADDED,
         performedBy: userId,
         notes: dto.notes,
       })

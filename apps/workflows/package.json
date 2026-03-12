@@ -1,11 +1,12 @@
 {
   "name": "@bookshare/workflows",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "iii -c iii-config.yaml",
+    "build": "motia build",
     "dev:build": "motia dev",
-    "start": "motia build && bun dist/index.js",
+    "start": "iii -c iii-config.prod.yaml",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

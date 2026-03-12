@@ -143,9 +143,9 @@ export async function parseZipFile(
     if (covers.length > 0) {
       throw new Error("Inventory-only ZIP must not include covers/");
     }
-    if (!csvFilesByName.has("copies.csv") && !csvFilesByName.has("wants.csv")) {
+    if (!csvFilesByName.has("copies.csv") && !csvFilesByName.has("wishes.csv")) {
       throw new Error(
-        "Inventory-only ZIP must include at least one of copies.csv or wants.csv"
+        "Inventory-only ZIP must include at least one of copies.csv or wishes.csv"
       );
     }
   }
@@ -154,7 +154,7 @@ export async function parseZipFile(
     "books.csv": emptyParsedCsv("books.csv"),
     "editions.csv": emptyParsedCsv("editions.csv"),
     "copies.csv": emptyParsedCsv("copies.csv"),
-    "wants.csv": emptyParsedCsv("wants.csv"),
+    "wishes.csv": emptyParsedCsv("wishes.csv"),
   } as Record<CsvFileName, ParsedCsvFile>;
 
   for (const [fileName, entry] of csvFilesByName.entries()) {

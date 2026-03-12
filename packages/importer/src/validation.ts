@@ -4,7 +4,7 @@ import {
   editions,
   importEntityRefs,
   memberProfiles,
-  wants,
+  wishes,
 } from "@bookshare/db";
 import {
   BookFormat,
@@ -49,7 +49,7 @@ function emptyPayloads(): NormalizedPayloadSet {
     books: [],
     editions: [],
     copies: [],
-    wants: [],
+    wishes: [],
   };
 }
 
@@ -70,7 +70,7 @@ function emptySummary(
       "books.csv": { rowCount: parsed.files["books.csv"].rows.length },
       "editions.csv": { rowCount: parsed.files["editions.csv"].rows.length },
       "copies.csv": { rowCount: parsed.files["copies.csv"].rows.length },
-      "wants.csv": { rowCount: parsed.files["wants.csv"].rows.length },
+      "wishes.csv": { rowCount: parsed.files["wishes.csv"].rows.length },
     },
     issues: [],
   };
@@ -189,7 +189,7 @@ function fileSourceRefRowIndex(
     "books.csv": new Map<string, number[]>(),
     "editions.csv": new Map<string, number[]>(),
     "copies.csv": new Map<string, number[]>(),
-    "wants.csv": new Map<string, number[]>(),
+    "wishes.csv": new Map<string, number[]>(),
   } as Record<CsvFileName, Map<string, number[]>>;
 
   for (const fileName of CSV_FILES) {
@@ -247,7 +247,7 @@ export async function validateParsedInput(
     "books.csv": new Set<string>(),
     "editions.csv": new Set<string>(),
     "copies.csv": new Set<string>(),
-    "wants.csv": new Set<string>(),
+    "wishes.csv": new Set<string>(),
   } as Record<CsvFileName, Set<string>>;
 
   const validBookIds = new Set<string>();
@@ -555,7 +555,7 @@ export async function validateParsedInput(
     const email = readUserEmail(row);
     if (email) userEmailsNeeded.add(email);
   }
-  for (const row of parsed.files["wants.csv"].rows) {
+  for (const row of parsed.files["wishes.csv"].rows) {
     const email = readUserEmail(row);
     if (email) userEmailsNeeded.add(email);
   }
@@ -773,7 +773,7 @@ export async function validateParsedInput(
   });
 
   // ─── Wants ─────────────────────────────────────────────────────
-  parsed.files["wants.csv"].rows.forEach((row, index) => {
+  parsed.files["wishes.csv"].rows.forEach((row, index) => {
     const rowNumber = index + 2;
     const sourceRef = compactString(row.id);
     let valid = true;
@@ -781,31 +781,31 @@ export async function validateParsedInput(
     if (!sourceRef) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "id",
         code: "missing_id",
         message: "id is required",
       });
-    } else if (seenSourceRefsByFile["wants.csv"].has(sourceRef)) {
+    } else if (seenSourceRefsByFile["wishes.csv"].has(sourceRef)) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "id",
         sourceRef,
         code: "duplicate_id_in_file",
-        message: `Duplicate id '${sourceRef}' in wants.csv`,
+        message: `Duplicate id '${sourceRef}' in wishes.csv`,
       });
     } else {
-      seenSourceRefsByFile["wants.csv"].add(sourceRef);
+      seenSourceRefsByFile["wishes.csv"].add(sourceRef);
     }
 
     const userEmail = readUserEmail(row);
     if (!userEmail) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "email",
         sourceRef: sourceRef || undefined,
@@ -815,7 +815,7 @@ export async function validateParsedInput(
     } else if (!resolveUserByEmail(userEmail)) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "email",
         sourceRef: sourceRef || undefined,
@@ -828,7 +828,7 @@ export async function validateParsedInput(
     if (!editionIsbn) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "edition_isbn",
         sourceRef: sourceRef || undefined,
@@ -838,7 +838,7 @@ export async function validateParsedInput(
     } else if (!(editionIsbn.length === 10 || editionIsbn.length === 13)) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "edition_isbn",
         sourceRef: sourceRef || undefined,
@@ -848,7 +848,7 @@ export async function validateParsedInput(
     } else if (!isValidIsbn(editionIsbn)) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "edition_isbn",
         sourceRef: sourceRef || undefined,
@@ -858,7 +858,7 @@ export async function validateParsedInput(
     } else if (!resolveEditionIsbnInBatchOrDb(editionIsbn)) {
       valid = false;
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         column: "edition_isbn",
         sourceRef: sourceRef || undefined,
@@ -878,12 +878,12 @@ export async function validateParsedInput(
     const duplicateKey = `${userId}::${bookIdentity.identity}`;
     if (wantsByUserBook.has(duplicateKey)) {
       addIssue(summary, {
-        file: "wants.csv",
+        file: "wishes.csv",
         rowNumber,
         sourceRef,
         code: "duplicate_want_in_batch",
         message:
-          "Duplicate active want for the same user/book combination in this batch",
+          "Duplicate active wish for the same user/book combination in this batch",
       });
       return;
     }
@@ -896,7 +896,7 @@ export async function validateParsedInput(
       wantsCsvRowsByExistingUserBook.set(existingBookKey, rows);
     }
 
-    payloads.wants.push({
+    payloads.wishes.push({
       sourceRef,
       editionIsbn,
       email: userEmail,
@@ -918,15 +918,15 @@ export async function validateParsedInput(
     if (userIds.size > 0 && bookIds.size > 0) {
       const existingActiveWants = await db
         .select({
-          userId: wants.userId,
-          bookId: wants.bookId,
+          userId: wishes.userId,
+          bookId: wishes.bookId,
         })
-        .from(wants)
+        .from(wishes)
         .where(
           and(
-            inArray(wants.userId, [...userIds]),
-            inArray(wants.bookId, [...bookIds]),
-            eq(wants.status, "active")
+            inArray(wishes.userId, [...userIds]),
+            inArray(wishes.bookId, [...bookIds]),
+            eq(wishes.status, "active")
           )
         );
 
@@ -937,12 +937,12 @@ export async function validateParsedInput(
           ) ?? [];
         for (const row of rows) {
           addIssue(summary, {
-            file: "wants.csv",
+            file: "wishes.csv",
             rowNumber: row.rowNumber,
             sourceRef: row.sourceRef,
             column: "edition_isbn",
             code: "active_want_already_exists",
-            message: `Active want already exists for user '${conflict.userId}' and book '${conflict.bookId}'`,
+            message: `Active wish already exists for user '${conflict.userId}' and book '${conflict.bookId}'`,
           });
         }
       }
@@ -953,7 +953,7 @@ export async function validateParsedInput(
   for (const fileName of CSV_FILES) {
     if (
       options.replaceInventory &&
-      (fileName === "copies.csv" || fileName === "wants.csv")
+      (fileName === "copies.csv" || fileName === "wishes.csv")
     ) {
       continue;
     }
@@ -1116,7 +1116,7 @@ export async function validateParsedInput(
     payloads.books.length +
     payloads.editions.length +
     payloads.copies.length +
-    payloads.wants.length;
+    payloads.wishes.length;
 
   const status = summary.issueCount === 0 ? "validated" : "invalid";
 

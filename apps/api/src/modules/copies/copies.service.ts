@@ -14,8 +14,10 @@ import {
   memberProfiles,
   wants,
 } from "@bookshare/db";
+import { WorkflowTopic } from "@bookshare/shared";
 import { eq, and, isNull, or } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
+import { WorkflowEventsService } from "../workflow-events/workflow-events.service";
 import {
   AttachCopyImagesDto,
   CreateCopyDto,
@@ -25,7 +27,10 @@ import {
 
 @Injectable()
 export class CopiesService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly workflowEvents: WorkflowEventsService
+  ) {}
 
   async findAll(userId: string) {
     return this.db.query.copies.findMany({
@@ -84,11 +89,11 @@ export class CopiesService {
         })
         .returning();
 
-      // Auto-create ACQUIRED event
+      // Auto-create LISTED event for the copy timeline.
       await tx.insert(copyEvents).values({
         userId,
         copyId: copy.id,
-        eventType: "acquired",
+        eventType: "listed",
         toStatus: copy.status,
         performedBy: userId,
         notes: "Copy added to library",
@@ -97,7 +102,13 @@ export class CopiesService {
       return copy.id;
     });
 
-    return this.findOne(copyId, userId);
+    const createdCopy = await this.findOne(copyId, userId);
+    await this.workflowEvents.publish(WorkflowTopic.COPY_CREATED, {
+      copyId: createdCopy.id,
+      userId,
+    });
+
+    return createdCopy;
   }
 
   async update(id: string, dto: UpdateCopyDto, userId: string) {
@@ -116,7 +127,7 @@ export class CopiesService {
         await tx.insert(copyEvents).values({
           userId,
           copyId: id,
-          eventType: "condition_change",
+          eventType: "condition_changed",
           performedBy: userId,
           notes: `Condition changed from ${existing.condition} to ${dto.condition}`,
           metadata: {
@@ -134,41 +145,36 @@ export class CopiesService {
     const existing = await this.findOne(id, userId);
     const fromStatus = existing.status;
     const toStatus = dto.status;
+    const goneReason = dto.goneReason;
     const externalCounterpartyName = dto.externalCounterpartyName?.trim();
     const externalCounterpartyContact = dto.externalCounterpartyContact?.trim();
-    const loanStatuses = ["lent", "rented", "checked_out"] as const;
-    const requiresCounterpartyStatuses = [
-      "lent",
-      "rented",
-      "checked_out",
-      "sold",
-      "given_away",
-    ] as const;
-    const requiresActiveWantStatuses = ["lent", "sold", "given_away"] as const;
-    const fulfillsWantStatuses = ["lent", "sold", "given_away"] as const;
+    const counterpartyStatuses = ["lent", "gone"] as const;
+    const wishFulfillmentStatuses = ["lent", "gone"] as const;
 
-    const requiresCounterparty = (requiresCounterpartyStatuses as readonly string[])
-      .includes(toStatus);
+    const allowsCounterparty = (counterpartyStatuses as readonly string[]).includes(
+      toStatus
+    );
     const hasCounterpartyFields =
       dto.counterpartyType !== undefined ||
       dto.counterpartyUserId !== undefined ||
       externalCounterpartyName !== undefined ||
       externalCounterpartyContact !== undefined;
 
-    if (requiresCounterparty && !dto.counterpartyType) {
+    if (!allowsCounterparty && hasCounterpartyFields) {
       throw new BadRequestException(
-        "counterpartyType is required for lent, rented, checked_out, sold, and given_away"
-      );
-    }
-    if (!requiresCounterparty && hasCounterpartyFields) {
-      throw new BadRequestException(
-        "counterparty fields are only allowed for lent, rented, checked_out, sold, and given_away"
+        "counterparty fields are only allowed for lent and gone"
       );
     }
 
-    if (!requiresCounterparty && dto.counterpartyType) {
+    if (toStatus === "gone" && !goneReason) {
       throw new BadRequestException(
-        "counterpartyType is only allowed for lent, rented, checked_out, sold, and given_away"
+        "goneReason is required when status is gone"
+      );
+    }
+
+    if (toStatus !== "gone" && goneReason !== undefined) {
+      throw new BadRequestException(
+        "goneReason is only allowed when status is gone"
       );
     }
 
@@ -202,7 +208,7 @@ export class CopiesService {
       dto.counterpartyType === "member" ? dto.counterpartyUserId ?? null : null;
     const shouldValidateActiveWant =
       dto.counterpartyType === "member" &&
-      (requiresActiveWantStatuses as readonly string[]).includes(toStatus);
+      (wishFulfillmentStatuses as readonly string[]).includes(toStatus);
 
     if (counterpartyUserId) {
       const counterparty = await this.db.query.memberProfiles.findFirst({
@@ -240,25 +246,21 @@ export class CopiesService {
     // Determine event type from the target status
     const eventTypeMap: Record<string, string> = {
       lent: "lent",
-      sold: "sold",
-      rented: "rented",
       available:
-        fromStatus === "rented" ||
-        fromStatus === "lent" ||
-        fromStatus === "checked_out"
+        fromStatus === "lent"
           ? "returned"
-          : "status_change",
-      donated: "donated",
-      given_away: "given_away",
-      lost: "lost",
-      damaged: "damaged",
+          : "status_changed",
+      shelved: "status_changed",
     };
 
-    const eventType = eventTypeMap[toStatus] ?? "status_change";
-    const isLoanStatus = (loanStatuses as readonly string[]).includes(toStatus);
+    const eventType =
+      toStatus === "gone"
+        ? goneReason!
+        : eventTypeMap[toStatus] ?? "status_changed";
+    const isLoanStatus = toStatus === "lent";
     const now = new Date();
 
-    return this.db.transaction(async (tx) => {
+    const updatedCopy = await this.db.transaction(async (tx) => {
       const [activeLoan] = await tx
         .select({
           id: copyLoans.id,
@@ -272,12 +274,7 @@ export class CopiesService {
       let openedLoanId: string | undefined;
       let closedLoanId: string | undefined;
 
-      if (isLoanStatus) {
-        if (!dto.counterpartyType) {
-          throw new BadRequestException(
-            "counterpartyType is required for loan statuses"
-          );
-        }
+      if (isLoanStatus && dto.counterpartyType) {
         if (activeLoan) {
           throw new BadRequestException(
             "Copy already has an active loan. Mark it returned before creating a new loan."
@@ -337,18 +334,23 @@ export class CopiesService {
               externalCounterpartyContact: externalCounterpartyContact ?? null,
               openedLoanId: openedLoanId ?? null,
               closedLoanId: closedLoanId ?? null,
+              goneReason: goneReason ?? null,
             }
           : openedLoanId || closedLoanId
             ? {
                 openedLoanId: openedLoanId ?? null,
                 closedLoanId: closedLoanId ?? null,
               }
+            : goneReason
+              ? {
+                  goneReason,
+                }
             : undefined,
       });
 
       if (
         counterpartyUserId &&
-        (fulfillsWantStatuses as readonly string[]).includes(toStatus)
+        (wishFulfillmentStatuses as readonly string[]).includes(toStatus)
       ) {
         await tx
           .update(wants)
@@ -369,6 +371,17 @@ export class CopiesService {
 
       return this.findOne(id, userId);
     });
+
+    if (fromStatus !== toStatus) {
+      await this.workflowEvents.publish(WorkflowTopic.COPY_STATUS_CHANGED, {
+        copyId: updatedCopy.id,
+        userId,
+        fromStatus,
+        toStatus: updatedCopy.status,
+      });
+    }
+
+    return updatedCopy;
   }
 
   async attachImages(

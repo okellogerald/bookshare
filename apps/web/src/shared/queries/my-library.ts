@@ -36,7 +36,7 @@ async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const params = new URLSearchParams();
   params.set(
     "select",
-    "*,edition:editions(*,book:books(*)),images:copy_images(*),active_loan:copy_loans(*)"
+    "*,edition:editions(*,book:books(*)),images:copy_images(*)"
   );
   params.set("order", "created_at.desc");
 
@@ -49,7 +49,7 @@ async function fetchMyCopies(): Promise<PgCopyDetail[]> {
 async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
   const params = new URLSearchParams();
   params.set("select", "edition:editions(book_id)");
-  params.set("status", "in.(available,reserved,lent,rented,checked_out)");
+  params.set("status", "in.(available,shelved,lent)");
 
   const response = await fetch(`/api/postgrest/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch active owned books");
@@ -150,10 +150,10 @@ export function useUpdateCopyStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
-      queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
-      queryClient.invalidateQueries({ queryKey: ["my-wants"] });
-      queryClient.invalidateQueries({ queryKey: ["fulfilled-wants-history"] });
-      queryClient.invalidateQueries({ queryKey: ["active-wanters"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-wishes"] });
+      queryClient.invalidateQueries({ queryKey: ["my-wishlist"] });
+      queryClient.invalidateQueries({ queryKey: ["fulfilled-wishes-history"] });
+      queryClient.invalidateQueries({ queryKey: ["active-wishers"] });
       queryClient.invalidateQueries({ queryKey: ["copy"] });
     },
   });
@@ -286,8 +286,8 @@ export function useUpdateBook() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
-      queryClient.invalidateQueries({ queryKey: ["my-wants"] });
-      queryClient.invalidateQueries({ queryKey: ["browse-wants"] });
+      queryClient.invalidateQueries({ queryKey: ["my-wishlist"] });
+      queryClient.invalidateQueries({ queryKey: ["browse-wishes"] });
       queryClient.invalidateQueries({ queryKey: ["book-detail"] });
       queryClient.invalidateQueries({ queryKey: ["book-categories"] });
       queryClient.invalidateQueries({ queryKey: ["book-with-authors"] });

@@ -31,24 +31,12 @@ export type CopyCondition = (typeof CopyCondition)[keyof typeof CopyCondition];
 export const CopyStatus = {
   // Listed and ready for a new exchange.
   AVAILABLE: "available",
-  // Temporarily promised to someone but not yet handed over.
-  RESERVED: "reserved",
+  // Kept by the owner but not currently being shared.
+  SHELVED: "shelved",
   // Handed out as a community loan.
   LENT: "lent",
-  // Handed out for a paid/temporary rental.
-  RENTED: "rented",
-  // Checked out in a loan-like flow.
-  CHECKED_OUT: "checked_out",
-  // Permanently sold by the owner.
-  SOLD: "sold",
-  // Permanently donated to an organization.
-  DONATED: "donated",
-  // Permanently given away to an individual.
-  GIVEN_AWAY: "given_away",
-  // Owner no longer has the copy due to loss.
-  LOST: "lost",
-  // Copy is damaged and not in normal circulation.
-  DAMAGED: "damaged",
+  // Permanently no longer in the owner's possession.
+  GONE: "gone",
 } as const;
 
 export type CopyStatus = (typeof CopyStatus)[keyof typeof CopyStatus];
@@ -79,12 +67,11 @@ export type CounterpartyType =
 
 // ─── Copy Event Type ─────────────────────────────────────────
 export const CopyEventType = {
-  ACQUIRED: "acquired",
-  STATUS_CHANGE: "status_change",
-  CONDITION_CHANGE: "condition_change",
+  LISTED: "listed",
+  STATUS_CHANGED: "status_changed",
+  CONDITION_CHANGED: "condition_changed",
   LENT: "lent",
   SOLD: "sold",
-  RENTED: "rented",
   RETURNED: "returned",
   DONATED: "donated",
   GIVEN_AWAY: "given_away",
@@ -96,17 +83,50 @@ export const CopyEventType = {
 export type CopyEventType =
   (typeof CopyEventType)[keyof typeof CopyEventType];
 
-// ─── Want Status ─────────────────────────────────────────────
-export const WantStatus = {
+// ─── Gone Reason ─────────────────────────────────────────────
+export const GoneReason = {
+  SOLD: "sold",
+  DONATED: "donated",
+  GIVEN_AWAY: "given_away",
+  LOST: "lost",
+} as const;
+
+export type GoneReason = (typeof GoneReason)[keyof typeof GoneReason];
+
+// ─── Wish Status ─────────────────────────────────────────────
+export const WishStatus = {
   // User is still looking for the book.
   ACTIVE: "active",
-  // Want has been satisfied.
+  // Wish has been satisfied.
   FULFILLED: "fulfilled",
-  // User closed the want without fulfillment.
+  // User closed the wish without fulfillment.
   CANCELLED: "cancelled",
 } as const;
 
-export type WantStatus = (typeof WantStatus)[keyof typeof WantStatus];
+export type WishStatus = (typeof WishStatus)[keyof typeof WishStatus];
+
+// Temporary alias while downstream modules finish the rename.
+export const WantStatus = WishStatus;
+export type WantStatus = WishStatus;
+
+// ─── Notification Type ───────────────────────────────────────
+export const NotificationType = {
+  COPY_AVAILABLE: "copy_available",
+  WISH_FULFILLED_IMMEDIATELY: "wish_fulfilled_immediately",
+  WISH_MATCHES_COPY: "wish_matches_copy",
+} as const;
+
+export type NotificationType =
+  (typeof NotificationType)[keyof typeof NotificationType];
+
+// ─── Workflow Topic ──────────────────────────────────────────
+export const WorkflowTopic = {
+  COPY_CREATED: "copy.created",
+  COPY_STATUS_CHANGED: "copy.status_changed",
+  WISH_CREATED: "wish.created",
+} as const;
+
+export type WorkflowTopic = (typeof WorkflowTopic)[keyof typeof WorkflowTopic];
 
 // ─── User Roles ──────────────────────────────────────────────
 export const UserRole = {

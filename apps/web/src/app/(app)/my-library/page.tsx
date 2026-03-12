@@ -2,11 +2,35 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
-import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import {
   Table,
   TableBody,
@@ -16,40 +40,28 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
-import { Label } from "@/shared/components/ui/label";
-import { Input } from "@/shared/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select";
-import { useCurrentUser } from "@/shared/providers/user-provider";
-import {
-  useMyCopies,
   useConfirmCopy,
-  useUpdateCopyStatus,
   useDeleteCopy,
+  useMyCopies,
+  useUpdateCopyStatus,
 } from "@/shared/queries/my-library";
-import { useCommunityMembers } from "@/shared/queries/community";
-import { useActiveWantersForBook } from "@/shared/queries/wanted";
 
-const statusLabels: Record<string, string> = {
+type LibraryCopyStatus = "available" | "shelved" | "lent" | "gone";
+type GoneReason = "sold" | "donated" | "given_away" | "lost";
+
+const statusLabels: Record<LibraryCopyStatus, string> = {
   available: "Available",
-  reserved: "Reserved",
-  lent: "Lent Out",
-  rented: "Rented",
-  checked_out: "Checked Out",
-  sold: "Sold",
-  donated: "Donated",
-  given_away: "Given Away",
-  lost: "Lost",
-  damaged: "Damaged",
+  shelved: "Shelved",
+  lent: "Lent",
+  gone: "Gone",
 };
 
-const pageSize = 24;
+const statusActionLabels: Record<LibraryCopyStatus, string> = {
+  available: "Mark Available",
+  shelved: "Mark Shelved",
+  lent: "Mark Lent",
+  gone: "Mark Gone",
+};
 
 const shareTypeLabels: Record<string, string> = {
   lend: "Lend",
@@ -57,11 +69,35 @@ const shareTypeLabels: Record<string, string> = {
   give_away: "Give Away",
 };
 
+const goneReasonLabels: Record<GoneReason, string> = {
+  sold: "Sold",
+  donated: "Donated",
+  given_away: "Given Away",
+  lost: "Lost",
+};
+
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
   paperback: "Paperback",
   mass_market: "Mass Market",
 };
+
+const statusOptions: LibraryCopyStatus[] = [
+  "available",
+  "shelved",
+  "lent",
+  "gone",
+];
+
+function getDefaultGoneReason(
+  shareType: string | null | undefined
+): GoneReason | "" {
+  if (shareType === "sell") return "sold";
+  if (shareType === "give_away") return "given_away";
+  return "";
+}
+
+const pageSize = 24;
 
 export default function MyLibraryPage() {
   const [search, setSearch] = useState("");
@@ -76,62 +112,17 @@ export default function MyLibraryPage() {
   const [selectedBookCopy, setSelectedBookCopy] = useState<
     NonNullable<ReturnType<typeof useMyCopies>["data"]>[number] | null
   >(null);
-  const [statusDialog, setStatusDialog] = useState<{
-    copyId: string;
-    status: "lent" | "sold" | "given_away";
-  } | null>(null);
-  const [counterpartyType, setCounterpartyType] = useState<"member" | "external">(
-    "member"
-  );
-  const [counterpartyUserId, setCounterpartyUserId] = useState("");
-  const [externalCounterpartyName, setExternalCounterpartyName] = useState("");
-  const [externalCounterpartyContact, setExternalCounterpartyContact] = useState("");
+  const [goneDialogCopy, setGoneDialogCopy] = useState<
+    NonNullable<ReturnType<typeof useMyCopies>["data"]>[number] | null
+  >(null);
+  const [goneReason, setGoneReason] = useState<GoneReason | "">("");
   const [page, setPage] = useState(1);
 
   const { data: copies, isLoading } = useMyCopies();
-  const { data: members } = useCommunityMembers();
-  const currentUser = useCurrentUser();
-  const selectedStatusCopy = useMemo(
-    () =>
-      statusDialog
-        ? (copies ?? []).find((copy) => copy.id === statusDialog.copyId) ?? null
-        : null,
-    [copies, statusDialog]
-  );
-  const statusDialogBookId = selectedStatusCopy?.edition?.book?.id ?? null;
-  const statusDialogEditionId = selectedStatusCopy?.edition?.id ?? null;
-  const { data: activeWanters, isLoading: activeWantersLoading } =
-    useActiveWantersForBook(statusDialogBookId, statusDialogEditionId);
   const confirmMutation = useConfirmCopy();
   const statusMutation = useUpdateCopyStatus();
   const deleteMutation = useDeleteCopy();
-  const memberNameById = useMemo(
-    () =>
-      new Map(
-        (members ?? []).map((member) => {
-          const fullName = [member.first_name, member.last_name]
-            .filter((value): value is string => !!value && value.trim().length > 0)
-            .join(" ")
-            .trim();
-          return [
-            member.user_id,
-            `@${member.username}${fullName ? ` (${fullName})` : ""}`,
-          ];
-        })
-      ),
-    [members]
-  );
-  const eligibleWanters = useMemo(
-    () =>
-      (activeWanters ?? []).filter((wanter) => wanter.user_id !== currentUser?.id),
-    [activeWanters, currentUser?.id]
-  );
-  const hasEligibleWanters = eligibleWanters.length > 0;
-  const selectedCounterpartyIsEligible = eligibleWanters.some(
-    (wanter) => wanter.user_id === counterpartyUserId
-  );
-  const isMemberCounterparty = counterpartyType === "member";
-  const externalCounterpartyNameValue = externalCounterpartyName.trim();
+
   const filteredCopies = useMemo(() => {
     const term = search.trim().toLowerCase();
     const allCopies = copies ?? [];
@@ -178,41 +169,40 @@ export default function MyLibraryPage() {
     setDialogOpen(true);
   }
 
-  function openStatusDialog(
-    copyId: string,
-    status: "lent" | "sold" | "given_away"
+  function handleStatusChange(
+    copy: NonNullable<typeof copies>[number],
+    status: LibraryCopyStatus
   ) {
-    setCounterpartyType("member");
-    setCounterpartyUserId("");
-    setExternalCounterpartyName("");
-    setExternalCounterpartyContact("");
-    setStatusDialog({ copyId, status });
-  }
-
-  function submitStatusDialog() {
-    if (!statusDialog) return;
-    if (isMemberCounterparty && !counterpartyUserId) return;
-    if (!isMemberCounterparty && !externalCounterpartyNameValue) return;
+    if (status === "gone") {
+      setGoneDialogCopy(copy);
+      setGoneReason(getDefaultGoneReason(copy.share_type));
+      return;
+    }
 
     statusMutation.mutate({
-      id: statusDialog.copyId,
-      body: {
-        status: statusDialog.status,
-        counterpartyType,
-        counterpartyUserId: isMemberCounterparty ? counterpartyUserId : undefined,
-        externalCounterpartyName: !isMemberCounterparty
-          ? externalCounterpartyNameValue
-          : undefined,
-        externalCounterpartyContact: !isMemberCounterparty
-          ? externalCounterpartyContact.trim() || undefined
-          : undefined,
-      },
+      id: copy.id,
+      body: { status },
     });
-    setStatusDialog(null);
-    setCounterpartyType("member");
-    setCounterpartyUserId("");
-    setExternalCounterpartyName("");
-    setExternalCounterpartyContact("");
+  }
+
+  function handleConfirmGone() {
+    if (!goneDialogCopy || !goneReason) return;
+
+    statusMutation.mutate(
+      {
+        id: goneDialogCopy.id,
+        body: {
+          status: "gone",
+          goneReason,
+        },
+      },
+      {
+        onSuccess: () => {
+          setGoneDialogCopy(null);
+          setGoneReason("");
+        },
+      }
+    );
   }
 
   return (
@@ -231,6 +221,7 @@ export default function MyLibraryPage() {
           </Button>
         </Link>
       </div>
+
       <Input
         value={search}
         onChange={(event) => setSearch(event.target.value)}
@@ -240,8 +231,8 @@ export default function MyLibraryPage() {
 
       {isLoading ? (
         <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded bg-muted" />
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-12 animate-pulse rounded bg-muted" />
           ))}
         </div>
       ) : copies && copies.length > 0 ? (
@@ -262,152 +253,89 @@ export default function MyLibraryPage() {
                 <TableBody>
                   {pagedCopies.map((copy) => (
                     <TableRow key={copy.id}>
-                    <TableCell>
-                      <div>
-                        {copy.edition?.book?.id ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenBookDetails(copy)}
-                            className="font-medium underline-offset-4 hover:underline"
-                          >
-                            {copy.edition.book.title}
-                          </button>
-                        ) : (
-                          <span className="font-medium">Unknown</span>
-                        )}
-                        {copy.edition?.isbn && (
-                          <p className="text-xs text-muted-foreground">
-                            ISBN: {copy.edition.isbn}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {copy.edition?.format
-                        ? (formatLabels[copy.edition.format] ?? copy.edition.format)
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {copy.condition?.replace("_", " ") ?? "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          copy.status === "available" ? "default" : "secondary"
-                        }
-                      >
-                        {statusLabels[copy.status] ?? copy.status}
-                      </Badge>
-                      {(() => {
-                        const activeLoan =
-                          copy.active_loan?.find((loan) => loan.returned_at === null) ?? null;
-                        if (!activeLoan) return null;
-                        if (!["lent", "rented", "checked_out"].includes(copy.status)) {
-                          return null;
-                        }
-
-                        const borrowerLabel =
-                          activeLoan.counterparty_type === "member"
-                            ? memberNameById.get(activeLoan.counterparty_user_id ?? "") ??
-                              "member"
-                            : activeLoan.external_name ?? "external borrower";
-
-                        return (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Borrowed by {borrowerLabel}
-                          </p>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>
-                      {copy.share_type ? (
-                        <Badge variant="outline">
-                          {shareTypeLabels[copy.share_type] ?? copy.share_type}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => confirmMutation.mutate(copy.id)}
-                          >
-                            Confirm Available
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/my-library/${copy.id}/edit`}>
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {copy.status === "available" ? (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  statusMutation.mutate({
-                                    id: copy.id,
-                                    body: { status: "reserved" },
-                                  })
-                                }
-                              >
-                                Mark Reserved
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openStatusDialog(copy.id, "lent")}
-                              >
-                                Mark Lent Out
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openStatusDialog(copy.id, "sold")}
-                              >
-                                Mark Sold
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openStatusDialog(copy.id, "given_away")}
-                              >
-                                Mark Given Away
-                              </DropdownMenuItem>
-                            </>
-                          ) : copy.status === "lent" ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusMutation.mutate({
-                                  id: copy.id,
-                                  body: { status: "available" },
-                                })
-                              }
+                      <TableCell>
+                        <div>
+                          {copy.edition?.book?.id ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenBookDetails(copy)}
+                              className="font-medium underline-offset-4 hover:underline"
                             >
-                              Mark Returned
-                            </DropdownMenuItem>
+                              {copy.edition.book.title}
+                            </button>
                           ) : (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusMutation.mutate({
-                                  id: copy.id,
-                                  body: { status: "available" },
-                                })
-                              }
-                            >
-                              Mark Available
-                            </DropdownMenuItem>
+                            <span className="font-medium">Unknown</span>
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => deleteMutation.mutate(copy.id)}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                          {copy.edition?.isbn && (
+                            <p className="text-xs text-muted-foreground">
+                              ISBN: {copy.edition.isbn}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {copy.edition?.format
+                          ? (formatLabels[copy.edition.format] ?? copy.edition.format)
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {copy.condition?.replace("_", " ") ?? "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={copy.status === "available" ? "default" : "secondary"}
+                        >
+                          {statusLabels[copy.status as LibraryCopyStatus] ?? copy.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {copy.share_type ? (
+                          <Badge variant="outline">
+                            {shareTypeLabels[copy.share_type] ?? copy.share_type}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => confirmMutation.mutate(copy.id)}
+                            >
+                              Confirm Listing
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/my-library/${copy.id}/edit`}>
+                                Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {statusOptions
+                              .filter((status) => status !== copy.status)
+                              .map((status) => (
+                                <DropdownMenuItem
+                                  key={status}
+                                  onClick={() => handleStatusChange(copy, status)}
+                                >
+                                  {statusActionLabels[status]}
+                                </DropdownMenuItem>
+                              ))}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => deleteMutation.mutate(copy.id)}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -468,9 +396,12 @@ export default function MyLibraryPage() {
                 <Badge variant="outline">ISBN: {selectedBookCopy.edition.isbn}</Badge>
               )}
               <Badge
-                variant={selectedBookCopy.status === "available" ? "default" : "secondary"}
+                variant={
+                  selectedBookCopy.status === "available" ? "default" : "secondary"
+                }
               >
-                {statusLabels[selectedBookCopy.status] ?? selectedBookCopy.status}
+                {statusLabels[selectedBookCopy.status as LibraryCopyStatus] ??
+                  selectedBookCopy.status}
               </Badge>
               {selectedBookCopy.share_type && (
                 <Badge variant="outline">
@@ -506,128 +437,68 @@ export default function MyLibraryPage() {
       </BookDetailsDialog>
 
       <Dialog
-        open={!!statusDialog}
+        open={!!goneDialogCopy}
         onOpenChange={(open) => {
+          if (statusMutation.isPending) return;
           if (!open) {
-            setStatusDialog(null);
-            setCounterpartyType("member");
-            setCounterpartyUserId("");
-            setExternalCounterpartyName("");
-            setExternalCounterpartyContact("");
+            setGoneDialogCopy(null);
+            setGoneReason("");
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set Counterparty</DialogTitle>
+            <DialogTitle>Mark Copy Gone</DialogTitle>
             <DialogDescription>
-              Track who received this copy, including off-platform borrowers.
+              Choose why this copy is no longer in your library. This reason
+              becomes the timeline event.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="counterparty-type">Counterparty Type</Label>
-              <Select
-                value={counterpartyType}
-                onValueChange={(value) =>
-                  setCounterpartyType(value as "member" | "external")
-                }
-              >
-                <SelectTrigger id="counterparty-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="member">Community Member</SelectItem>
-                  <SelectItem value="external">External Person</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            {isMemberCounterparty ? (
-              <div className="space-y-2">
-                <Label htmlFor="counterparty">Member</Label>
-                <Select
-                  value={counterpartyUserId}
-                  onValueChange={setCounterpartyUserId}
-                  disabled={activeWantersLoading || !hasEligibleWanters}
-                >
-                  <SelectTrigger id="counterparty">
-                    <SelectValue
-                      placeholder={
-                        activeWantersLoading
-                          ? "Loading wanters..."
-                          : hasEligibleWanters
-                            ? "Select member..."
-                            : "No active wanters"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {eligibleWanters.map((wanter) => (
-                      <SelectItem key={wanter.user_id} value={wanter.user_id}>
-                        @{wanter.username ?? "member"}
-                        {wanter.display_name ? ` (${wanter.display_name})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!activeWantersLoading && !hasEligibleWanters && (
-                  <p className="text-sm text-destructive">
-                    No active wanters for this book. Choose External Person if this is off-platform.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="external-name">External Name</Label>
-                <Input
-                  id="external-name"
-                  placeholder="e.g. Alice (neighbor)"
-                  value={externalCounterpartyName}
-                  onChange={(event) =>
-                    setExternalCounterpartyName(event.target.value)
-                  }
-                />
-                <Label htmlFor="external-contact">External Contact (optional)</Label>
-                <Input
-                  id="external-contact"
-                  placeholder="e.g. +1 555 0100"
-                  value={externalCounterpartyContact}
-                  onChange={(event) =>
-                    setExternalCounterpartyContact(event.target.value)
-                  }
-                />
-              </div>
+          <div className="space-y-2">
+            <Label>Gone Reason</Label>
+            <Select
+              value={goneReason}
+              onValueChange={(value) => setGoneReason(value as GoneReason)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(goneReasonLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {goneDialogCopy?.edition?.book?.title && (
+              <p className="text-xs text-muted-foreground">
+                Copy: {goneDialogCopy.edition.book.title}
+              </p>
             )}
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
-                setStatusDialog(null);
-                setCounterpartyType("member");
-                setCounterpartyUserId("");
-                setExternalCounterpartyName("");
-                setExternalCounterpartyContact("");
+                setGoneDialogCopy(null);
+                setGoneReason("");
               }}
+              disabled={statusMutation.isPending}
             >
               Cancel
             </Button>
             <Button
-              onClick={submitStatusDialog}
-              disabled={
-                (isMemberCounterparty &&
-                  (!counterpartyUserId || !selectedCounterpartyIsEligible)) ||
-                (!isMemberCounterparty && !externalCounterpartyNameValue) ||
-                statusMutation.isPending
-              }
+              onClick={handleConfirmGone}
+              disabled={!goneReason || statusMutation.isPending}
             >
-              {statusMutation.isPending ? "Saving..." : "Confirm"}
+              Save Reason
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

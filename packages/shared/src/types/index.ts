@@ -1,3 +1,7 @@
+import {
+  NotificationType,
+  WorkflowTopic,
+} from "../constants/enums";
 import type {
   BookFormat,
   CopyCondition,
@@ -6,7 +10,7 @@ import type {
   CopyLoanType,
   CounterpartyType,
   ShareType,
-  WantStatus,
+  WishStatus,
 } from "../constants/enums";
 
 // ─── Book ────────────────────────────────────────────────────
@@ -119,14 +123,14 @@ export interface Collection {
   updatedAt: Date;
 }
 
-// ─── Want ────────────────────────────────────────────────────
-export interface Want {
+// ─── Wish ────────────────────────────────────────────────────
+export interface Wish {
   id: string;
   userId: string;
   bookId: string;
   editionId: string | null;
   notes: string | null;
-  status: WantStatus;
+  status: WishStatus;
   fulfilledAt: Date | null;
   fulfilledByCopyId: string | null;
   fulfilledByUserId: string | null;
@@ -134,3 +138,75 @@ export interface Want {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ─── Notification ───────────────────────────────────────────
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  body: string;
+  metadata: Record<string, unknown> | null;
+  read: boolean;
+  linkTo: string | null;
+  createdAt: Date;
+}
+
+export interface CopyCreatedWorkflowEvent {
+  copyId: string;
+  userId: string;
+}
+
+export interface CopyStatusChangedWorkflowEvent {
+  copyId: string;
+  userId: string;
+  fromStatus: CopyStatus;
+  toStatus: CopyStatus;
+}
+
+export interface WishCreatedWorkflowEvent {
+  wishId: string;
+  userId: string;
+}
+
+export interface WorkflowEventPayloadMap {
+  [WorkflowTopic.COPY_CREATED]: CopyCreatedWorkflowEvent;
+  [WorkflowTopic.COPY_STATUS_CHANGED]: CopyStatusChangedWorkflowEvent;
+  [WorkflowTopic.WISH_CREATED]: WishCreatedWorkflowEvent;
+}
+
+export interface WorkflowEventEnvelope<TTopic extends WorkflowTopic = WorkflowTopic> {
+  topic: TTopic;
+  data: WorkflowEventPayloadMap[TTopic];
+}
+
+export interface CopyAvailableNotificationMetadata extends Record<string, unknown> {
+  bookId: string;
+  editionId: string;
+  copyId: string;
+  wishId: string;
+  listerUserId: string;
+}
+
+export interface WishFulfilledImmediatelyNotificationMetadata
+  extends Record<string, unknown> {
+  bookId: string;
+  wishId: string;
+  copyIds: string[];
+}
+
+export interface WishMatchesCopyNotificationMetadata extends Record<string, unknown> {
+  bookId: string;
+  copyId: string;
+  wishId: string;
+  wisherUserId: string;
+}
+
+export interface NotificationMetadataMap {
+  [NotificationType.COPY_AVAILABLE]: CopyAvailableNotificationMetadata;
+  [NotificationType.WISH_FULFILLED_IMMEDIATELY]: WishFulfilledImmediatelyNotificationMetadata;
+  [NotificationType.WISH_MATCHES_COPY]: WishMatchesCopyNotificationMetadata;
+}
+
+// Temporary alias while downstream modules finish the rename.
+export type Want = Wish;

@@ -46,6 +46,7 @@ export default function AddCopyPage() {
   const [condition, setCondition] = useState("unspecified");
   const [shareType, setShareType] = useState("unspecified");
   const [notes, setNotes] = useState("");
+  const [contactNote, setContactNote] = useState("");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -127,6 +128,7 @@ export default function AddCopyPage() {
         condition: condition === "unspecified" ? undefined : condition,
         shareType: shareType === "unspecified" ? undefined : shareType,
         notes: notes.trim() || undefined,
+        contactNote: contactNote.trim() || undefined,
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       });
 
@@ -139,6 +141,7 @@ export default function AddCopyPage() {
       setCondition("unspecified");
       setShareType("unspecified");
       setNotes("");
+      setContactNote("");
       setSelectedImages([]);
       setImageError(null);
     } catch (error) {
@@ -235,7 +238,7 @@ export default function AddCopyPage() {
         <CardHeader>
           <CardTitle>Copy Details</CardTitle>
           <CardDescription>
-            Add optional copy details and images.
+            Add optional copy details, contact instructions, and images.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -274,13 +277,35 @@ export default function AddCopyPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Notes</Label>
+            <Label>Copy Notes</Label>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="Any additional notes about this copy"
+              placeholder="Condition details, annotations, missing pages, dust jacket notes..."
               rows={4}
             />
+            <p className="text-xs text-muted-foreground">
+              Use this for details about the physical copy. Do not put contact
+              information here.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Contact Note</Label>
+            <Textarea
+              value={contactNote}
+              onChange={(event) => setContactNote(event.target.value)}
+              placeholder="Optional listing-specific contact instructions for this copy"
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">
+              Your profile contact is the main way people should reach you. Use
+              this only when this copy needs different instructions.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Anything you write here will be visible to everyone on the
+              platform.
+            </p>
           </div>
 
           <div className="space-y-2">

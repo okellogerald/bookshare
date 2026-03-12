@@ -55,7 +55,7 @@ describe("parseZipFile", () => {
     expect(parsed.files["books.csv"].present).toBe(true);
     expect(parsed.files["editions.csv"].present).toBe(true);
     expect(parsed.files["copies.csv"].present).toBe(false);
-    expect(parsed.files["wants.csv"].present).toBe(false);
+    expect(parsed.files["wishes.csv"].present).toBe(false);
     expect(parsed.covers).toHaveLength(1);
     expect(parsed.covers[0]?.isbn).toBe("9780306406157");
     expect(parsed.covers[0]?.zipPath).toBe("seed/covers/9780306406157.png");
@@ -72,7 +72,7 @@ describe("parseZipFile", () => {
 
     const parsed = await parseZipFile(zipPath, { mode: "inventory_only" });
     expect(parsed.files["copies.csv"].present).toBe(true);
-    expect(parsed.files["wants.csv"].present).toBe(false);
+    expect(parsed.files["wishes.csv"].present).toBe(false);
     expect(parsed.files["books.csv"].present).toBe(false);
     expect(parsed.files["editions.csv"].present).toBe(false);
     expect(parsed.covers).toHaveLength(0);

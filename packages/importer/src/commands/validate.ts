@@ -64,7 +64,7 @@ export async function runValidateCommand(params: {
       ...payloadRowsForEntity(run.id, "books", validation.payloads.books),
       ...payloadRowsForEntity(run.id, "editions", validation.payloads.editions),
       ...payloadRowsForEntity(run.id, "copies", validation.payloads.copies),
-      ...payloadRowsForEntity(run.id, "wants", validation.payloads.wants),
+      ...payloadRowsForEntity(run.id, "wishes", validation.payloads.wishes),
     ];
 
     if (payloadRows.length > 0) {
