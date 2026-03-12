@@ -10,11 +10,16 @@ import {
   type CopyAvailableNotificationMetadata,
   type CopyCreatedWorkflowEvent,
   type CopyStatusChangedWorkflowEvent,
+  type NotificationBookSnapshot,
+  type NotificationCopySnapshot,
+  type NotificationEditionSnapshot,
+  type NotificationMemberSnapshot,
+  type NotificationWishSnapshot,
   type WishCreatedWorkflowEvent,
   type WishFulfilledImmediatelyNotificationMetadata,
   type WishMatchesCopyNotificationMetadata,
 } from "@bookshare/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 type LoggerLike = {
   info: (message: string, meta?: Record<string, unknown>) => void;
@@ -24,9 +29,12 @@ type LoggerLike = {
 
 type PublicProfile =
   | {
+      username: string;
       firstName: string | null;
       displayName: string;
       cityArea: string | null;
+      contactHandle: string | null;
+      avatarUrl: string | null;
     }
   | null
   | undefined;
@@ -61,6 +69,10 @@ function formatShareType(shareType: string | null) {
   return shareType ? humanizeToken(shareType) : "share type not specified";
 }
 
+function formatEditionLabel(format: string) {
+  return humanizeToken(format);
+}
+
 function getPublicFirstName(profile: PublicProfile) {
   const firstName = profile?.firstName?.trim();
   if (firstName) return firstName;
@@ -71,12 +83,119 @@ function getPublicFirstName(profile: PublicProfile) {
     if (firstToken) return firstToken;
   }
 
+  const username = profile?.username?.trim();
+  if (username) return username;
+
   return "Someone";
+}
+
+function getPublicDisplayName(profile: PublicProfile) {
+  const displayName = profile?.displayName?.trim();
+  if (displayName) return displayName;
+
+  const username = profile?.username?.trim();
+  if (username) return username;
+
+  return "Community member";
 }
 
 function getPublicCity(profile: PublicProfile, fallback: string) {
   const cityArea = profile?.cityArea?.trim();
   return cityArea || fallback;
+}
+
+function buildBookSnapshot(book: {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  bookAuthors?: Array<{ author: { name: string } }> | null;
+}): NotificationBookSnapshot {
+  return {
+    bookId: book.id,
+    title: book.title,
+    subtitle: book.subtitle,
+    authors: Array.from(
+      new Set(
+        (book.bookAuthors ?? [])
+          .map((entry) => entry.author.name.trim())
+          .filter((value) => value.length > 0)
+      )
+    ),
+  };
+}
+
+function buildEditionSnapshot(edition: {
+  id: string;
+  isbn: string | null;
+  format: NotificationEditionSnapshot["format"];
+  publisher: string | null;
+  publishedYear: number | null;
+}): NotificationEditionSnapshot {
+  return {
+    editionId: edition.id,
+    isbn: edition.isbn,
+    format: edition.format,
+    publisher: edition.publisher,
+    publishedYear: edition.publishedYear,
+  };
+}
+
+function buildMemberSnapshot(
+  profile: PublicProfile,
+  userId: string
+): NotificationMemberSnapshot {
+  return {
+    userId,
+    username: profile?.username ?? null,
+    displayName: getPublicDisplayName(profile),
+    firstName: profile?.firstName ?? null,
+    cityArea: profile?.cityArea ?? null,
+    contactHandle: profile?.contactHandle ?? null,
+    avatarUrl: profile?.avatarUrl ?? null,
+    profilePath: null,
+  };
+}
+
+function buildCopySnapshot(copy: {
+  id: string;
+  condition: NotificationCopySnapshot["condition"];
+  shareType: NotificationCopySnapshot["shareType"];
+  notes: string | null;
+  contactNote: string | null;
+  edition: {
+    id: string;
+    isbn: string | null;
+    format: NotificationEditionSnapshot["format"];
+    publisher: string | null;
+    publishedYear: number | null;
+  };
+}): NotificationCopySnapshot {
+  return {
+    copyId: copy.id,
+    condition: copy.condition,
+    shareType: copy.shareType,
+    notes: copy.notes,
+    contactNote: copy.contactNote,
+    edition: buildEditionSnapshot(copy.edition),
+  };
+}
+
+function buildWishSnapshot(wish: {
+  id: string;
+  notes: string | null;
+  edition?: {
+    id: string;
+    isbn: string | null;
+    format: NotificationEditionSnapshot["format"];
+    publisher: string | null;
+    publishedYear: number | null;
+  } | null;
+}): NotificationWishSnapshot {
+  return {
+    wishId: wish.id,
+    notes: wish.notes,
+    requestedEdition: wish.edition ? buildEditionSnapshot(wish.edition) : null,
+  };
 }
 
 export async function handleCopyWishMatch(
@@ -91,7 +210,15 @@ export async function handleCopyWishMatch(
     with: {
       edition: {
         with: {
-          book: true,
+          book: {
+            with: {
+              bookAuthors: {
+                with: {
+                  author: true,
+                },
+              },
+            },
+          },
         },
       },
       ownerProfile: true,
@@ -116,6 +243,7 @@ export async function handleCopyWishMatch(
   const activeWishes = await db.query.wishes.findMany({
     where: and(eq(wishes.bookId, copy.edition.book.id), eq(wishes.status, "active")),
     with: {
+      edition: true,
       userProfile: true,
     },
   });
@@ -129,23 +257,26 @@ export async function handleCopyWishMatch(
     return;
   }
 
-  const title = `A copy of ${copy.edition.book.title} is now available`;
-  const body = `${getPublicFirstName(copy.ownerProfile)} in ${getPublicCity(
+  const bookSnapshot = buildBookSnapshot(copy.edition.book);
+  const copySnapshot = buildCopySnapshot(copy);
+  const ownerSnapshot = buildMemberSnapshot(copy.ownerProfile, copy.userId);
+  const linkTo = `/books/${copy.edition.book.id}`;
+  const title = `A copy of ${bookSnapshot.title} is now available`;
+  const body = `${ownerSnapshot.displayName} in ${getPublicCity(
     copy.ownerProfile,
     "your community"
-  )} has listed a copy — ${formatCondition(copy.condition)}, ${formatShareType(
-    copy.shareType
-  )}.`;
-  const linkTo = `/books/${copy.edition.book.id}`;
+  )} listed a ${formatEditionLabel(copy.edition.format)} copy in ${formatCondition(
+    copy.condition
+  )} condition for ${formatShareType(copy.shareType)}.`;
 
   await db.insert(notifications).values(
     recipientWishes.map((wish) => {
       const metadata: CopyAvailableNotificationMetadata = {
-        bookId: copy.edition.book.id,
-        editionId: copy.editionId,
-        copyId: copy.id,
-        wishId: wish.id,
-        listerUserId: copy.userId,
+        book: bookSnapshot,
+        wish: buildWishSnapshot(wish),
+        copy: copySnapshot,
+        owner: ownerSnapshot,
+        bookPath: linkTo,
       };
 
       return {
@@ -175,7 +306,16 @@ export async function handleWishCopyMatch(
   const wish = await db.query.wishes.findFirst({
     where: eq(wishes.id, event.wishId),
     with: {
-      book: true,
+      book: {
+        with: {
+          bookAuthors: {
+            with: {
+              author: true,
+            },
+          },
+        },
+      },
+      edition: true,
       userProfile: true,
     },
   });
@@ -187,7 +327,7 @@ export async function handleWishCopyMatch(
     return;
   }
 
-  const availableCopies = await db
+  const availableCopyRows = await db
     .select({
       copyId: copies.id,
       listerUserId: copies.userId,
@@ -196,14 +336,46 @@ export async function handleWishCopyMatch(
     .innerJoin(editions, eq(copies.editionId, editions.id))
     .where(and(eq(editions.bookId, wish.bookId), eq(copies.status, "available")));
 
-  const matchingCopies = availableCopies.filter((copy) => copy.listerUserId !== wish.userId);
-  if (matchingCopies.length === 0) {
+  const matchingCopyIds = availableCopyRows
+    .filter((copy) => copy.listerUserId !== wish.userId)
+    .map((copy) => copy.copyId);
+
+  if (matchingCopyIds.length === 0) {
     logger.info("No available copies matched the new wish", {
       wishId: wish.id,
       bookId: wish.bookId,
     });
     return;
   }
+
+  const matchingCopies = await db.query.copies.findMany({
+    where: inArray(copies.id, matchingCopyIds),
+    with: {
+      edition: {
+        with: {
+          book: {
+            with: {
+              bookAuthors: {
+                with: {
+                  author: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      ownerProfile: true,
+    },
+  });
+
+  const bookSnapshot = buildBookSnapshot(wish.book);
+  const wishSnapshot = buildWishSnapshot(wish);
+  const wisherSnapshot = buildMemberSnapshot(wish.userProfile, wish.userId);
+  const bookPath = `/books/${wish.bookId}`;
+  const matchSnapshots = matchingCopies.map((copy) => ({
+    owner: buildMemberSnapshot(copy.ownerProfile, copy.userId),
+    copy: buildCopySnapshot(copy),
+  }));
 
   const notificationRows: Array<{
     userId: string;
@@ -213,47 +385,69 @@ export async function handleWishCopyMatch(
     metadata:
       | WishFulfilledImmediatelyNotificationMetadata
       | WishMatchesCopyNotificationMetadata;
-    linkTo: string;
+    linkTo: string | null;
   }> = [];
 
   const wishMetadata: WishFulfilledImmediatelyNotificationMetadata = {
-    bookId: wish.bookId,
-    wishId: wish.id,
-    copyIds: matchingCopies.map((copy) => copy.copyId),
+    book: bookSnapshot,
+    wish: wishSnapshot,
+    matches: matchSnapshots,
+    bookPath,
   };
 
   notificationRows.push({
     userId: wish.userId,
     type: NotificationType.WISH_FULFILLED_IMMEDIATELY,
-    title: `${wish.book.title} has available copies`,
-    body: `${matchingCopies.length} ${
-      matchingCopies.length === 1 ? "copy" : "copies"
-    } available in the community.`,
+    title: `Matches found for ${bookSnapshot.title}`,
+    body: `${matchSnapshots.length} ${
+      matchSnapshots.length === 1 ? "available copy is" : "available copies are"
+    } already in the community.`,
     metadata: wishMetadata,
-    linkTo: `/books/${wish.bookId}`,
+    linkTo: bookPath,
   });
 
-  const notifiedListers = new Set<string>();
+  const matchesByOwner = new Map<
+    string,
+    { owner: NotificationMemberSnapshot; copies: NotificationCopySnapshot[] }
+  >();
+
+  for (const match of matchSnapshots) {
+    const existing = matchesByOwner.get(match.owner.userId);
+    if (existing) {
+      existing.copies.push(match.copy);
+      continue;
+    }
+
+    matchesByOwner.set(match.owner.userId, {
+      owner: match.owner,
+      copies: [match.copy],
+    });
+  }
+
+  const wisherName = getPublicDisplayName(wish.userProfile);
+  const wisherFirstName = getPublicFirstName(wish.userProfile);
   const wisherCity = getPublicCity(wish.userProfile, "your community");
 
-  for (const copy of matchingCopies) {
-    if (notifiedListers.has(copy.listerUserId)) continue;
-    notifiedListers.add(copy.listerUserId);
-
+  for (const [ownerUserId, ownerMatch] of matchesByOwner.entries()) {
     const metadata: WishMatchesCopyNotificationMetadata = {
-      bookId: wish.bookId,
-      copyId: copy.copyId,
-      wishId: wish.id,
-      wisherUserId: wish.userId,
+      book: bookSnapshot,
+      wish: wishSnapshot,
+      wisher: wisherSnapshot,
+      matchingCopies: ownerMatch.copies,
+      bookPath,
     };
 
     notificationRows.push({
-      userId: copy.listerUserId,
+      userId: ownerUserId,
       type: NotificationType.WISH_MATCHES_COPY,
-      title: `Someone is looking for ${wish.book.title}`,
-      body: `A reader in ${wisherCity} is looking for a book you have listed.`,
+      title: `${wisherName} is looking for ${bookSnapshot.title}`,
+      body: `${wisherFirstName} in ${wisherCity} added this book to their wishlist. ${
+        ownerMatch.copies.length === 1
+          ? "1 matching copy from your library is shown below."
+          : `${ownerMatch.copies.length} matching copies from your library are shown below.`
+      }`,
       metadata,
-      linkTo: `/books/${wish.bookId}`,
+      linkTo: null,
     });
   }
 
@@ -262,6 +456,6 @@ export async function handleWishCopyMatch(
   logger.info("Created wish-match notifications", {
     wishId: wish.id,
     notificationsCreated: notificationRows.length,
-    matchedCopies: matchingCopies.length,
+    matchedCopies: matchSnapshots.length,
   });
 }

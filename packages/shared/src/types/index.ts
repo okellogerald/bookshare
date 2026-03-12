@@ -180,26 +180,72 @@ export interface WorkflowEventEnvelope<TTopic extends WorkflowTopic = WorkflowTo
   data: WorkflowEventPayloadMap[TTopic];
 }
 
-export interface CopyAvailableNotificationMetadata extends Record<string, unknown> {
+export interface NotificationBookSnapshot extends Record<string, unknown> {
   bookId: string;
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+}
+
+export interface NotificationEditionSnapshot extends Record<string, unknown> {
   editionId: string;
+  isbn: string | null;
+  format: BookFormat;
+  publisher: string | null;
+  publishedYear: number | null;
+}
+
+export interface NotificationMemberSnapshot extends Record<string, unknown> {
+  userId: string;
+  username: string | null;
+  displayName: string;
+  firstName: string | null;
+  cityArea: string | null;
+  contactHandle: string | null;
+  avatarUrl: string | null;
+  profilePath: string | null;
+}
+
+export interface NotificationCopySnapshot extends Record<string, unknown> {
   copyId: string;
+  condition: CopyCondition;
+  shareType: ShareType | null;
+  notes: string | null;
+  contactNote: string | null;
+  edition: NotificationEditionSnapshot;
+}
+
+export interface NotificationWishSnapshot extends Record<string, unknown> {
   wishId: string;
-  listerUserId: string;
+  notes: string | null;
+  requestedEdition: NotificationEditionSnapshot | null;
+}
+
+export interface CopyAvailableNotificationMetadata extends Record<string, unknown> {
+  book: NotificationBookSnapshot;
+  wish: NotificationWishSnapshot;
+  copy: NotificationCopySnapshot;
+  owner: NotificationMemberSnapshot;
+  bookPath: string;
 }
 
 export interface WishFulfilledImmediatelyNotificationMetadata
   extends Record<string, unknown> {
-  bookId: string;
-  wishId: string;
-  copyIds: string[];
+  book: NotificationBookSnapshot;
+  wish: NotificationWishSnapshot;
+  matches: Array<{
+    owner: NotificationMemberSnapshot;
+    copy: NotificationCopySnapshot;
+  }>;
+  bookPath: string;
 }
 
 export interface WishMatchesCopyNotificationMetadata extends Record<string, unknown> {
-  bookId: string;
-  copyId: string;
-  wishId: string;
-  wisherUserId: string;
+  book: NotificationBookSnapshot;
+  wish: NotificationWishSnapshot;
+  wisher: NotificationMemberSnapshot;
+  matchingCopies: NotificationCopySnapshot[];
+  bookPath: string;
 }
 
 export interface NotificationMetadataMap {

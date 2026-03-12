@@ -1,0 +1,313 @@
+# Bookshare - Changes To Implement
+
+This document lists all design changes agreed upon during the project review. Each change includes the rationale and the areas of the codebase affected.
+
+---
+
+## 1. Simplify Copy Statuses
+
+**Current state:** 10 statuses - available, reserved, lent, rented, checked_out, sold, donated, given_away, lost, damaged.
+
+**New state:** 4 statuses - **Available**, **Borrowed**, **Shelved**, **Gone**.
+
+**Rationale:** The platform does not mediate exchanges or track transaction types. The only question that matters to someone browsing is: can I get this book, and might it come back? The nuance of *why* a copy changed status (sold vs. donated, lost vs. damaged) belongs in the copy event log, not in the active status.
+
+**Status definitions:**
+
+- **Available** - Copy is on offer. Visible and seekable.
+- **Borrowed** - Out on loan. Temporarily unavailable, may return.
+- **Shelved** - Owner is not sharing right now. No specific reason exposed.
+- **Gone** - Copy has permanently left the owner's possession.
+
+**Mapping from old to new:**
+
+| Old Status | New Status |
+|---|---|
+| available | Available |
+| reserved | Shelved (or Available - see note) |
+| lent | Borrowed |
+| rented | Borrowed |
+| checked_out | Borrowed |
+| sold | Gone |
+| donated | Gone |
+| given_away | Gone |
+| lost | Gone |
+| damaged | Gone |
+
+**Note on `reserved`:** The platform does not coordinate reservations. If this status is in use, decide whether existing records should map to Shelved (owner holding it back) or Available (reservation concept removed). Recommend Shelved.
+
+**Areas affected:**
+
+- `packages/db` - Schema: `copy_status` enum in copies table. Migration to rename/consolidate values.
+- `packages/shared` - Enum constants: `CopyStatus`.
+- `apps/api` - Copies module: status update logic, validation, DTOs.
+- `apps/api` - Events module: `CopyEventType` enum may also need review - event types can retain more detail (e.g., `sold`, `donated`, `lent`) since events are historical records, not active statuses.
+- `apps/web` - Copy status display, status change dialogs, filters on browse page.
+- `apps/workflows` - Copy status change logger step.
+- `packages/importer` - Status mapping in CSV validation.
+
+---
+
+## 2. Remove CopyLoans
+
+**Current state:** A `copy_loans` table tracks loan lifecycle with types: lent, rented, checked_out. Includes counterparty tracking, due dates, return dates.
+
+**Change:** Remove the CopyLoans feature entirely.
+
+**Rationale:** The platform does not mediate lending transactions. It does not enforce due dates, track counterparties, or manage returns. The lending relationship happens off-platform. The copy's status (Borrowed to Available) is sufficient. If historical detail is needed (who borrowed it, when), that can be captured in copy events.
+
+**Areas affected:**
+
+- `packages/db` - Drop `copy_loans` table and related types (`CopyLoanType`, `CounterpartyType`).
+- `packages/shared` - Remove loan-related types and enums.
+- `apps/api` - Remove any loan-related endpoints, services, DTOs.
+- `apps/web` - Remove any loan UI (if present in status change dialogs or my-library views).
+- `apps/workflows` - Remove any loan-related workflow steps.
+
+---
+
+## 3. Remove Collections
+
+**Current state:** `collections` and `collection_copies` tables allow users to group their copies into named collections.
+
+**Change:** Remove Collections entirely. Defer to a future version if needed.
+
+**Rationale:** Collections (e.g., "my science fiction shelf") are a personal organization feature that does not serve the core sharing loop. The platform's purpose is surfacing what is available and what is wanted, not helping users organize their personal libraries.
+
+**Areas affected:**
+
+- `packages/db` - Drop `collections` and `collection_copies` tables.
+- `packages/shared` - Remove collection-related types.
+- `apps/api` - Remove collections module (routes, service, DTOs).
+- `apps/web` - Remove any collection UI in my-library.
+
+---
+
+## 4. Remove Quotes
+
+**Current state:** A `book_quotes` table stores user-added passages tied to editions.
+
+**Change:** Remove Quotes entirely. Defer to a future version if needed.
+
+**Rationale:** Quotes are a reading community feature. The platform explicitly keeps community and social features off-platform. Quotes do not serve the sharing or discovery loop.
+
+**Areas affected:**
+
+- `packages/db` - Drop `book_quotes` table.
+- `packages/shared` - Remove quote-related types.
+- `apps/api` - Remove quotes module.
+- `apps/web` - Remove any quotes display on book/edition detail pages.
+
+---
+
+## 5. Rename "Wants" to "Wishlist"
+
+**Current state:** The feature is called "Wants" throughout - database table `wants`, API endpoints `/wants`, UI labels "My Wants", "Wanted", "wanters".
+
+**Change:** Rename to "Wishlist" / "Wishes" throughout.
+
+**New terminology:**
+
+| Old Term | New Term | Context |
+|---|---|---|
+| Wants (table) | wishes | Database table name |
+| Want (single entry) | Wish | A single wishlist entry |
+| My Wants (page) | My Wishlist | User's personal view |
+| Wanted (community page) | Community Wishlist | What everyone is looking for |
+| "3 people want this" | "Wished for by 3 people" or "3 people are looking for this" | Book detail page |
+| WantStatus enum | WishStatus | Code enum |
+
+**Rationale:** "Wants" feels transactional and flat. "Wishlist" is warmer, more personal, and is a familiar concept (Amazon wishlists, gift registries). It better captures the spirit of the platform - aspiration, not demand.
+
+**Areas affected:**
+
+- `packages/db` - Rename `wants` table to `wishes`. Rename columns: `want_status` to `wish_status`. Update foreign key references.
+- `packages/shared` - Rename types and enums.
+- `apps/api` - Rename wants module to wishes. Update all endpoints: `/wants` to `/wishes`, `/wants/search` to `/wishes/search`. Update DTOs, services.
+- `apps/web` - Rename all UI labels, page routes (`/my-wants` to `/my-wishlist`, `/wanted` to `/community-wishlist`), component names, query hooks.
+- `apps/workflows` - Update event names: `want.created` to `wish.created`.
+- `packages/importer` - Rename `wants.csv` to `wishes.csv` in import format, update validation.
+- PostgREST views/permissions - Update any RLS policies or views referencing the wants table.
+
+---
+
+## 6. Simplify the Community Page
+
+**Current state:** A `/community` page exists (or is planned) as a member directory.
+
+**Change:** Keep it, but keep it minimal. It shows: avatar, first name, last name, city. Nothing more. No activity feeds, no follower counts, no "last active" timestamps.
+
+**Rationale:** The page serves a narrow purpose - seeing who is on the platform and where they are. This supports the off-platform connection model: if you see a name and city, you might recognize the person. It should not evolve into a social directory.
+
+**Consider renaming:** "Community" implies an organized group. Alternatives: "Members", "People", "Readers". Recommend **"Readers"** - it describes what they are without implying structure.
+
+**Areas affected:**
+
+- `apps/web` - Review and simplify the community page component. Ensure no extra data is displayed.
+
+---
+
+## 7. Add Disclaimer to contactNote Field
+
+**Current state:** Copies have a `contactNote` field where listers can describe how to reach them.
+
+**Change:** Add a visible note in the UI near this field: *"Anything you write here will be visible to everyone on the platform."* No backend change needed.
+
+**Rationale:** The platform's privacy model says no contact details are exposed *by the platform*. The contactNote is the user's choice. The disclaimer makes that choice explicit and informed.
+
+**Areas affected:**
+
+- `apps/web` - Copy creation/edit form: add helper text below the contactNote input.
+
+---
+
+## 8. Build the Notification System
+
+**Current state:** No notification system exists.
+
+**Change:** Build a generic, in-app notification system.
+
+### 8a. Notification Data Model
+
+Create a `notifications` table:
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | Primary key |
+| userId | varchar | Recipient |
+| type | varchar | Notification type code (not an enum - keep extensible) |
+| title | text | Human-readable title |
+| body | text | Human-readable message |
+| metadata | jsonb | Contextual data (bookId, copyId, wishId, etc.) |
+| read | boolean | Default false |
+| linkTo | varchar | Optional - a relative URL for navigation (e.g., `/books/{bookId}`) |
+| createdAt | timestamp | |
+
+**Design notes:**
+
+- The `type` field is a plain string, not a database enum. This allows new notification types to be added without schema migrations.
+- The `metadata` field carries whatever context the type needs. The UI can use it for deep linking or display, but the notification system itself does not interpret it.
+- The `linkTo` field is optional convenience - a pre-computed URL so the frontend does not need to derive navigation from metadata.
+
+### 8b. Notification API
+
+- `GET /notifications` - List notifications for the authenticated user (paginated, newest first).
+- `GET /notifications/unread-count` - Return count of unread notifications.
+- `PATCH /notifications/:id/read` - Mark a single notification as read.
+- `PATCH /notifications/read-all` - Mark all notifications as read.
+
+### 8c. Notification UI
+
+- A notification indicator in the main navigation (bell icon or similar) showing the unread count.
+- A notifications dropdown or page listing recent notifications.
+- Each notification shows title, body, and timestamp. Clicking navigates to the relevant page (via linkTo).
+- No action buttons on notifications - the platform does not mediate exchanges.
+
+### 8d. Areas affected
+
+- `packages/db` - New `notifications` table.
+- `packages/shared` - Notification types.
+- `apps/api` - New notifications module (controller, service, DTOs).
+- `apps/web` - Notification bell component, notifications list/page, unread count query.
+- PostgREST - RLS policy for notifications (users see only their own).
+
+---
+
+## 9. Build Matching Workflow
+
+**Current state:** No matching between wishes and copies exists.
+
+**Change:** Implement matching as workflow steps in the Motia engine.
+
+### 9a. Trigger: Copy Created or Becomes Available
+
+**Event:** `copy.created` or `copy.status_changed` (where new status is Available)
+
+**Logic:**
+1. Get the bookId for the copy (via its edition).
+2. Query all active wishes for that bookId.
+3. For each matching wish, create a notification for the wisher:
+   - **type:** `copy_available`
+   - **title:** "A copy of {bookTitle} is now available"
+   - **body:** "{listerFirstName} in {listerCity} has listed a copy - {condition}, {shareType}."
+   - **metadata:** `{ bookId, editionId, copyId, wishId, listerUserId }`
+   - **linkTo:** `/books/{bookId}`
+
+### 9b. Trigger: Wish Created
+
+**Event:** `wish.created`
+
+**Logic:**
+1. Get the bookId for the wish.
+2. Query all available copies for editions of that bookId.
+3. If copies exist, create a notification for the wisher:
+   - **type:** `wish_fulfilled_immediately`
+   - **title:** "{bookTitle} has available copies"
+   - **body:** "{count} copy/copies available in the community."
+   - **metadata:** `{ bookId, wishId, copyIds[] }`
+   - **linkTo:** `/books/{bookId}`
+4. Also notify each lister who has an available copy:
+   - **type:** `wish_matches_copy`
+   - **title:** "Someone is looking for {bookTitle}"
+   - **body:** "A reader in {wisherCity} is looking for a book you have listed."
+   - **metadata:** `{ bookId, copyId, wishId, wisherUserId }`
+   - **linkTo:** `/books/{bookId}`
+
+### 9c. Matching Always Runs
+
+Matching runs on every copy creation and every wish creation, regardless of how the record was created (user action, admin approval, bulk import). The workflow step does not need to know the source - it reacts to the event.
+
+### 9d. Areas affected
+
+- `apps/workflows` - New workflow steps: `copy-wish-matcher`, `wish-copy-matcher`.
+- `apps/api` - Ensure `copy.created`, `copy.status_changed`, and `wish.created` events are emitted from the relevant services.
+
+---
+
+## 10. Review CopyEvent Types
+
+**Current state:** CopyEventType enum includes: acquired, status_change, condition_change, lent, sold, rented, returned, donated, given_away, lost, damaged, note_added.
+
+**Change:** Review and simplify, but keep more detail than statuses.
+
+**Rationale:** Events are historical records. They can carry richer detail than the active status. When a copy goes to "Gone," the event should record *why* - sold, donated, given away, lost. When a copy goes to "Borrowed," the event can record who it was lent to (in the notes or metadata).
+
+**Recommended event types:**
+
+- `listed` - Copy first created/listed.
+- `status_changed` - Status transition (from/to captured in event data).
+- `condition_changed` - Condition updated.
+- `lent` - Lent to someone (details in notes/metadata).
+- `returned` - Returned from a loan.
+- `given_away` - Given away to someone.
+- `sold` - Sold to someone.
+- `donated` - Donated.
+- `lost` - Lost.
+- `damaged` - Condition degraded significantly.
+- `note_added` - A note was added to the timeline.
+
+**Removed:** `acquired` (redundant with `listed`), `rented` (not part of the platform spirit), `checked_out` (library concept, not applicable).
+
+**Areas affected:**
+
+- `packages/db` - Update `copy_event_type` enum.
+- `packages/shared` - Update `CopyEventType` constants.
+- `apps/api` - Update events module validation.
+- `apps/workflows` - Update copy status change logger.
+
+---
+
+## Implementation Order (Recommended)
+
+The changes have dependencies. Recommended sequence:
+
+1. **Rename Wants to Wishes** - Foundational naming change. Do this first so all subsequent work uses the new terminology.
+2. **Simplify Copy Statuses** - Affects schema, API, and UI broadly. Includes migration of existing data.
+3. **Review CopyEvent Types** - Closely related to status simplification.
+4. **Remove CopyLoans** - Clean removal, no dependencies on other changes.
+5. **Remove Collections** - Clean removal.
+6. **Remove Quotes** - Clean removal.
+7. **Add contactNote disclaimer** - Small UI change, no dependencies.
+8. **Simplify Community page** - Small UI change.
+9. **Build Notification System** - New feature, depends on stable schema.
+10. **Build Matching Workflow** - Depends on notification system being in place.
