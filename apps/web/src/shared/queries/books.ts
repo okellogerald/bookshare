@@ -78,6 +78,7 @@ async function fetchListingsByBook(
 ): Promise<PgBrowseListing[]> {
   const params = new URLSearchParams();
   params.set("book_id", `eq.${bookId}`);
+  params.set("status", "eq.available");
   params.set("order", "created_at.desc");
 
   const response = await fetch(`/api/postgrest/browse_listings?${params}`);

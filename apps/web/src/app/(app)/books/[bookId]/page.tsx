@@ -56,6 +56,7 @@ export default function BookDetailPage() {
   const { data: editions } = useEditionsByBook(bookId);
   const { data: listings } = useListingsByBook(bookId);
   const { data: allCategories } = useAllCategories();
+  const editionCount = editions?.length ?? 0;
   const editionDescription =
     editions?.find((edition) => edition.description)?.description ?? null;
   const visibleCategoryBadges = useMemo(() => {
@@ -139,6 +140,9 @@ export default function BookDetailPage() {
         {book.language && book.language !== "en" && (
           <Badge variant="outline">{book.language.toUpperCase()}</Badge>
         )}
+        {editionCount > 1 && (
+          <Badge variant="outline">{editionCount} editions</Badge>
+        )}
         {visibleCategoryBadges.length ? (
           <div className="flex flex-wrap gap-1.5">
             {visibleCategoryBadges.map((category) => (
@@ -166,48 +170,6 @@ export default function BookDetailPage() {
         </Card>
       )}
 
-      {editions && editions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Editions ({editions.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {editions.map((edition) => (
-                <div
-                  key={edition.id}
-                  className="flex flex-wrap items-start gap-x-6 gap-y-1 rounded-lg border p-3"
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="secondary">
-                        {formatLabels[edition.format] ?? edition.format}
-                      </Badge>
-                      {edition.isbn && (
-                        <span className="text-xs text-muted-foreground">
-                          ISBN: {edition.isbn}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 text-sm text-muted-foreground">
-                      {edition.publisher && <span>{edition.publisher}</span>}
-                      {edition.published_year && (
-                        <span>{edition.published_year}</span>
-                      )}
-                      {edition.page_count && (
-                        <span>{edition.page_count} pages</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {listings && listings.length > 0 && (
         <Card>
           <CardHeader>
@@ -217,6 +179,11 @@ export default function BookDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {editionCount > 1 && (
+                <p className="text-sm text-muted-foreground">
+                  These copies are currently available across {editionCount} editions.
+                </p>
+              )}
               {listings.map((listing) => (
                 <div
                   key={listing.id}

@@ -103,24 +103,10 @@ export function BookDetailsDialog({
   const heroImageUrl = preferredImageUrl ?? fallbackCoverImage;
   const sortedListings = useMemo(
     () =>
-      [...(listings ?? [])].sort((a, b) => {
-        if (a.status === b.status) {
-          return b.created_at.localeCompare(a.created_at);
-        }
-        if (a.status === "available") return -1;
-        if (b.status === "available") return 1;
-        return 0;
-      }),
+      [...(listings ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [listings]
   );
-  const listedEditionIds = useMemo(
-    () => new Set(sortedListings.map((listing) => listing.edition_id)),
-    [sortedListings]
-  );
-  const otherEditions = useMemo(
-    () => (editions ?? []).filter((edition) => !listedEditionIds.has(edition.id)),
-    [editions, listedEditionIds]
-  );
+  const editionCount = editions?.length ?? 0;
   const visibleCategoryBadges = useMemo(() => {
     const categories = bookWithCategories?.categories ?? [];
     if (categories.length === 0) return [];
@@ -201,6 +187,9 @@ export function BookDetailsDialog({
             {book.language && (
               <Badge variant="outline">{book.language.toUpperCase()}</Badge>
             )}
+            {editionCount > 1 && (
+              <Badge variant="outline">{editionCount} editions</Badge>
+            )}
             <div className="space-y-1">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Categories
@@ -250,7 +239,12 @@ export function BookDetailsDialog({
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Available Listings</h3>
+                    <h3 className="text-sm font-semibold">Available Copies</h3>
+                    {editionCount > 1 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Copies currently available across {editionCount} editions.
+                      </p>
+                    ) : null}
                     {listingsLoading ? (
                       <div className="space-y-2">
                         {Array.from({ length: 2 }).map((_, index) => (
@@ -262,9 +256,7 @@ export function BookDetailsDialog({
                         {sortedListings.map((listing) => (
                           <div key={listing.id} className="space-y-1 rounded border p-3">
                             <div className="flex flex-wrap gap-1.5">
-                              <Badge
-                                variant={listing.status === "available" ? "default" : "outline"}
-                              >
+                              <Badge variant="default">
                                 {listingStatusLabels[listing.status] ?? listing.status}
                               </Badge>
                               {listing.share_type && (
@@ -309,48 +301,6 @@ export function BookDetailsDialog({
                     ) : (
                       <p className="text-sm text-muted-foreground">
                         No community listings for this book yet.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Other Editions</h3>
-                    {editionsLoading || listingsLoading ? (
-                      <div className="space-y-2">
-                        {Array.from({ length: 2 }).map((_, index) => (
-                          <div key={index} className="h-14 animate-pulse rounded border bg-muted" />
-                        ))}
-                      </div>
-                    ) : otherEditions.length > 0 ? (
-                      <div className="space-y-2">
-                        {otherEditions.map((edition) => (
-                          <div key={edition.id} className="space-y-1 rounded border p-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              <Badge variant="secondary">
-                                {formatLabels[edition.format] ?? edition.format}
-                              </Badge>
-                              {edition.isbn && (
-                                <Badge variant="outline">ISBN: {edition.isbn}</Badge>
-                              )}
-                              {focusEditionId && edition.id === focusEditionId && (
-                                <Badge variant="outline">Referenced edition</Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {edition.publisher ?? "Unknown publisher"}
-                              {edition.published_year ? ` • ${edition.published_year}` : ""}
-                              {edition.page_count ? ` • ${edition.page_count} pages` : ""}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : editions && editions.length > 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        All known editions already appear in available listings.
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No edition information available.
                       </p>
                     )}
                   </div>

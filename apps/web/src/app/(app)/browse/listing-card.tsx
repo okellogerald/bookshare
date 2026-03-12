@@ -5,20 +5,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import type { PgBrowseListing } from "@/shared/api";
+import type { BrowseEditionListing } from "@/shared/queries/browse";
 
 const shareTypeLabels: Record<string, string> = {
   lend: "Lend",
   sell: "Sell",
   give_away: "Give Away",
-};
-
-const conditionLabels: Record<string, string> = {
-  new: "New",
-  like_new: "Like New",
-  good: "Good",
-  fair: "Fair",
-  poor: "Poor",
 };
 
 const formatLabels: Record<string, string> = {
@@ -36,8 +28,8 @@ function isStale(lastConfirmedAt: string | null): boolean {
 }
 
 interface ListingCardProps {
-  listing: PgBrowseListing;
-  onSelect: (listing: PgBrowseListing) => void;
+  listing: BrowseEditionListing;
+  onSelect: (listing: BrowseEditionListing) => void;
 }
 
 export function ListingCard({ listing, onSelect }: ListingCardProps) {
@@ -78,39 +70,30 @@ export function ListingCard({ listing, onSelect }: ListingCardProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap gap-1.5">
-            {listing.share_type && (
-              <Badge variant="default">
-                {shareTypeLabels[listing.share_type] ?? listing.share_type}
+            {listing.share_types.map((shareType) => (
+              <Badge key={shareType} variant="default">
+                {shareTypeLabels[shareType] ?? shareType}
               </Badge>
-            )}
-            <Badge variant="secondary">
-              {conditionLabels[listing.condition] ?? listing.condition}
-            </Badge>
+            ))}
             <Badge variant="outline">
               {formatLabels[listing.format] ?? listing.format}
             </Badge>
+            <Badge variant="secondary">
+              {listing.copy_count} {listing.copy_count === 1 ? "copy" : "copies"}
+            </Badge>
+            {listing.book_edition_count > 1 && (
+              <Badge variant="secondary">
+                {listing.book_edition_count} editions
+              </Badge>
+            )}
           </div>
-{/* 
-          {listing.isbn && (
+          {listing.publisher || listing.published_year ? (
             <p className="text-xs text-muted-foreground">
-              ISBN: {listing.isbn}
+              {[listing.publisher, listing.published_year]
+                .filter(Boolean)
+                .join(" • ")}
             </p>
-          )} */}
-
-          {/* <p className="text-xs text-muted-foreground">
-            Listed by @{listing.owner_username ?? "member"}
-            {listing.owner_display_name
-              ? ` • ${listing.owner_display_name}`
-              : ""}
-          </p> */}
-
-          {listing.status === "lent" && (
-            <p className="text-xs text-muted-foreground">
-              {listing.borrower_username
-                ? `Borrowed by @${listing.borrower_username} from @${listing.owner_username ?? "member"}`
-                : "Borrowed off-platform"}
-            </p>
-          )}
+          ) : null}
 
           {stale && (
             <p className="text-xs text-destructive">

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
-import type { PgBrowseListing } from "@/shared/api";
 import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Button } from "@/shared/components/ui/button";
@@ -15,7 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
-import { useBrowseBookCategoryIndex, useBrowseListings } from "@/shared/queries/browse";
+import {
+  groupBrowseListingsByEdition,
+  type BrowseEditionListing,
+  useBrowseBookCategoryIndex,
+  useBrowseListings,
+} from "@/shared/queries/browse";
 import { useCreateWant, useDeleteWant, useMyWants } from "@/shared/queries/my-wishlist";
 import { useAllCategories, useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
 import { useCurrentUser } from "@/shared/providers/user-provider";
@@ -40,7 +44,7 @@ export default function BrowsePage() {
   const [includeOwnListings, setIncludeOwnListings] = useState(false);
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<PgBrowseListing | null>(null);
+  const [selectedListing, setSelectedListing] = useState<BrowseEditionListing | null>(null);
   const [addWantError, setAddWantError] = useState<string | null>(null);
   const currentUser = useCurrentUser();
   const isAuthenticated = !!currentUser;
@@ -77,12 +81,19 @@ export default function BrowsePage() {
     () => new Set(myActiveOwnedBookIds ?? []),
     [myActiveOwnedBookIds]
   );
+  const groupedListings = useMemo(
+    () => groupBrowseListingsByEdition(listings ?? []),
+    [listings]
+  );
   const ownershipFilteredListings = useMemo(
     () =>
-      (listings ?? []).filter(
-        (listing) => includeOwnListings || listing.user_id !== currentUser?.id
+      groupedListings.filter(
+        (listing) =>
+          includeOwnListings ||
+          !currentUser?.id ||
+          listing.owner_user_ids.some((userId) => userId !== currentUser.id)
       ),
-    [currentUser?.id, includeOwnListings, listings]
+    [currentUser?.id, groupedListings, includeOwnListings]
   );
   const browseBookIds = useMemo(
     () =>
@@ -156,7 +167,7 @@ export default function BrowsePage() {
     ? activeOwnedBookIds.has(selectedListing.book_id)
     : false;
 
-  function handleListingSelect(listing: PgBrowseListing) {
+  function handleListingSelect(listing: BrowseEditionListing) {
     setSelectedListing(listing);
     setAddWantError(null);
     setDialogOpen(true);
