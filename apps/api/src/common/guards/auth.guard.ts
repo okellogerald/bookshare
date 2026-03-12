@@ -9,6 +9,13 @@ import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import jwksClient, { JwksClient } from "jwks-rsa";
+import {
+  jwtVerify,
+  importJWK,
+  calculateJwkThumbprint,
+  type JWK,
+} from "jose";
+import { createHash } from "crypto";
 import { type Database, memberProfiles } from "@bookshare/db";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
@@ -31,6 +38,9 @@ interface IdentityJwtPayload {
   realm_access?: {
     roles?: string[];
   };
+  cnf?: {
+    jkt?: string;
+  };
 }
 
 export interface AuthenticatedUser {
@@ -45,6 +55,9 @@ export interface AuthenticatedUser {
   tokenIssuedAt?: number;
   roles: string[];
 }
+
+/** Maximum allowed clock skew for DPoP proof iat (seconds). */
+const DPOP_IAT_TOLERANCE = 60;
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -82,7 +95,7 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest();
-    const token = this.extractTokenFromHeader(request);
+    const { scheme, token } = this.extractTokenFromHeader(request);
 
     if (!token) {
       throw new UnauthorizedException("No authorization token provided");
@@ -90,6 +103,12 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = await this.verifyToken(token);
+
+      // Validate DPoP proof when using DPoP auth scheme
+      if (scheme === "DPoP") {
+        await this.validateDPoP(request, token, payload);
+      }
+
       const mappedUser = this.mapToAuthenticatedUser(payload);
       await this.ensureActiveAccount(mappedUser.id);
       request.user = mappedUser;
@@ -113,12 +132,124 @@ export class AuthGuard implements CanActivate {
     }
   }
 
-  private extractTokenFromHeader(request: any): string | null {
+  private extractTokenFromHeader(request: any): {
+    scheme: "Bearer" | "DPoP";
+    token: string | null;
+  } {
     const authorization = request.headers?.authorization;
-    if (!authorization) return null;
+    if (!authorization) return { scheme: "Bearer", token: null };
 
     const [type, token] = authorization.split(" ");
-    return type === "Bearer" ? token : null;
+    if (type === "Bearer") return { scheme: "Bearer", token };
+    if (type === "DPoP") return { scheme: "DPoP", token };
+    return { scheme: "Bearer", token: null };
+  }
+
+  /**
+   * Validate DPoP proof JWT per RFC 9449.
+   *
+   * 1. Verify the proof JWT signature using the embedded JWK public key.
+   * 2. Check typ, htm, htu, iat, ath claims.
+   * 3. Verify the access token's cnf.jkt matches the proof key's thumbprint.
+   */
+  private async validateDPoP(
+    request: any,
+    accessToken: string,
+    tokenPayload: IdentityJwtPayload
+  ): Promise<void> {
+    const dpopHeader = request.headers?.dpop;
+    if (!dpopHeader) {
+      throw new UnauthorizedException("Missing DPoP proof header");
+    }
+
+    // Decode DPoP proof header to get the embedded JWK
+    const parts = dpopHeader.split(".");
+    if (parts.length !== 3) {
+      throw new UnauthorizedException("Invalid DPoP proof format");
+    }
+
+    const headerJson = Buffer.from(parts[0], "base64url").toString("utf8");
+    const proofHeader = JSON.parse(headerJson);
+
+    if (proofHeader.typ !== "dpop+jwt") {
+      throw new UnauthorizedException("DPoP proof typ must be dpop+jwt");
+    }
+
+    if (!proofHeader.jwk) {
+      throw new UnauthorizedException("DPoP proof must contain jwk header");
+    }
+
+    // Import the public key from the proof and verify the signature
+    const publicKey = await importJWK(proofHeader.jwk as JWK, proofHeader.alg);
+    const { payload: proofPayload } = await jwtVerify(dpopHeader, publicKey, {
+      typ: "dpop+jwt",
+    });
+
+    // Validate htm (HTTP method)
+    const httpMethod = (
+      request.method ??
+      request.raw?.method ??
+      "GET"
+    ).toUpperCase();
+    if (proofPayload.htm !== httpMethod) {
+      throw new UnauthorizedException("DPoP proof htm mismatch");
+    }
+
+    // Validate htu (HTTP URI — scheme + host + path, no query)
+    const requestUrl = this.buildRequestUrl(request);
+    if (proofPayload.htu !== requestUrl) {
+      throw new UnauthorizedException("DPoP proof htu mismatch");
+    }
+
+    // Validate iat (issued-at within tolerance)
+    const now = Math.floor(Date.now() / 1000);
+    const iat = proofPayload.iat;
+    if (!iat || Math.abs(now - iat) > DPOP_IAT_TOLERANCE) {
+      throw new UnauthorizedException("DPoP proof iat out of range");
+    }
+
+    // Validate jti (present)
+    if (!proofPayload.jti) {
+      throw new UnauthorizedException("DPoP proof missing jti");
+    }
+
+    // Validate ath (access token hash)
+    const expectedAth = createHash("sha256")
+      .update(accessToken)
+      .digest("base64url");
+    if (proofPayload.ath !== expectedAth) {
+      throw new UnauthorizedException("DPoP proof ath mismatch");
+    }
+
+    // Verify cnf.jkt binding: the access token's cnf.jkt must match
+    // the SHA-256 thumbprint of the proof's public key (RFC 7638)
+    const proofKeyThumbprint = await calculateJwkThumbprint(
+      proofHeader.jwk as JWK,
+      "sha-256"
+    );
+
+    if (!tokenPayload.cnf?.jkt) {
+      throw new UnauthorizedException(
+        "Access token missing cnf.jkt claim for DPoP binding"
+      );
+    }
+
+    if (tokenPayload.cnf.jkt !== proofKeyThumbprint) {
+      throw new UnauthorizedException(
+        "DPoP proof key thumbprint does not match access token cnf.jkt"
+      );
+    }
+  }
+
+  private buildRequestUrl(request: any): string {
+    const protocol = request.protocol || "http";
+    const host =
+      request.get?.("host") || request.headers?.host || "localhost";
+    const path =
+      request.originalUrl?.split("?")[0] ||
+      request.url?.split("?")[0] ||
+      "/";
+    return `${protocol}://${host}${path}`;
   }
 
   private getIssuer(): string {

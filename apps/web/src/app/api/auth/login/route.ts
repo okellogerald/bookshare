@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
 import { getOIDCConfig, getRedirectUri } from "@/features/auth/lib/oidc";
+import { encrypt } from "@/features/auth/lib/crypto";
 
 function sanitizeReturnTo(value: string | null): string {
   if (!value) return "/browse";
@@ -43,18 +44,9 @@ export async function GET(request: NextRequest) {
 
   const redirectTo = client.buildAuthorizationUrl(config, parameters);
 
-  // Store code_verifier and state in cookies for the callback
   const response = NextResponse.redirect(redirectTo.href);
 
-  response.cookies.set("oidc_code_verifier", codeVerifier, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 600, // 10 minutes
-  });
-
-  response.cookies.set("oidc_state", state, {
+  response.cookies.set("oidc_code_verifier", await encrypt(codeVerifier), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -62,7 +54,15 @@ export async function GET(request: NextRequest) {
     maxAge: 600,
   });
 
-  response.cookies.set("oidc_return_to", returnTo, {
+  response.cookies.set("oidc_state", await encrypt(state), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+
+  response.cookies.set("oidc_return_to", await encrypt(returnTo), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

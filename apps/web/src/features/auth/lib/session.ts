@@ -1,13 +1,15 @@
 import { cookies } from "next/headers";
+import { encrypt, decrypt } from "./crypto";
 
 const SESSION_COOKIE = "bookshare_session";
 const TOKEN_COOKIE = "bookshare_token";
 
-interface SessionData {
+export interface SessionData {
   accessToken: string;
   refreshToken?: string;
   idToken?: string;
   expiresAt: number;
+  dpopJwk?: JsonWebKey;
   user: {
     id: string;
     email?: string;
@@ -27,7 +29,10 @@ export async function setSession(data: SessionData): Promise<void> {
     ? data.accessToken
     : data.idToken ?? data.accessToken;
 
-  cookieStore.set(SESSION_COOKIE, JSON.stringify(data), {
+  const encryptedSession = await encrypt(JSON.stringify(data));
+  const encryptedToken = await encrypt(tokenForApi);
+
+  cookieStore.set(SESSION_COOKIE, encryptedSession, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -35,7 +40,7 @@ export async function setSession(data: SessionData): Promise<void> {
     maxAge: 60 * 60 * 24,
   });
 
-  cookieStore.set(TOKEN_COOKIE, tokenForApi, {
+  cookieStore.set(TOKEN_COOKIE, encryptedToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -51,7 +56,8 @@ export async function getSession(): Promise<SessionData | null> {
   if (!sessionCookie?.value) return null;
 
   try {
-    const session: SessionData = JSON.parse(sessionCookie.value);
+    const decrypted = await decrypt(sessionCookie.value);
+    const session: SessionData = JSON.parse(decrypted);
 
     if (Date.now() > session.expiresAt * 1000) {
       await clearSession();
@@ -67,20 +73,29 @@ export async function getSession(): Promise<SessionData | null> {
 export async function getAccessToken(): Promise<string | null> {
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get(TOKEN_COOKIE)?.value ?? null;
-  if (isJwtLike(tokenCookie)) return tokenCookie;
+
+  if (tokenCookie) {
+    try {
+      const decryptedToken = await decrypt(tokenCookie);
+      if (isJwtLike(decryptedToken)) return decryptedToken;
+    } catch {
+      // Fall through to session cookie
+    }
+  }
 
   const sessionCookie = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!sessionCookie) return tokenCookie;
+  if (!sessionCookie) return null;
 
   try {
-    const session: SessionData = JSON.parse(sessionCookie);
+    const decrypted = await decrypt(sessionCookie);
+    const session: SessionData = JSON.parse(decrypted);
     if (isJwtLike(session.accessToken)) return session.accessToken;
     if (isJwtLike(session.idToken)) return session.idToken;
   } catch {
-    return tokenCookie;
+    return null;
   }
 
-  return tokenCookie;
+  return null;
 }
 
 export async function clearSession(): Promise<void> {

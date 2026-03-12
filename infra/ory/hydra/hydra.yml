@@ -1,6 +1,9 @@
 # BookShare development Hydra config.
 # Contributor guide: infra/ory/README.md
 
+strategies:
+  access_token: jwt
+
 serve:
   cookies:
     same_site_mode: Lax

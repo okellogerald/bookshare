@@ -302,6 +302,7 @@ services:
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
+      SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
     ports:
       - "3334:3334"
     volumes:

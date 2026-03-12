@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { decrypt } from "@/features/auth/lib/crypto";
 
 /**
  * Auth-gated app routes. Keep this aligned with pages under `app/(app)`.
@@ -23,7 +24,7 @@ function isEmailVerified(value: unknown): boolean {
   return value === true;
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Auth routes are always accessible
@@ -63,7 +64,8 @@ export function middleware(request: NextRequest) {
   }
 
   try {
-    const sessionData = JSON.parse(session.value) as {
+    const decrypted = await decrypt(session.value);
+    const sessionData = JSON.parse(decrypted) as {
       expiresAt?: unknown;
       user?: { emailVerified?: unknown };
     };

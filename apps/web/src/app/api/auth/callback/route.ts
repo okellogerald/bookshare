@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import * as client from "openid-client";
 import { getOIDCConfig } from "@/features/auth/lib/oidc";
 import { setSession } from "@/features/auth/lib/session";
+import { decrypt } from "@/features/auth/lib/crypto";
+import {
+  generateDPoPKeyPair,
+  exportPrivateKeyJwk,
+  createDPoPProof,
+} from "@/features/auth/lib/dpop";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
@@ -38,16 +44,23 @@ function toBoolean(value: unknown): boolean {
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
 
-  const codeVerifier = request.cookies.get("oidc_code_verifier")?.value;
-  const expectedState = request.cookies.get("oidc_state")?.value;
+  const encryptedVerifier = request.cookies.get("oidc_code_verifier")?.value;
+  const encryptedState = request.cookies.get("oidc_state")?.value;
 
-  if (!codeVerifier || !expectedState) {
+  if (!encryptedVerifier || !encryptedState) {
     return NextResponse.redirect(
       new URL("/api/auth/login", request.url)
     );
   }
 
   try {
+    const codeVerifier = await decrypt(encryptedVerifier);
+    const expectedState = await decrypt(encryptedState);
+
+    // Generate DPoP keypair for token binding
+    const dpopKeyPair = await generateDPoPKeyPair();
+    const dpopHandle = client.getDPoPHandle(config, dpopKeyPair);
+
     const currentUrl = new URL(request.url);
     const tokens = await client.authorizationCodeGrant(
       config,
@@ -56,14 +69,23 @@ export async function GET(request: NextRequest) {
         pkceCodeVerifier: codeVerifier,
         expectedState,
         idTokenExpected: true,
-      }
+      },
+      { DPoP: dpopHandle }
     );
 
     const claims = tokens.claims()!;
     const emailVerified = toBoolean(claims.email_verified);
-    const returnTo = sanitizeReturnTo(
-      request.cookies.get("oidc_return_to")?.value ?? null
-    );
+
+    const encryptedReturnTo = request.cookies.get("oidc_return_to")?.value;
+    let returnToRaw: string | null = null;
+    if (encryptedReturnTo) {
+      try {
+        returnToRaw = await decrypt(encryptedReturnTo);
+      } catch {
+        returnToRaw = null;
+      }
+    }
+    const returnTo = sanitizeReturnTo(returnToRaw);
 
     if (!emailVerified) {
       const verificationUrl = new URL("/auth/verification", request.url);
@@ -78,12 +100,16 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
+    // Serialize DPoP private key for session storage
+    const dpopJwk = await exportPrivateKeyJwk(dpopKeyPair);
+
     await setSession({
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       idToken: tokens.id_token,
       expiresAt:
         claims.exp ?? Math.floor(Date.now() / 1000) + 3600,
+      dpopJwk,
       user: {
         id: claims.sub,
         email: claims.email as string | undefined,
@@ -96,14 +122,19 @@ export async function GET(request: NextRequest) {
     const apiToken = resolveApiToken(tokens.access_token, tokens.id_token);
     if (apiToken) {
       try {
-        const headers: Record<string, string> = {
-          Authorization: `Bearer ${apiToken}`,
-        };
+        const syncUrl = `${API_URL}/profiles/sync`;
+        const headers: Record<string, string> = {};
+
+        // Use DPoP auth scheme with proof header
+        const dpopProof = await createDPoPProof(dpopJwk, "POST", syncUrl, apiToken);
+        headers["Authorization"] = `DPoP ${apiToken}`;
+        headers["DPoP"] = dpopProof;
+
         if (tokens.access_token) {
           headers["x-auth-access-token"] = tokens.access_token;
         }
 
-        const syncResponse = await fetch(`${API_URL}/profiles/sync`, {
+        const syncResponse = await fetch(syncUrl, {
           method: "POST",
           headers,
         });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken, getSession } from "@/features/auth/lib/session";
+import { createDPoPProof } from "@/features/auth/lib/dpop";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
@@ -25,10 +26,24 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
   const url = `${API_URL}/${apiPath}${search ? `?${search}` : ""}`;
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
-  if (session?.accessToken) {
+
+  // Use DPoP auth scheme with proof header when DPoP key is available
+  if (session.dpopJwk) {
+    const dpopProof = await createDPoPProof(
+      session.dpopJwk,
+      request.method,
+      url,
+      token
+    );
+    headers["Authorization"] = `DPoP ${token}`;
+    headers["DPoP"] = dpopProof;
+  } else {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  if (session.accessToken) {
     headers["x-auth-access-token"] = session.accessToken;
   }
 
