@@ -48,8 +48,11 @@ async function importKeyPairFromJwk(
   return { privateKey, publicKey };
 }
 
-function toBase64Url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
+function toBase64Url(buffer: ArrayBuffer | ArrayBufferView): string {
+  const bytes =
+    buffer instanceof ArrayBuffer
+      ? new Uint8Array(buffer)
+      : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);

@@ -193,6 +193,8 @@ export async function getBrowserFlow(
       return null;
     }
 
+    console.log(await response.json())
+
     return (await response.json()) as KratosBrowserFlow;
   } catch {
     return null;

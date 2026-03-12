@@ -225,7 +225,7 @@ export class AuthGuard implements CanActivate {
     // the SHA-256 thumbprint of the proof's public key (RFC 7638)
     const proofKeyThumbprint = await calculateJwkThumbprint(
       proofHeader.jwk as JWK,
-      "sha-256"
+      "sha256"
     );
 
     if (!tokenPayload.cnf?.jkt) {

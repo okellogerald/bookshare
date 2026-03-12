@@ -43,8 +43,8 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  if (session.accessToken) {
-    headers["x-auth-access-token"] = session.accessToken;
+  if (token) {
+    headers["x-auth-access-token"] = token;
   }
 
   const fetchOptions: RequestInit = {

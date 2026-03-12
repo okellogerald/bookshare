@@ -39,8 +39,11 @@ async function deriveKey(): Promise<CryptoKey> {
   return cachedKey;
 }
 
-function toBase64Url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
+function toBase64Url(buffer: ArrayBuffer | ArrayBufferView): string {
+  const bytes =
+    buffer instanceof ArrayBuffer
+      ? new Uint8Array(buffer)
+      : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
@@ -48,7 +51,7 @@ function toBase64Url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromBase64Url(str: string): Uint8Array {
+function fromBase64Url(str: string): ArrayBuffer {
   const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
   const binary = atob(padded);
@@ -56,7 +59,7 @@ function fromBase64Url(str: string): Uint8Array {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes;
+  return bytes.buffer;
 }
 
 export async function encrypt(plaintext: string): Promise<string> {

@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         expectedState,
         idTokenExpected: true,
       },
+      undefined,
       { DPoP: dpopHandle }
     );
 
@@ -104,8 +105,6 @@ export async function GET(request: NextRequest) {
     const dpopJwk = await exportPrivateKeyJwk(dpopKeyPair);
 
     await setSession({
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
       idToken: tokens.id_token,
       expiresAt:
         claims.exp ?? Math.floor(Date.now() / 1000) + 3600,
@@ -117,7 +116,7 @@ export async function GET(request: NextRequest) {
         username: claims.preferred_username as string | undefined,
         emailVerified,
       },
-    });
+    }, tokens.access_token);
 
     const apiToken = resolveApiToken(tokens.access_token, tokens.id_token);
     if (apiToken) {

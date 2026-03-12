@@ -5,8 +5,6 @@ const SESSION_COOKIE = "bookshare_session";
 const TOKEN_COOKIE = "bookshare_token";
 
 export interface SessionData {
-  accessToken: string;
-  refreshToken?: string;
   idToken?: string;
   expiresAt: number;
   dpopJwk?: JsonWebKey;
@@ -23,11 +21,18 @@ function isJwtLike(token?: string | null): token is string {
   return !!token && token.split(".").length === 3;
 }
 
-export async function setSession(data: SessionData): Promise<void> {
+export async function setSession(
+  data: SessionData,
+  accessToken?: string | null
+): Promise<void> {
   const cookieStore = await cookies();
-  const tokenForApi = isJwtLike(data.accessToken)
-    ? data.accessToken
-    : data.idToken ?? data.accessToken;
+  const tokenForApi = isJwtLike(accessToken)
+    ? accessToken
+    : data.idToken ?? accessToken;
+
+  if (!tokenForApi) {
+    throw new Error("Cannot persist a session without an API token");
+  }
 
   const encryptedSession = await encrypt(JSON.stringify(data));
   const encryptedToken = await encrypt(tokenForApi);
@@ -89,7 +94,6 @@ export async function getAccessToken(): Promise<string | null> {
   try {
     const decrypted = await decrypt(sessionCookie);
     const session: SessionData = JSON.parse(decrypted);
-    if (isJwtLike(session.accessToken)) return session.accessToken;
     if (isJwtLike(session.idToken)) return session.idToken;
   } catch {
     return null;

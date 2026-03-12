@@ -138,6 +138,8 @@ Step 1: User clicks "Create account"
 Web App landing page → link points to Auth Portal:
   http://localhost:3337/register?return_to=http://localhost:3334/api/auth/login
 
+  > QN: Why should register return to http://localhost:3334/api/auth/login?
+
 Step 2: Auth Portal /register page loads
 ──────────────────────────────────────
 • If no `flow` query param:
@@ -145,9 +147,13 @@ Step 2: Auth Portal /register page loads
   → Kratos creates registration flow, redirects back with ?flow={flowId}
   → Auth Portal middleware stores flowId in `bookshare_register_flow` cookie
 
+  > QN: Why is the flowId stored in the `bookshare_register_flow` cookie?
+
 • If `flow` param present:
   → Fetch flow from Kratos: GET /self-service/registration/flows?id={flowId}
   → Render KratosFlowForm component
+
+  > QN: Can you share an exampele of the result of the flow, especially in different stages in the flow
 
 Step 3: Email entry (registration step 1)
 ──────────────────────────────────────
@@ -173,6 +179,9 @@ Step 4: Code verification (registration step 2)
   → Creates a Kratos browser session (ory_kratos_session cookie set)
 • Kratos redirects to: http://localhost:3337/setup
   (configured in kratos.yml: registration.after.default_browser_return_url)
+
+  > QN: Why is a session needed to be generated right after the email address is validated?
+  > QN: What are hooks exactly in Ory Kratos? Is "style" config enabled? It shows an error on my end
 
 Step 5: Password setup (setup step 1)
 ──────────────────────────────────────
