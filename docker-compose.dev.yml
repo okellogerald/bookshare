@@ -104,6 +104,7 @@ services:
     environment:
       PORT: 3337
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
+      BOOKSHARE_APP_PUBLIC_URL: ${BOOKSHARE_APP_PUBLIC_URL:-http://localhost:3334}
       KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL:-http://localhost:4433}
       KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://kratos:4433}
       HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://hydra:4445}

@@ -7,6 +7,10 @@ export function getAuthPortalPublicUrl(): string {
   return process.env.AUTH_PORTAL_PUBLIC_URL || "http://localhost:3337";
 }
 
+export function getBookshareAppPublicUrl(): string {
+  return process.env.BOOKSHARE_APP_PUBLIC_URL || "http://localhost:3334";
+}
+
 export function getKratosBrowserUrl(): string {
   return process.env.KRATOS_BROWSER_URL || "http://localhost:4433";
 }

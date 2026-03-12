@@ -70,5 +70,7 @@ export async function GET(request: NextRequest) {
     maxAge: 600,
   });
 
+  response.cookies.delete("bookshare_logged_out");
+
   return response;
 }

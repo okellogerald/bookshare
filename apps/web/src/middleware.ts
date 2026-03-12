@@ -42,13 +42,23 @@ export function middleware(request: NextRequest) {
 
   // Protected route — require session
   const session = request.cookies.get("bookshare_session");
+  const loggedOutMarker = request.cookies.get("bookshare_logged_out")?.value === "1";
   const loginUrl = new URL("/api/auth/login", request.url);
   loginUrl.searchParams.set(
     "returnTo",
     `${request.nextUrl.pathname}${request.nextUrl.search}`
   );
+  const landingUrl = new URL("/", request.url);
+  landingUrl.searchParams.set("logged_out", "1");
+  landingUrl.searchParams.set(
+    "returnTo",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`
+  );
 
   if (!session?.value) {
+    if (loggedOutMarker) {
+      return NextResponse.redirect(landingUrl);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
@@ -59,7 +69,7 @@ export function middleware(request: NextRequest) {
     };
 
     if (isSessionExpired(sessionData.expiresAt)) {
-      const response = NextResponse.redirect(loginUrl);
+      const response = NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);
       response.cookies.delete("bookshare_session");
       response.cookies.delete("bookshare_token");
       return response;
@@ -74,7 +84,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(verificationUrl);
     }
   } catch {
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);
   }
 
   return NextResponse.next();

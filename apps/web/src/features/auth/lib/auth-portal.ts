@@ -40,3 +40,13 @@ export function buildAuthPortalVerificationUrl(returnTo: string): string {
   url.searchParams.set("return_to", appLoginUrl);
   return url.toString();
 }
+
+export function buildAuthPortalLogoutUrl(): string {
+  const url = new URL("/logout", getAuthPortalBaseUrl());
+  url.searchParams.set("return_to", getAppBaseUrl());
+  return url.toString();
+}
+
+export function buildAppPostLogoutUrl(): string {
+  return new URL("/api/auth/post-logout", getAppBaseUrl()).toString();
+}
