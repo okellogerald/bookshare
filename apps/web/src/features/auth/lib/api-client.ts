@@ -1,5 +1,5 @@
 import { getAccessToken, getSession } from "./session";
-import { createDPoPProof } from "./dpop";
+import { createDPoPProof, tokenHasDpopBinding } from "./dpop";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
@@ -27,7 +27,7 @@ export async function apiFetch(
     const method = (options.method ?? "GET").toUpperCase();
     const fullUrl = `${API_URL}${path}`;
 
-    if (session?.dpopJwk) {
+    if (session?.dpopJwk && tokenHasDpopBinding(token)) {
       const dpopProof = await createDPoPProof(session.dpopJwk, method, fullUrl, token);
       headers["Authorization"] = `DPoP ${token}`;
       headers["DPoP"] = dpopProof;

@@ -48,6 +48,14 @@ function getCategoryDisplayName(name: string) {
   return segments[segments.length - 1] ?? name.trim();
 }
 
+function getMemberName(firstName: string | null, lastName: string | null) {
+  const fullName = [firstName, lastName]
+    .filter((value): value is string => !!value && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  return fullName || "Community member";
+}
+
 export default function BookDetailPage() {
   const { bookId } = useParams<{ bookId: string }>();
 
@@ -206,10 +214,11 @@ export default function BookDetailPage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Listed by @{listing.owner_username ?? "member"}
-                      {listing.owner_display_name
-                        ? ` • ${listing.owner_display_name}`
-                        : ""}
+                      Listed by{" "}
+                      {getMemberName(
+                        listing.owner_first_name,
+                        listing.owner_last_name
+                      )}
                     </p>
                     {listing.contact_note && (
                       <p className="text-xs text-muted-foreground">
@@ -218,8 +227,14 @@ export default function BookDetailPage() {
                     )}
                     {listing.status === "lent" && (
                       <p className="text-xs text-muted-foreground">
-                        {listing.borrower_username
-                          ? `Borrowed by @${listing.borrower_username} from @${listing.owner_username ?? "member"}`
+                        {listing.borrower_first_name || listing.borrower_last_name
+                          ? `Borrowed by ${getMemberName(
+                              listing.borrower_first_name,
+                              listing.borrower_last_name
+                            )} from ${getMemberName(
+                              listing.owner_first_name,
+                              listing.owner_last_name
+                            )}`
                           : "Borrowed off-platform"}
                       </p>
                     )}

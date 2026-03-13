@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PgFulfilledWishHistory, PgWishWithBook } from "@/shared/api";
+import type { PgWishWithBook } from "@/shared/api";
 import type {
   CreateWishBody,
   UpdateWishBody,
@@ -15,7 +15,7 @@ import { nestjsFetch } from "./fetch";
 async function fetchMyWishlist(): Promise<PgWishWithBook[]> {
   const params = new URLSearchParams();
   params.set("select", "*,book:books(*)");
-  params.set("status", "in.(active,fulfilled)");
+  params.set("status", "eq.active");
   params.set("order", "created_at.desc");
 
   const response = await fetch(`/api/postgrest/wishes?${params}`);
@@ -46,32 +46,6 @@ export function useWantSearchResults(query: string) {
     queryKey: ["wish-search-results", normalized],
     queryFn: () => fetchWishSearchResults(normalized),
     enabled: normalized.length >= 2,
-  });
-}
-
-async function fetchFulfilledWishesHistory(): Promise<PgFulfilledWishHistory[]> {
-  const params = new URLSearchParams();
-  params.set("select", "*");
-  params.set("order", "fulfilled_at.desc");
-
-  const response = await fetch(`/api/postgrest/fulfilled_wishes_history?${params}`);
-  if (!response.ok) throw new Error("Failed to fetch fulfilled wishlist history");
-  const json = await response.json();
-  return ((json.data as PgFulfilledWishHistory[]) ?? []).map((entry) => ({
-    ...entry,
-    want_id: entry.wish_id,
-    wanted_edition_id: entry.wished_edition_id,
-    wanted_edition_isbn: entry.wished_edition_isbn,
-    wanted_edition_format: entry.wished_edition_format,
-    wanted_edition_cover_image_url: entry.wished_edition_cover_image_url,
-    wanter_notes: entry.wisher_notes,
-  }));
-}
-
-export function useFulfilledWantsHistory() {
-  return useQuery({
-    queryKey: ["fulfilled-wishes-history"],
-    queryFn: fetchFulfilledWishesHistory,
   });
 }
 
@@ -133,7 +107,6 @@ export function useDeleteWant() {
 
 export const useMyWishlist = useMyWants;
 export const useWishSearchResults = useWantSearchResults;
-export const useFulfilledWishesHistory = useFulfilledWantsHistory;
 export const useCreateWish = useCreateWant;
 export const useConfirmWish = useConfirmWant;
 export const useUpdateWish = useUpdateWant;

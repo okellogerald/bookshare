@@ -27,10 +27,52 @@ import type {
   EditionResponse,
   CreateAuthorBody,
   AuthorResponse,
+  WishSearchResult,
 } from "@/shared/api";
 import { nestjsFetch } from "./fetch";
 
 // ─── Queries ────────────────────────────────────────────────
+
+export interface MyCopyDialogEvent {
+  id: string;
+  eventType: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  notes: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface MyCopyDialogDetail {
+  id: string;
+  userId: string;
+  editionId: string;
+  condition: string;
+  status: string;
+  notes: string | null;
+  shareType: string | null;
+  contactNote: string | null;
+  lastConfirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  edition: {
+    id: string;
+    isbn: string | null;
+    format: string;
+    description: string | null;
+    publisher: string | null;
+    publishedYear: number | null;
+    pageCount: number | null;
+    coverImageUrl: string | null;
+    book: {
+      id: string;
+      title: string;
+      subtitle: string | null;
+      language: string;
+    };
+  } | null;
+  events: MyCopyDialogEvent[];
+}
 
 async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const params = new URLSearchParams();
@@ -44,6 +86,12 @@ async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   if (!response.ok) throw new Error("Failed to fetch copies");
   const json = await response.json();
   return json.data;
+}
+
+async function fetchMyCopyDetail(id: string): Promise<MyCopyDialogDetail> {
+  const response = await fetch(`/api/nestjs/copies/${id}`);
+  if (!response.ok) throw new Error("Failed to fetch copy details");
+  return response.json();
 }
 
 async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
@@ -75,6 +123,14 @@ async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
   return json.data?.[0] ?? null;
 }
 
+async function fetchCopySearchResults(query: string): Promise<WishSearchResult[]> {
+  const response = await fetch(
+    `/api/nestjs/wishes/search?q=${encodeURIComponent(query.trim())}`
+  );
+  if (!response.ok) throw new Error("Failed to search catalog");
+  return response.json();
+}
+
 async function fetchAllCategories(): Promise<PgCategory[]> {
   const params = new URLSearchParams();
   params.set("select", "id,name,slug,parent_id");
@@ -94,11 +150,28 @@ export function useMyCopies(options?: { enabled?: boolean }) {
   });
 }
 
+export function useMyCopyDetail(id: string | null) {
+  return useQuery({
+    queryKey: ["my-copy-detail", id],
+    queryFn: () => fetchMyCopyDetail(id!),
+    enabled: !!id,
+  });
+}
+
 export function useEditionByIsbn(isbn: string) {
   return useQuery({
     queryKey: ["edition-by-isbn", isbn],
     queryFn: () => fetchEditionByIsbn(isbn),
     enabled: isbn.length >= 10,
+  });
+}
+
+export function useCopySearchResults(query: string) {
+  const normalized = query.trim();
+  return useQuery({
+    queryKey: ["copy-search-results", normalized],
+    queryFn: () => fetchCopySearchResults(normalized),
+    enabled: normalized.length >= 2,
   });
 }
 
@@ -138,6 +211,7 @@ export function useUpdateCopy() {
       nestjsFetch<CopyResponse>(`copies/${id}`, "PUT", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
+      queryClient.invalidateQueries({ queryKey: ["my-copy-detail"] });
     },
   });
 }
@@ -152,9 +226,9 @@ export function useUpdateCopyStatus() {
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
       queryClient.invalidateQueries({ queryKey: ["browse-wishes"] });
       queryClient.invalidateQueries({ queryKey: ["my-wishlist"] });
-      queryClient.invalidateQueries({ queryKey: ["fulfilled-wishes-history"] });
       queryClient.invalidateQueries({ queryKey: ["active-wishers"] });
       queryClient.invalidateQueries({ queryKey: ["copy"] });
+      queryClient.invalidateQueries({ queryKey: ["my-copy-detail"] });
     },
   });
 }
@@ -168,6 +242,7 @@ export function useConfirmCopy() {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
       queryClient.invalidateQueries({ queryKey: ["copy"] });
+      queryClient.invalidateQueries({ queryKey: ["my-copy-detail"] });
     },
   });
 }
@@ -181,6 +256,7 @@ export function useDeleteCopy() {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
       queryClient.invalidateQueries({ queryKey: ["my-active-owned-book-ids"] });
+      queryClient.invalidateQueries({ queryKey: ["my-copy-detail"] });
     },
   });
 }

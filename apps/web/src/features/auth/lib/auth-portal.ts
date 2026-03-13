@@ -41,6 +41,13 @@ export function buildAuthPortalVerificationUrl(returnTo: string): string {
   return url.toString();
 }
 
+export function buildAuthPortalSettingsUrl(returnTo: string): string {
+  const appReturnUrl = new URL(sanitizeReturnTo(returnTo), getAppBaseUrl());
+  const url = new URL("/settings", getAuthPortalBaseUrl());
+  url.searchParams.set("return_to", appReturnUrl.toString());
+  return url.toString();
+}
+
 export function buildAuthPortalLogoutUrl(): string {
   const url = new URL("/logout", getAuthPortalBaseUrl());
   url.searchParams.set("return_to", getAppBaseUrl());

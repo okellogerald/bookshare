@@ -12,12 +12,12 @@ async function fetchCommunityMembers(
 ): Promise<PgMemberProfile[]> {
   const params = new URLSearchParams();
   params.set("select", "*");
-  params.set("order", "username.asc");
+  params.set("order", "first_name.asc,last_name.asc,email.asc");
 
   if (filters.search) {
     params.set(
       "or",
-      `(username.ilike.*${filters.search}*,first_name.ilike.*${filters.search}*,last_name.ilike.*${filters.search}*,city_area.ilike.*${filters.search}*)`
+      `(first_name.ilike.*${filters.search}*,last_name.ilike.*${filters.search}*,location.ilike.*${filters.search}*)`
     );
   }
 

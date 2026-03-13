@@ -3,6 +3,8 @@ import { KratosFlowForm } from "@/components/kratos-flow-form";
 import {
   createBrowserFlowUrl,
   getBrowserFlow,
+  getKratosSession,
+  hasKratosAuthenticationMethod,
 } from "@/lib/kratos";
 import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
 
@@ -26,6 +28,20 @@ export default async function SettingsPage({
     redirect(createBrowserFlowUrl("settings", returnTo));
   }
 
+  const session = await getKratosSession();
+  const flowMessages = [
+    ...(flow.ui.messages || []),
+    ...flow.ui.nodes.flatMap((node) => node.messages || []),
+  ];
+  const hasSuccessMessage = flowMessages.some((message) => message.type === "success");
+  const isRecoveryReset =
+    hasKratosAuthenticationMethod(session, "code_recovery") ||
+    flowMessages.some((message) => message.id === 1060001);
+
+  if (isRecoveryReset && hasSuccessMessage) {
+    redirect("/login");
+  }
+
   const accountEmail = (() => {
     const identityEmail = flow.identity?.traits;
     if (
@@ -45,26 +61,35 @@ export default async function SettingsPage({
       : "";
   })();
 
-  const description = accountEmail
-    ? `Manage profile details for ${accountEmail}.`
-    : "Manage your profile details.";
+  const title = isRecoveryReset ? "Reset password" : "Account settings";
+  const description = isRecoveryReset
+    ? accountEmail
+      ? `Set a new password for ${accountEmail}.`
+      : "Set a new password for your account."
+    : accountEmail
+      ? `Manage profile details for ${accountEmail}.`
+      : "Manage your profile details.";
+  const sectionGroups = isRecoveryReset ? ["password"] : ["profile"];
+  const fieldAllowlist = isRecoveryReset
+    ? ["password"]
+    : [
+      "traits.email",
+      "traits.name.first",
+      "traits.name.last",
+      "traits.gender",
+    ];
 
   return (
     <KratosFlowForm
       flow={flow}
-      title="Account settings"
+      title={title}
       description={description}
-      sectionGroups={["profile"]}
-      fieldAllowlist={[
-        "traits.email",
-        "traits.name.first",
-        "traits.name.last",
-        "traits.gender",
-      ]}
-      readonlyFieldNames={["traits.email"]}
+      sectionGroups={sectionGroups}
+      fieldAllowlist={fieldAllowlist}
       submitAllowlist={["method"]}
       hideBackOnlySections
       links={[{ href: "/login", label: "Back to sign in" }]}
+      enablePasswordConfirmation={isRecoveryReset}
     />
   );
 }

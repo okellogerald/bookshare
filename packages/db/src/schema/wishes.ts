@@ -10,7 +10,7 @@ import { relations, sql } from "drizzle-orm";
 import { books } from "./books";
 import { copies } from "./copies";
 import { editions } from "./editions";
-import { wishStatusEnum } from "./enums";
+import { wishClosureReasonEnum, wishStatusEnum } from "./enums";
 import { memberProfiles } from "./member-profiles";
 
 // User wishlist entries for books they are seeking.
@@ -27,6 +27,8 @@ export const wishes = pgTable(
     }),
     notes: text("notes"),
     status: wishStatusEnum("status").notNull().default("active"),
+    closureReason: wishClosureReasonEnum("closure_reason"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
     fulfilledByCopyId: uuid("fulfilled_by_copy_id").references(
       () => copies.id,

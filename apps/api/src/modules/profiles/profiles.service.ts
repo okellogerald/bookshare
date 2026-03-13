@@ -27,6 +27,13 @@ import {
   type IdentityGenderValue,
 } from "./dto";
 
+interface IdentityProfileSnapshot {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  gender: IdentityGenderValue | null;
+}
+
 @Injectable()
 export class ProfilesService {
   constructor(
@@ -47,48 +54,19 @@ export class ProfilesService {
       throw new UnauthorizedException("Account is deactivated");
     }
 
-    const tokenIssuedAtDate = user.tokenIssuedAt
-      ? new Date(user.tokenIssuedAt * 1000)
-      : null;
-    const shouldSyncIdentityFromClaims =
-      !existing ||
-      !tokenIssuedAtDate ||
-      existing.identityUpdatedAt <= tokenIssuedAtDate;
-
-    const baseUsername = this.getBaseUsername(user);
-    const username =
-      existing?.username?.trim().length
-        ? existing.username
-        : await this.getUniqueUsername(baseUsername, user.id);
-    const firstName = shouldSyncIdentityFromClaims
-      ? (user.firstName ?? existing?.firstName ?? null)
-      : (existing?.firstName ?? null);
-    const lastName = shouldSyncIdentityFromClaims
-      ? (user.lastName ?? existing?.lastName ?? null)
-      : (existing?.lastName ?? null);
-    const claimGender = this.normalizeGender(user.gender);
-    const displayName = this.composeDisplayName(firstName, lastName, username);
-    const resolvedEmail = await this.resolveEmailForSync(
+    const identityProfile = await this.resolveIdentityProfile(
       user,
-      existing?.email ?? null,
+      existing,
       authorization,
       identityAccessToken
     );
-    const email = resolvedEmail ?? `${username}@bookshare.local`;
 
     const identityUpdates = {
-      username,
-      email,
-      displayName,
-      firstName,
-      lastName,
-      nickname: null,
-      gender: shouldSyncIdentityFromClaims
-        ? (claimGender ?? existing?.gender ?? null)
-        : (existing?.gender ?? null),
-      identityUpdatedAt: shouldSyncIdentityFromClaims
-        ? new Date()
-        : (existing?.identityUpdatedAt ?? new Date()),
+      email: identityProfile.email,
+      firstName: identityProfile.firstName,
+      lastName: identityProfile.lastName,
+      gender: identityProfile.gender,
+      identityUpdatedAt: new Date(),
     };
 
     if (!existing) {
@@ -139,11 +117,11 @@ export class ProfilesService {
     const existing = await this.findMe(user, authorization, identityAccessToken);
     const updates: Record<string, unknown> = {};
 
-    if (dto.cityArea !== undefined) {
-      updates.cityArea = dto.cityArea;
+    if (dto.location !== undefined) {
+      updates.location = this.normalizeText(dto.location);
     }
-    if (dto.contactHandle !== undefined) {
-      updates.contactHandle = dto.contactHandle;
+    if (dto.contactNotes !== undefined) {
+      updates.contactNotes = this.normalizeText(dto.contactNotes);
     }
     if (dto.avatarUrl !== undefined) {
       const normalizedAvatarUrl =
@@ -172,41 +150,11 @@ export class ProfilesService {
     dto: UpdateIdentityProfileDto
   ) {
     this.extractBearerToken(authorization);
-    const existing = await this.findMe(user, authorization, identityAccessToken);
-
-    const usernameInput = (dto.username ?? existing.username ?? "").trim();
-    const firstName = (dto.firstName ?? existing.firstName ?? "").trim();
-    const lastName = (dto.lastName ?? existing.lastName ?? "").trim();
-    const username = await this.ensureUniqueUsername(usernameInput, user.id);
-    const displayName = this.composeDisplayName(firstName, lastName, username);
-    const gender = this.normalizeGender(dto.gender ?? existing.gender ?? undefined);
-
-    if (!username) {
-      throw new BadRequestException("username is required");
-    }
-    if (!firstName) {
-      throw new BadRequestException("firstName is required");
-    }
-    if (!lastName) {
-      throw new BadRequestException("lastName is required");
-    }
-
-    const [updated] = await this.db
-      .update(memberProfiles)
-      .set({
-        username,
-        firstName,
-        lastName,
-        displayName,
-        nickname: null,
-        gender: gender ?? null,
-        identityUpdatedAt: new Date(),
-      })
-      .where(eq(memberProfiles.userId, user.id))
-      .returning();
-
-    if (!updated) throw new NotFoundException("Profile not found");
-    return updated;
+    void identityAccessToken;
+    void dto;
+    throw new BadRequestException(
+      "Identity details must be updated through the Ory Kratos settings flow."
+    );
   }
 
   async updateMyEmail(
@@ -216,28 +164,12 @@ export class ProfilesService {
     dto: UpdateEmailDto
   ) {
     this.extractBearerToken(authorization);
-    const existing = await this.findMe(user, authorization, identityAccessToken);
-
-    const nextEmail = this.normalizeEmail(dto.email);
-    if (!nextEmail) {
-      throw new BadRequestException("email is required");
-    }
-
-    if (existing.email === nextEmail) {
-      return existing;
-    }
-
-    const [updated] = await this.db
-      .update(memberProfiles)
-      .set({
-        email: nextEmail,
-        identityUpdatedAt: new Date(),
-      })
-      .where(eq(memberProfiles.userId, user.id))
-      .returning();
-
-    if (!updated) throw new NotFoundException("Profile not found");
-    return updated;
+    void user;
+    void identityAccessToken;
+    void dto;
+    throw new BadRequestException(
+      "Email changes must be completed through the Ory Kratos settings flow."
+    );
   }
 
   async updateMyPassword(
@@ -315,38 +247,10 @@ export class ProfilesService {
     return { deleted: true };
   }
 
-  private getBaseUsername(user: AuthenticatedUser) {
-    const emailLocalPart = this.normalizeEmail(user.email)?.split("@")[0];
-    const preferred =
-      user.nickname ||
-      user.username ||
-      emailLocalPart ||
-      user.name ||
-      `user_${user.id.slice(0, 8)}`;
-    return this.normalizeUsername(preferred);
-  }
-
-  private composeDisplayName(
-    firstName: string | null | undefined,
-    lastName: string | null | undefined,
-    username: string
-  ) {
-    const fullName = [firstName, lastName]
-      .filter((value): value is string => !!value && value.trim().length > 0)
-      .join(" ")
-      .trim();
-    return fullName || username;
-  }
-
-  private normalizeUsername(value: string, fallback = "member") {
-    const normalized = value
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "");
-
-    if (!normalized) return fallback;
-    return normalized.slice(0, 50);
+  private normalizeText(value: string | null | undefined) {
+    if (!value) return null;
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
   }
 
   private normalizeEmail(value: string | null | undefined) {
@@ -355,64 +259,45 @@ export class ProfilesService {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private async resolveEmailForSync(
+  private async resolveIdentityProfile(
     user: AuthenticatedUser,
-    existingEmail: string | null,
+    existing:
+      | {
+          email: string;
+          firstName: string | null;
+          lastName: string | null;
+          gender: string | null;
+        }
+      | null
+      | undefined,
     authorization: string | undefined,
     identityAccessToken: string | undefined
-  ) {
-    const emailFromClaims = this.normalizeEmail(user.email);
-    if (emailFromClaims) return emailFromClaims;
-
-    const emailFromProfile = this.normalizeEmail(existingEmail);
-    if (emailFromProfile) return emailFromProfile;
-
-    return this.fetchEmailFromUserInfo(authorization, identityAccessToken);
-  }
-
-  private async getUniqueUsername(base: string, userId?: string) {
-    const candidate = base.length >= 3 ? base : `${base}_user`;
-    let finalCandidate = candidate.slice(0, 50);
-    let suffix = 1;
-
-    while (true) {
-      const exists = await this.db.query.memberProfiles.findFirst({
-        where: eq(memberProfiles.username, finalCandidate),
-      });
-      if (!exists || (userId && exists.userId === userId)) return finalCandidate;
-
-      const suffixText = `_${suffix}`;
-      finalCandidate = `${candidate.slice(0, 50 - suffixText.length)}${suffixText}`;
-      suffix += 1;
-    }
-  }
-
-  private async ensureUniqueUsername(value: string, userId: string) {
-    if (value.trim().length === 0) {
-      throw new BadRequestException("username is required");
+  ): Promise<IdentityProfileSnapshot> {
+    const kratosProfile = await this.fetchIdentityProfileFromKratos(user.id);
+    if (kratosProfile?.email) {
+      return kratosProfile;
     }
 
-    const normalized = this.normalizeUsername(value, "");
-    if (!normalized) {
-      throw new BadRequestException(
-        "username must include at least one letter or number"
-      );
-    }
-    if (normalized.length < 3) {
-      throw new BadRequestException(
-        "username must be at least 3 characters after normalization"
+    const email =
+      this.normalizeEmail(user.email) ??
+      this.normalizeEmail(existing?.email) ??
+      (await this.fetchEmailFromUserInfo(authorization, identityAccessToken));
+
+    if (!email) {
+      throw new UnauthorizedException(
+        "Could not resolve your email from identity provider. Please sign out and sign in again."
       );
     }
 
-    const existing = await this.db.query.memberProfiles.findFirst({
-      where: eq(memberProfiles.username, normalized),
-    });
-
-    if (existing && existing.userId !== userId) {
-      throw new BadRequestException("username is already taken");
-    }
-
-    return normalized;
+    return {
+      email,
+      firstName:
+        this.normalizeText(user.firstName) ?? this.normalizeText(existing?.firstName),
+      lastName:
+        this.normalizeText(user.lastName) ?? this.normalizeText(existing?.lastName),
+      gender:
+        this.normalizeGender(user.gender ?? existing?.gender ?? undefined) ?? null,
+    };
   }
 
   private extractBearerToken(authorization: string | undefined) {
@@ -505,6 +390,70 @@ export class ProfilesService {
     return this.normalizeEmail(payload.email);
   }
 
+  private getKratosAdminUrl() {
+    return this.configService.get<string>("KRATOS_ADMIN_URL") || "http://kratos:4434";
+  }
+
+  private async fetchIdentityProfileFromKratos(
+    userId: string
+  ): Promise<IdentityProfileSnapshot | null> {
+    const baseUrl = this.getKratosAdminUrl();
+    const url = new URL(`/admin/identities/${encodeURIComponent(userId)}`, baseUrl);
+
+    try {
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = (await response.json()) as {
+        traits?: {
+          email?: unknown;
+          gender?: unknown;
+          name?: {
+            first?: unknown;
+            last?: unknown;
+          } | null;
+        } | null;
+      };
+
+      const traits =
+        payload.traits && typeof payload.traits === "object" ? payload.traits : null;
+      const name =
+        traits?.name && typeof traits.name === "object" ? traits.name : null;
+      const email = this.normalizeEmail(
+        typeof traits?.email === "string" ? traits.email : null
+      );
+
+      if (!email) {
+        return null;
+      }
+
+      return {
+        email,
+        firstName: this.normalizeText(
+          typeof name?.first === "string" ? name.first : null
+        ),
+        lastName: this.normalizeText(
+          typeof name?.last === "string" ? name.last : null
+        ),
+        gender:
+          this.normalizeGender(
+            typeof traits?.gender === "string" ? traits.gender : undefined
+          ) ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private normalizeGender(
     value: string | undefined
   ): IdentityGenderValue | undefined {
@@ -519,6 +468,12 @@ export class ProfilesService {
     }
     if (normalized === "GENDER_MALE" || normalized === "MALE") {
       return "GENDER_MALE";
+    }
+    if (
+      normalized === "PREFER_NOT_TO_SAY" ||
+      normalized === "GENDER_PREFER_NOT_TO_SAY"
+    ) {
+      return "GENDER_UNSPECIFIED";
     }
     return "GENDER_UNSPECIFIED";
   }

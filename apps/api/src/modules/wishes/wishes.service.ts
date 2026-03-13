@@ -15,7 +15,7 @@ import {
   editions,
   wishes,
 } from "@bookshare/db";
-import { WorkflowTopic } from "@bookshare/shared";
+import { WishClosureReason, WorkflowTopic } from "@bookshare/shared";
 import {
   and,
   asc,
@@ -64,7 +64,7 @@ export class WishesService {
   ) {
     if (wish.status !== "active") {
       throw new BadRequestException(
-        "Only active wishes can be modified. Fulfilled wishes are read-only history."
+        "Only active wishes can be modified. Closed wishes are read-only history."
       );
     }
   }
@@ -215,25 +215,6 @@ export class WishesService {
   }
 
   async create(dto: CreateWishDto, userId: string) {
-    let normalizedEditionId: string | null = null;
-    if (dto.editionId) {
-      const selectedEdition = await this.db.query.editions.findFirst({
-        where: eq(editions.id, dto.editionId),
-      });
-
-      if (!selectedEdition) {
-        throw new BadRequestException("Selected edition was not found");
-      }
-
-      if (selectedEdition.bookId !== dto.bookId) {
-        throw new BadRequestException(
-          "Selected edition does not belong to this book"
-        );
-      }
-
-      normalizedEditionId = selectedEdition.id;
-    }
-
     // Check for duplicate active wish (user_id, book_id)
     const existing = await this.db.query.wishes.findFirst({
       where: and(
@@ -273,7 +254,7 @@ export class WishesService {
       .values({
         userId,
         bookId: dto.bookId,
-        editionId: normalizedEditionId,
+        editionId: null,
         notes: dto.notes,
         status: "active",
         lastConfirmedAt: new Date(),
@@ -316,12 +297,17 @@ export class WishesService {
   async remove(id: string, userId: string) {
     const existing = await this.findOne(id, userId);
     this.assertActiveWishForMutation(existing);
-    const [deleted] = await this.db
-      .delete(wishes)
+    const [removed] = await this.db
+      .update(wishes)
+      .set({
+        status: "cancelled",
+        closureReason: WishClosureReason.REMOVED_BY_WISHER,
+        closedAt: new Date(),
+      })
       .where(and(eq(wishes.id, id), eq(wishes.userId, userId)))
       .returning({ id: wishes.id });
 
-    if (!deleted) throw new NotFoundException(`Wish with ID ${id} not found`);
+    if (!removed) throw new NotFoundException(`Wish with ID ${id} not found`);
     return { deleted: true };
   }
 }

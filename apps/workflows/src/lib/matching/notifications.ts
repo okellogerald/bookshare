@@ -29,11 +29,10 @@ type LoggerLike = {
 
 type PublicProfile =
   | {
-      username: string;
       firstName: string | null;
-      displayName: string;
-      cityArea: string | null;
-      contactHandle: string | null;
+      lastName: string | null;
+      location: string | null;
+      contactNotes: string | null;
       avatarUrl: string | null;
     }
   | null
@@ -76,32 +75,21 @@ function formatEditionLabel(format: string) {
 function getPublicFirstName(profile: PublicProfile) {
   const firstName = profile?.firstName?.trim();
   if (firstName) return firstName;
-
-  const displayName = profile?.displayName?.trim();
-  if (displayName) {
-    const [firstToken] = displayName.split(/\s+/);
-    if (firstToken) return firstToken;
-  }
-
-  const username = profile?.username?.trim();
-  if (username) return username;
-
   return "Someone";
 }
 
 function getPublicDisplayName(profile: PublicProfile) {
-  const displayName = profile?.displayName?.trim();
-  if (displayName) return displayName;
-
-  const username = profile?.username?.trim();
-  if (username) return username;
-
+  const fullName = [profile?.firstName, profile?.lastName]
+    .filter((value): value is string => !!value && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  if (fullName) return fullName;
   return "Community member";
 }
 
 function getPublicCity(profile: PublicProfile, fallback: string) {
-  const cityArea = profile?.cityArea?.trim();
-  return cityArea || fallback;
+  const location = profile?.location?.trim();
+  return location || fallback;
 }
 
 function buildBookSnapshot(book: {
@@ -146,11 +134,10 @@ function buildMemberSnapshot(
 ): NotificationMemberSnapshot {
   return {
     userId,
-    username: profile?.username ?? null,
-    displayName: getPublicDisplayName(profile),
     firstName: profile?.firstName ?? null,
-    cityArea: profile?.cityArea ?? null,
-    contactHandle: profile?.contactHandle ?? null,
+    lastName: profile?.lastName ?? null,
+    location: profile?.location ?? null,
+    contactNotes: profile?.contactNotes ?? null,
     avatarUrl: profile?.avatarUrl ?? null,
     profilePath: null,
   };
@@ -183,18 +170,10 @@ function buildCopySnapshot(copy: {
 function buildWishSnapshot(wish: {
   id: string;
   notes: string | null;
-  edition?: {
-    id: string;
-    isbn: string | null;
-    format: NotificationEditionSnapshot["format"];
-    publisher: string | null;
-    publishedYear: number | null;
-  } | null;
 }): NotificationWishSnapshot {
   return {
     wishId: wish.id,
     notes: wish.notes,
-    requestedEdition: wish.edition ? buildEditionSnapshot(wish.edition) : null,
   };
 }
 
@@ -243,7 +222,6 @@ export async function handleCopyWishMatch(
   const activeWishes = await db.query.wishes.findMany({
     where: and(eq(wishes.bookId, copy.edition.book.id), eq(wishes.status, "active")),
     with: {
-      edition: true,
       userProfile: true,
     },
   });
@@ -262,7 +240,7 @@ export async function handleCopyWishMatch(
   const ownerSnapshot = buildMemberSnapshot(copy.ownerProfile, copy.userId);
   const linkTo = `/books/${copy.edition.book.id}`;
   const title = `A copy of ${bookSnapshot.title} is now available`;
-  const body = `${ownerSnapshot.displayName} in ${getPublicCity(
+  const body = `${getPublicDisplayName(copy.ownerProfile)} in ${getPublicCity(
     copy.ownerProfile,
     "your community"
   )} listed a ${formatEditionLabel(copy.edition.format)} copy in ${formatCondition(
@@ -315,7 +293,6 @@ export async function handleWishCopyMatch(
           },
         },
       },
-      edition: true,
       userProfile: true,
     },
   });

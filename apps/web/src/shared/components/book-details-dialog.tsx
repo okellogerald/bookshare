@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { CommunityCopyList } from "@/shared/components/community-copy-list";
 import { Separator } from "@/shared/components/ui/separator";
 import {
   useBookCategories,
@@ -44,6 +45,14 @@ const listingStatusLabels: Record<string, string> = {
   lent: "Lent",
 };
 
+function getMemberName(firstName: string | null, lastName: string | null) {
+  const fullName = [firstName, lastName]
+    .filter((value): value is string => !!value && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  return fullName || "Community member";
+}
+
 function getCategoryDisplayName(name: string) {
   const segments = name
     .split("/")
@@ -58,6 +67,7 @@ interface BookDetailsDialogProps {
   bookId: string | null;
   focusEditionId?: string | null;
   hideEditionList?: boolean;
+  compactCatalog?: boolean;
   fallbackTitle?: string;
   fallbackSubtitle?: string | null;
   preferredImageUrl?: string | null;
@@ -71,6 +81,7 @@ export function BookDetailsDialog({
   bookId,
   focusEditionId,
   hideEditionList = false,
+  compactCatalog = false,
   fallbackTitle,
   fallbackSubtitle,
   preferredImageUrl,
@@ -184,51 +195,57 @@ export function BookDetailsDialog({
           <div className="space-y-4">
             {authors && <p className="text-sm text-muted-foreground">By {authors}</p>}
 
-            {book.language && (
-              <Badge variant="outline">{book.language.toUpperCase()}</Badge>
-            )}
-            {editionCount > 1 && (
-              <Badge variant="outline">{editionCount} editions</Badge>
-            )}
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Categories
-              </p>
-              {bookCategoriesLoading ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="h-6 w-24 animate-pulse rounded-full bg-muted"
-                    />
-                  ))}
+            {!compactCatalog && (
+              <>
+                {book.language && (
+                  <Badge variant="outline">{book.language.toUpperCase()}</Badge>
+                )}
+                {editionCount > 1 && (
+                  <Badge variant="outline">{editionCount} editions</Badge>
+                )}
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Categories
+                  </p>
+                  {bookCategoriesLoading ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="h-6 w-24 animate-pulse rounded-full bg-muted"
+                        />
+                      ))}
+                    </div>
+                  ) : visibleCategoryBadges.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {visibleCategoryBadges.map((category) => (
+                        <Badge key={category.id} variant="secondary">
+                          {category.displayName}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No categories assigned.
+                    </p>
+                  )}
                 </div>
-              ) : visibleCategoryBadges.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {visibleCategoryBadges.map((category) => (
-                    <Badge key={category.id} variant="secondary">
-                      {category.displayName}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No categories assigned.
-                </p>
-              )}
-            </div>
 
-            {editionsLoading ? (
-              <div className="space-y-2">
-                <div className="h-4 w-full animate-pulse rounded bg-muted" />
-                <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
-              </div>
-            ) : editionDescription ? (
-              <p className="whitespace-pre-line text-sm leading-relaxed">{editionDescription}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No description provided.
-              </p>
+                {editionsLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                    <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
+                  </div>
+                ) : editionDescription ? (
+                  <p className="whitespace-pre-line text-sm leading-relaxed">
+                    {editionDescription}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No description provided.
+                  </p>
+                )}
+              </>
             )}
 
             {children}
@@ -239,65 +256,72 @@ export function BookDetailsDialog({
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Available Copies</h3>
-                    {editionCount > 1 ? (
+                    <h3 className="text-sm font-semibold">
+                      {compactCatalog ? "Available From Members" : "Available Copies"}
+                    </h3>
+                    {!compactCatalog && editionCount > 1 ? (
                       <p className="text-xs text-muted-foreground">
                         Copies currently available across {editionCount} editions.
                       </p>
                     ) : null}
-                    {listingsLoading ? (
-                      <div className="space-y-2">
-                        {Array.from({ length: 2 }).map((_, index) => (
-                          <div key={index} className="h-16 animate-pulse rounded border bg-muted" />
-                        ))}
-                      </div>
+                    {compactCatalog ? (
+                      <CommunityCopyList
+                        listings={sortedListings}
+                        isLoading={listingsLoading}
+                        emptyMessage="No community copies are available right now."
+                      />
                     ) : sortedListings.length > 0 ? (
-                      <div className="space-y-2">
-                        {sortedListings.map((listing) => (
-                          <div key={listing.id} className="space-y-1 rounded border p-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              <Badge variant="default">
-                                {listingStatusLabels[listing.status] ?? listing.status}
-                              </Badge>
-                              {listing.share_type && (
-                                <Badge variant="secondary">
-                                  {shareTypeLabels[listing.share_type] ?? listing.share_type}
+                        <div className="space-y-2">
+                          {sortedListings.map((listing) => (
+                            <div key={listing.id} className="space-y-1 rounded border p-3">
+                              <div className="flex flex-wrap gap-1.5">
+                                <Badge variant="default">
+                                  {listingStatusLabels[listing.status] ?? listing.status}
                                 </Badge>
+                                {listing.share_type && (
+                                  <Badge variant="secondary">
+                                    {shareTypeLabels[listing.share_type] ?? listing.share_type}
+                                  </Badge>
+                                )}
+                                <Badge variant="secondary">
+                                  {conditionLabels[listing.condition] ?? listing.condition}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {formatLabels[listing.format] ?? listing.format}
+                                </Badge>
+                                {listing.isbn && (
+                                  <Badge variant="outline">ISBN: {listing.isbn}</Badge>
+                                )}
+                                {focusEditionId && listing.edition_id === focusEditionId && (
+                                  <Badge variant="outline">Referenced edition</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                In library of{" "}
+                                {getMemberName(
+                                  listing.owner_first_name,
+                                  listing.owner_last_name
+                                )}
+                              </p>
+                              {listing.contact_note && (
+                                <p className="text-sm text-muted-foreground">
+                                  Contact note: {listing.contact_note}
+                                </p>
                               )}
-                              <Badge variant="secondary">
-                                {conditionLabels[listing.condition] ?? listing.condition}
-                              </Badge>
-                              <Badge variant="outline">
-                                {formatLabels[listing.format] ?? listing.format}
-                              </Badge>
-                              {listing.isbn && (
-                                <Badge variant="outline">ISBN: {listing.isbn}</Badge>
-                              )}
-                              {focusEditionId && listing.edition_id === focusEditionId && (
-                                <Badge variant="outline">Referenced edition</Badge>
+                              {listing.status === "lent" && (
+                                <p className="text-sm text-muted-foreground">
+                                  {listing.borrower_first_name || listing.borrower_last_name
+                                    ? `Currently with ${getMemberName(
+                                        listing.borrower_first_name,
+                                        listing.borrower_last_name
+                                      )}`
+                                    : "Currently lent off-platform"}
+                                </p>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              In library of @{listing.owner_username ?? "member"}
-                              {listing.owner_display_name
-                                ? ` (${listing.owner_display_name})`
-                                : ""}
-                            </p>
-                            {listing.contact_note && (
-                              <p className="text-sm text-muted-foreground">
-                                Contact note: {listing.contact_note}
-                              </p>
-                            )}
-                            {listing.status === "lent" && (
-                              <p className="text-sm text-muted-foreground">
-                                {listing.borrower_username
-                                  ? `Currently with @${listing.borrower_username}`
-                                  : "Currently lent off-platform"}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      
                     ) : (
                       <p className="text-sm text-muted-foreground">
                         No community listings for this book yet.

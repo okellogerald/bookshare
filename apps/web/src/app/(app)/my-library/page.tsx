@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal, Plus } from "lucide-react";
-import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
+import { LibraryCopyDialog } from "@/shared/components/library-copy-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -48,6 +48,12 @@ import {
 
 type LibraryCopyStatus = "available" | "shelved" | "lent" | "gone";
 type GoneReason = "sold" | "donated" | "given_away" | "lost";
+type LibrarySortOption =
+  | "added_desc"
+  | "added_asc"
+  | "title_asc"
+  | "title_desc"
+  | "confirmed_desc";
 
 const statusLabels: Record<LibraryCopyStatus, string> = {
   available: "Available",
@@ -82,6 +88,14 @@ const formatLabels: Record<string, string> = {
   mass_market: "Mass Market",
 };
 
+const conditionLabels: Record<string, string> = {
+  new: "New",
+  like_new: "Like New",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
+};
+
 const statusOptions: LibraryCopyStatus[] = [
   "available",
   "shelved",
@@ -97,18 +111,26 @@ function getDefaultGoneReason(
   return "";
 }
 
+function humanizeToken(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+function getCopyTitle(
+  copy: NonNullable<ReturnType<typeof useMyCopies>["data"]>[number]
+) {
+  return copy.edition?.book?.title ?? "";
+}
+
 const pageSize = 24;
 
 export default function MyLibraryPage() {
   const [search, setSearch] = useState("");
+  const [conditionFilter, setConditionFilter] = useState("");
+  const [formatFilter, setFormatFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [shareTypeFilter, setShareTypeFilter] = useState("");
+  const [sortBy, setSortBy] = useState<LibrarySortOption>("added_desc");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<{
-    id: string;
-    focusEditionId?: string | null;
-    title?: string;
-    subtitle?: string | null;
-    preferredImageUrl?: string | null;
-  } | null>(null);
   const [selectedBookCopy, setSelectedBookCopy] = useState<
     NonNullable<ReturnType<typeof useMyCopies>["data"]>[number] | null
   >(null);
@@ -126,9 +148,13 @@ export default function MyLibraryPage() {
   const filteredCopies = useMemo(() => {
     const term = search.trim().toLowerCase();
     const allCopies = copies ?? [];
-    if (!term) return allCopies;
-
     return allCopies.filter((copy) => {
+      if (conditionFilter && copy.condition !== conditionFilter) return false;
+      if (formatFilter && copy.edition?.format !== formatFilter) return false;
+      if (statusFilter && copy.status !== statusFilter) return false;
+      if (shareTypeFilter && copy.share_type !== shareTypeFilter) return false;
+      if (!term) return true;
+
       const title = copy.edition?.book?.title ?? "";
       const subtitle = copy.edition?.book?.subtitle ?? "";
       const isbn = copy.edition?.isbn ?? "";
@@ -137,17 +163,47 @@ export default function MyLibraryPage() {
       const haystack = `${title} ${subtitle} ${isbn} ${publisher} ${notes}`.toLowerCase();
       return haystack.includes(term);
     });
-  }, [copies, search]);
+  }, [conditionFilter, copies, formatFilter, search, shareTypeFilter, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredCopies.length / pageSize));
+  const sortedCopies = useMemo(() => {
+    const items = [...filteredCopies];
+    items.sort((left, right) => {
+      switch (sortBy) {
+        case "added_asc":
+          return left.created_at.localeCompare(right.created_at);
+        case "title_asc":
+          return (
+            getCopyTitle(left).localeCompare(getCopyTitle(right), undefined, {
+              sensitivity: "base",
+            }) || right.created_at.localeCompare(left.created_at)
+          );
+        case "title_desc":
+          return (
+            getCopyTitle(right).localeCompare(getCopyTitle(left), undefined, {
+              sensitivity: "base",
+            }) || right.created_at.localeCompare(left.created_at)
+          );
+        case "confirmed_desc":
+          return (right.last_confirmed_at ?? right.created_at).localeCompare(
+            left.last_confirmed_at ?? left.created_at
+          );
+        case "added_desc":
+        default:
+          return right.created_at.localeCompare(left.created_at);
+      }
+    });
+    return items;
+  }, [filteredCopies, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedCopies.length / pageSize));
   const pagedCopies = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return filteredCopies.slice(start, start + pageSize);
-  }, [filteredCopies, page]);
+    return sortedCopies.slice(start, start + pageSize);
+  }, [page, sortedCopies]);
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [conditionFilter, formatFilter, search, shareTypeFilter, sortBy, statusFilter]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -156,16 +212,7 @@ export default function MyLibraryPage() {
   }, [page, totalPages]);
 
   function handleOpenBookDetails(copy: NonNullable<typeof copies>[number]) {
-    const book = copy.edition?.book;
-    if (!book?.id) return;
     setSelectedBookCopy(copy);
-    setSelectedBook({
-      id: book.id,
-      focusEditionId: copy.edition?.id ?? null,
-      title: book.title,
-      subtitle: book.subtitle,
-      preferredImageUrl: copy.edition?.cover_image_url ?? null,
-    });
     setDialogOpen(true);
   }
 
@@ -222,12 +269,97 @@ export default function MyLibraryPage() {
         </Link>
       </div>
 
-      <Input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search by title, subtitle, ISBN, publisher, or notes..."
-        className="max-w-xl"
-      />
+      <div className="flex flex-wrap gap-3">
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by title, subtitle, ISBN, publisher, or notes..."
+          className="min-w-[240px] flex-1"
+        />
+        <Select
+          value={conditionFilter || "all"}
+          onValueChange={(value) =>
+            setConditionFilter(value === "all" ? "" : value)
+          }
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Condition" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All conditions</SelectItem>
+            {Object.entries(conditionLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={formatFilter || "all"}
+          onValueChange={(value) => setFormatFilter(value === "all" ? "" : value)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Format" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All formats</SelectItem>
+            {Object.entries(formatLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={statusFilter || "all"}
+          onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {statusOptions.map((status) => (
+              <SelectItem key={status} value={status}>
+                {statusLabels[status]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={shareTypeFilter || "all"}
+          onValueChange={(value) =>
+            setShareTypeFilter(value === "all" ? "" : value)
+          }
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Share type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            {Object.entries(shareTypeLabels).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={sortBy}
+          onValueChange={(value) => setSortBy(value as LibrarySortOption)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="added_desc">Newest added</SelectItem>
+            <SelectItem value="added_asc">Oldest added</SelectItem>
+            <SelectItem value="title_asc">Title A-Z</SelectItem>
+            <SelectItem value="title_desc">Title Z-A</SelectItem>
+            <SelectItem value="confirmed_desc">Recently confirmed</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {isLoading ? (
         <div className="space-y-2">
@@ -237,7 +369,7 @@ export default function MyLibraryPage() {
         </div>
       ) : copies && copies.length > 0 ? (
         <>
-          {filteredCopies.length > 0 ? (
+          {sortedCopies.length > 0 ? (
             <>
               <Table>
                 <TableHeader>
@@ -279,7 +411,10 @@ export default function MyLibraryPage() {
                           : "-"}
                       </TableCell>
                       <TableCell className="capitalize">
-                        {copy.condition?.replace("_", " ") ?? "-"}
+                        {copy.condition
+                          ? (conditionLabels[copy.condition] ??
+                            humanizeToken(copy.condition))
+                          : "-"}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -343,13 +478,15 @@ export default function MyLibraryPage() {
               <PaginationControls
                 page={page}
                 pageSize={pageSize}
-                totalItems={filteredCopies.length}
+                totalItems={sortedCopies.length}
                 onPageChange={setPage}
               />
             </>
           ) : (
             <div className="flex h-[120px] items-center justify-center rounded-lg border border-dashed">
-              <p className="text-muted-foreground">No copies match your search.</p>
+              <p className="text-muted-foreground">
+                No copies match your current filters.
+              </p>
             </div>
           )}
         </>
@@ -365,7 +502,7 @@ export default function MyLibraryPage() {
         </div>
       )}
 
-      <BookDetailsDialog
+      <LibraryCopyDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open);
@@ -373,68 +510,8 @@ export default function MyLibraryPage() {
             setSelectedBookCopy(null);
           }
         }}
-        bookId={selectedBook?.id ?? null}
-        focusEditionId={selectedBook?.focusEditionId ?? null}
-        hideEditionList
-        fallbackTitle={selectedBook?.title}
-        fallbackSubtitle={selectedBook?.subtitle}
-        preferredImageUrl={selectedBook?.preferredImageUrl}
-      >
-        {selectedBookCopy && (
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Your Copy
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <Badge variant="secondary">
-                {selectedBookCopy.edition?.format
-                  ? (formatLabels[selectedBookCopy.edition.format] ??
-                    selectedBookCopy.edition.format)
-                  : "Unknown format"}
-              </Badge>
-              {selectedBookCopy.edition?.isbn && (
-                <Badge variant="outline">ISBN: {selectedBookCopy.edition.isbn}</Badge>
-              )}
-              <Badge
-                variant={
-                  selectedBookCopy.status === "available" ? "default" : "secondary"
-                }
-              >
-                {statusLabels[selectedBookCopy.status as LibraryCopyStatus] ??
-                  selectedBookCopy.status}
-              </Badge>
-              {selectedBookCopy.share_type && (
-                <Badge variant="outline">
-                  {shareTypeLabels[selectedBookCopy.share_type] ??
-                    selectedBookCopy.share_type}
-                </Badge>
-              )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Condition:{" "}
-              {selectedBookCopy.condition
-                ? selectedBookCopy.condition.replace("_", " ")
-                : "Unknown"}
-            </p>
-            {selectedBookCopy.edition?.publisher && (
-              <p className="text-sm text-muted-foreground">
-                Publisher: {selectedBookCopy.edition.publisher}
-                {selectedBookCopy.edition.published_year
-                  ? ` • ${selectedBookCopy.edition.published_year}`
-                  : ""}
-                {selectedBookCopy.edition.page_count
-                  ? ` • ${selectedBookCopy.edition.page_count} pages`
-                  : ""}
-              </p>
-            )}
-            {selectedBookCopy.notes && (
-              <p className="text-sm">
-                <span className="font-medium">Notes:</span> {selectedBookCopy.notes}
-              </p>
-            )}
-          </div>
-        )}
-      </BookDetailsDialog>
+        copy={selectedBookCopy}
+      />
 
       <Dialog
         open={!!goneDialogCopy}

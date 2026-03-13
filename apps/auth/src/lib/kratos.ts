@@ -69,6 +69,11 @@ export interface KratosFlowError {
 
 export interface KratosSession {
   id: string;
+  authentication_methods?: Array<{
+    method?: string;
+    aal?: string;
+    completed_at?: string;
+  }>;
   identity?: {
     id: string;
     traits?: Record<string, unknown>;
@@ -193,8 +198,6 @@ export async function getBrowserFlow(
       return null;
     }
 
-    console.log(await response.json())
-
     return (await response.json()) as KratosBrowserFlow;
   } catch {
     return null;
@@ -224,7 +227,12 @@ export async function getFlowErrorById(
 export async function getKratosSession(
   cookieHeader?: string
 ): Promise<KratosSession | null> {
-  if (!cookieHeader || cookieHeader.trim().length === 0) {
+  const resolvedCookieHeader =
+    cookieHeader && cookieHeader.trim().length > 0
+      ? cookieHeader
+      : await createCookieHeader();
+
+  if (!resolvedCookieHeader) {
     return null;
   }
 
@@ -234,7 +242,7 @@ export async function getKratosSession(
       method: "GET",
       headers: {
         accept: "application/json",
-        cookie: cookieHeader,
+        cookie: resolvedCookieHeader,
       },
       cache: "no-store",
     }
@@ -294,6 +302,19 @@ export function isKratosProfileComplete(
   const lastName = normalizeText(nameObj.last);
 
   return firstName.length > 0 && lastName.length > 0;
+}
+
+export function hasKratosAuthenticationMethod(
+  session: KratosSession | null,
+  method: string
+): boolean {
+  if (!session?.authentication_methods?.length) {
+    return false;
+  }
+
+  return session.authentication_methods.some(
+    (entry) => entry.method?.trim() === method
+  );
 }
 
 export function getFlowMessages(flow: KratosBrowserFlow): KratosUiMessage[] {

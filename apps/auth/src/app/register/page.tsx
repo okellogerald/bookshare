@@ -22,7 +22,6 @@ export default async function RegisterPage({
   }
 
   const flow = await getBrowserFlow("registration", flowId);
-  console.log("flow: ", flow)
   if (!flow) {
     redirect(createBrowserFlowUrl("registration", returnTo));
   }

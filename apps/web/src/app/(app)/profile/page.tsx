@@ -1,38 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { IdentityGender } from "@/shared/api";
 import { Button } from "@/shared/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { Textarea } from "@/shared/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import {
-  useMyProfile,
   useCreateProfileAvatarPresign,
-  useUpdateMyIdentity,
+  useMyProfile,
   useUpdateMyProfile,
 } from "@/shared/queries/profile";
-
-const genderOptions: Array<{ label: string; value: IdentityGender }> = [
-  { label: "Unspecified", value: "GENDER_UNSPECIFIED" },
-  { label: "Female", value: "GENDER_FEMALE" },
-  { label: "Male", value: "GENDER_MALE" },
-];
-
-function normalizeGender(value: string | null | undefined): IdentityGender {
-  if (!value) return "GENDER_UNSPECIFIED";
-  const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
-  if (normalized === "GENDER_FEMALE" || normalized === "FEMALE") return "GENDER_FEMALE";
-  if (normalized === "GENDER_MALE" || normalized === "MALE") return "GENDER_MALE";
-  return "GENDER_UNSPECIFIED";
-}
 
 function getInitials(value: string): string {
   const words = value
@@ -47,13 +32,21 @@ function getInitials(value: string): string {
   return compact.slice(0, 2).toUpperCase();
 }
 
+function formatGender(value: string | null | undefined) {
+  if (!value) return "Not shared";
+  const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (normalized === "GENDER_FEMALE" || normalized === "FEMALE") {
+    return "Female";
+  }
+  if (normalized === "GENDER_MALE" || normalized === "MALE") {
+    return "Male";
+  }
+  return "Prefer not to say";
+}
+
 export default function ProfilePage() {
-  const [username, setUsername] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [gender, setGender] = useState<IdentityGender>("GENDER_UNSPECIFIED");
-  const [cityArea, setCityArea] = useState("");
-  const [contactHandle, setContactHandle] = useState("");
+  const [location, setLocation] = useState("");
+  const [contactNotes, setContactNotes] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
@@ -61,18 +54,13 @@ export default function ProfilePage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const { data: myProfile, isLoading, isError, error } = useMyProfile();
-  const updateIdentity = useUpdateMyIdentity();
   const updateProfile = useUpdateMyProfile();
   const createProfileAvatarPresign = useCreateProfileAvatarPresign();
 
   useEffect(() => {
     if (!myProfile) return;
-    setUsername(myProfile.username ?? "");
-    setFirstName(myProfile.firstName ?? "");
-    setLastName(myProfile.lastName ?? "");
-    setGender(normalizeGender(myProfile.gender));
-    setCityArea(myProfile.cityArea ?? "");
-    setContactHandle(myProfile.contactHandle ?? "");
+    setLocation(myProfile.location ?? "");
+    setContactNotes(myProfile.contactNotes ?? "");
     setAvatarUrl(myProfile.avatarUrl ?? null);
     setAvatarFile(null);
     if (avatarPreviewUrl) {
@@ -134,16 +122,6 @@ export default function ProfilePage() {
     setAvatarError(null);
   }
 
-  async function handleSaveIdentity(e: React.FormEvent) {
-    e.preventDefault();
-    await updateIdentity.mutateAsync({
-      username: username.trim() || undefined,
-      firstName: firstName.trim() || undefined,
-      lastName: lastName.trim() || undefined,
-      gender,
-    });
-  }
-
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     setAvatarError(null);
@@ -173,8 +151,8 @@ export default function ProfilePage() {
       }
 
       await updateProfile.mutateAsync({
-        cityArea: cityArea.trim() || undefined,
-        contactHandle: contactHandle.trim() || undefined,
+        location: location.trim() || undefined,
+        contactNotes: contactNotes.trim() || undefined,
         avatarUrl: nextAvatarUrl,
       });
 
@@ -197,11 +175,13 @@ export default function ProfilePage() {
     }
   }
 
-  const avatarDisplayName =
-    [firstName, lastName]
-      .filter((value) => !!value?.trim())
+  const identityLabel =
+    [myProfile?.firstName, myProfile?.lastName]
+      .filter((value): value is string => !!value?.trim())
       .join(" ")
-      .trim() || username || "U";
+      .trim() ||
+    myProfile?.email ||
+    "U";
   const avatarImageUrl = avatarPreviewUrl ?? avatarUrl;
 
   return (
@@ -209,7 +189,7 @@ export default function ProfilePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-muted-foreground">
-          Manage your public handle and identity details here.
+          Kratos manages your identity details. BookShare stores only your community-facing profile details here.
         </p>
       </div>
 
@@ -217,7 +197,7 @@ export default function ProfilePage() {
         <CardHeader>
           <CardTitle>Identity</CardTitle>
           <CardDescription>
-            Username, first name, and last name are required. Gender is optional.
+            First name, last name, gender, and email are managed through account settings.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -225,74 +205,39 @@ export default function ProfilePage() {
             <p className="text-sm text-muted-foreground">Loading profile...</p>
           ) : isError ? (
             <p className="text-sm text-destructive">
-              {error instanceof Error
-                ? error.message
-                : "Failed to load profile."}
+              {error instanceof Error ? error.message : "Failed to load profile."}
             </p>
           ) : (
             <>
-              <form className="space-y-4" onSubmit={handleSaveIdentity}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      value={username}
-                      onChange={(event) => setUsername(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="first-name">First Name</Label>
-                    <Input
-                      id="first-name"
-                      value={firstName}
-                      onChange={(event) => setFirstName(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="last-name">Last Name</Label>
-                    <Input
-                      id="last-name"
-                      value={lastName}
-                      onChange={(event) => setLastName(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Gender</Label>
-                    <Select value={gender} onValueChange={(value) => setGender(value as IdentityGender)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {genderOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={
-                    updateIdentity.isPending ||
-                    !username.trim() ||
-                    !firstName.trim() ||
-                    !lastName.trim()
-                  }
-                >
-                  {updateIdentity.isPending ? "Saving..." : "Save Identity"}
-                </Button>
-                {updateIdentity.isError && (
-                  <p className="text-sm text-destructive">
-                    {updateIdentity.error instanceof Error
-                      ? updateIdentity.error.message
-                      : "Failed to save identity"}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1 rounded-md border p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Email
                   </p>
-                )}
-              </form>
+                  <p className="text-sm">{myProfile?.email || "Not available"}</p>
+                </div>
+                <div className="space-y-1 rounded-md border p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Gender
+                  </p>
+                  <p className="text-sm">{formatGender(myProfile?.gender)}</p>
+                </div>
+                <div className="space-y-1 rounded-md border p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    First Name
+                  </p>
+                  <p className="text-sm">{myProfile?.firstName || "Not set"}</p>
+                </div>
+                <div className="space-y-1 rounded-md border p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Last Name
+                  </p>
+                  <p className="text-sm">{myProfile?.lastName || "Not set"}</p>
+                </div>
+              </div>
+              <Button type="button" asChild>
+                <Link href="/auth/settings?returnTo=/profile">Manage Identity in Kratos</Link>
+              </Button>
             </>
           )}
         </CardContent>
@@ -300,9 +245,9 @@ export default function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>App Profile</CardTitle>
+          <CardTitle>Community Profile</CardTitle>
           <CardDescription>
-            These fields are used for community visibility and local coordination.
+            These details are stored in BookShare and used for local coordination.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -318,7 +263,7 @@ export default function ProfilePage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span>{getInitials(avatarDisplayName)}</span>
+                    <span>{getInitials(identityLabel)}</span>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -340,33 +285,33 @@ export default function ProfilePage() {
                   <p className="text-xs text-muted-foreground">
                     JPG, PNG, or WEBP up to 5MB.
                   </p>
-                  {avatarFile && (
+                  {avatarFile ? (
                     <p className="text-xs text-muted-foreground">
                       Selected: {avatarFile.name}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="city-area">City / Area</Label>
+              <Label htmlFor="location">Location</Label>
               <Input
-                id="city-area"
-                value={cityArea}
-                onChange={(event) => setCityArea(event.target.value)}
+                id="location"
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
                 placeholder="e.g. Downtown"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contact-handle">Preferred Contact</Label>
-              <Input
-                id="contact-handle"
-                value={contactHandle}
-                onChange={(event) => setContactHandle(event.target.value)}
-                placeholder="e.g. @telegram / phone / email"
+              <Label htmlFor="contact-notes">Contact Notes</Label>
+              <Textarea
+                id="contact-notes"
+                value={contactNotes}
+                onChange={(event) => setContactNotes(event.target.value)}
+                placeholder="How members should contact you for book exchanges"
               />
               <p className="text-xs text-muted-foreground">
-                This is your primary contact method for book exchanges. It will be visible to all members on the platform.
+                This will be visible to other members on the platform.
               </p>
             </div>
             <Button
@@ -379,16 +324,16 @@ export default function ProfilePage() {
                 ? "Saving..."
                 : "Save Profile"}
             </Button>
-            {avatarError && (
+            {avatarError ? (
               <p className="text-sm text-destructive">{avatarError}</p>
-            )}
-            {updateProfile.isError && (
+            ) : null}
+            {updateProfile.isError ? (
               <p className="text-sm text-destructive">
                 {updateProfile.error instanceof Error
                   ? updateProfile.error.message
                   : "Failed to save profile"}
               </p>
-            )}
+            ) : null}
           </form>
         </CardContent>
       </Card>

@@ -21,6 +21,16 @@ export async function exportPrivateKeyJwk(
   return crypto.subtle.exportKey("jwk", keyPair.privateKey);
 }
 
+function getPublicJwk(jwk: JsonWebKey): JsonWebKey {
+  return {
+    kty: jwk.kty,
+    crv: jwk.crv,
+    x: jwk.x,
+    y: jwk.y,
+    ext: true,
+  };
+}
+
 /**
  * Re-import a keypair from a serialized private key JWK.
  */
@@ -35,11 +45,9 @@ async function importKeyPairFromJwk(
     ["sign"]
   );
 
-  // Derive public key from private JWK (same x, y but without d)
-  const { d: _, ...publicJwk } = jwk;
   const publicKey = await crypto.subtle.importKey(
     "jwk",
-    publicJwk,
+    getPublicJwk(jwk),
     ALGORITHM,
     true,
     ["verify"]
@@ -63,6 +71,26 @@ function toBase64Url(buffer: ArrayBuffer | ArrayBufferView): string {
     .replace(/=+$/, "");
 }
 
+function fromBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  return atob(padded);
+}
+
+export function tokenHasDpopBinding(token: string): boolean {
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+
+  try {
+    const payload = JSON.parse(fromBase64Url(parts[1])) as {
+      cnf?: { jkt?: unknown };
+    };
+    return typeof payload.cnf?.jkt === "string" && payload.cnf.jkt.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Create a DPoP proof JWT for resource server requests (RFC 9449).
  * This is used when the Next.js BFF proxies requests to NestJS API.
@@ -75,8 +103,8 @@ export async function createDPoPProof(
 ): Promise<string> {
   const { privateKey } = await importKeyPairFromJwk(privateJwk);
 
-  // Build public JWK for the header (no private component)
-  const { d: _, ...publicJwk } = privateJwk;
+  // Build public JWK for the header without private-key-only metadata.
+  const publicJwk = getPublicJwk(privateJwk);
 
   // Compute access token hash (ath): base64url(SHA-256(access_token))
   const tokenBytes = new TextEncoder().encode(accessToken);

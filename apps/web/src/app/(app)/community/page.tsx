@@ -41,7 +41,17 @@ export default function CommunityPage() {
 
   const sortedMembers = useMemo(() => {
     if (!members) return [];
-    return [...members].sort((a, b) => a.username.localeCompare(b.username));
+    return [...members].sort((a, b) => {
+      const left = [a.first_name, a.last_name]
+        .filter((value): value is string => !!value && value.trim().length > 0)
+        .join(" ")
+        .trim();
+      const right = [b.first_name, b.last_name]
+        .filter((value): value is string => !!value && value.trim().length > 0)
+        .join(" ")
+        .trim();
+      return left.localeCompare(right);
+    });
   }, [members]);
   const totalPages = Math.max(1, Math.ceil(sortedMembers.length / pageSize));
   const pagedMembers = useMemo(() => {
@@ -62,7 +72,7 @@ export default function CommunityPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Community</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Members</h1>
         <p className="text-muted-foreground">
           See who is in your reading community and how to reach them.
         </p>
@@ -76,7 +86,7 @@ export default function CommunityPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by username, name, or area..."
+              placeholder="Search by name or location..."
               className="pl-9"
             />
           </div>
@@ -103,7 +113,7 @@ export default function CommunityPage() {
                       .filter((value): value is string => !!value && value.trim().length > 0)
                       .join(" ")
                       .trim();
-                    const label = fullName || member.username || "U";
+                    const label = fullName || "Member";
                     const isMe = currentUser?.id === member.user_id;
 
                     return (
@@ -124,15 +134,14 @@ export default function CommunityPage() {
                         <TableCell>
                           <p className="font-medium">{fullName || "Name not set"}</p>
                           <p className="text-xs text-muted-foreground">
-                            @{member.username}
-                            {isMe ? " (You)" : ""}
+                            {isMe ? "You" : "Community member"}
                           </p>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {member.city_area || "Not shared"}
+                          {member.location || "Not shared"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {member.contact_handle || "Not shared"}
+                          {member.contact_notes || "Not shared"}
                         </TableCell>
                       </TableRow>
                     );

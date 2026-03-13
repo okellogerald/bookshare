@@ -65,6 +65,15 @@ export const wishStatusEnum = pgEnum("wish_status", [
   "cancelled",
 ]);
 
+export const wishClosureReasonEnum = pgEnum("wish_closure_reason", [
+  // Wisher removed it manually.
+  "removed_by_wisher",
+  // Closed after a member-to-member loan.
+  "matched_member_lent",
+  // Closed after a member received the copy permanently.
+  "matched_member_gone",
+]);
+
 export const bookFormatEnum = pgEnum("book_format", [
   "hardcover",
   "paperback",

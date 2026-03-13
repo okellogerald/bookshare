@@ -7,15 +7,12 @@ import { wishes } from "./wishes";
 // Community member profile mirror sourced from the identity provider.
 export const memberProfiles = pgTable("member_profiles", {
   userId: varchar("user_id", { length: 255 }).primaryKey(),
-  username: varchar("username", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 320 }).notNull().unique(),
-  displayName: varchar("display_name", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),
-  nickname: varchar("nickname", { length: 255 }),
   gender: varchar("gender", { length: 100 }),
-  cityArea: varchar("city_area", { length: 255 }),
-  contactHandle: varchar("contact_handle", { length: 500 }),
+  location: varchar("location", { length: 255 }),
+  contactNotes: varchar("contact_notes", { length: 500 }),
   avatarUrl: varchar("avatar_url", { length: 2000 }),
   deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
   identityUpdatedAt: timestamp("identity_updated_at", { withTimezone: true })

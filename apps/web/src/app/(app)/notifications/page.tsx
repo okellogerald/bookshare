@@ -104,11 +104,10 @@ function isMemberSnapshot(value: unknown): value is NotificationMemberSnapshot {
   return (
     isRecord(value) &&
     typeof value.userId === "string" &&
-    isNullableString(value.username) &&
-    typeof value.displayName === "string" &&
     isNullableString(value.firstName) &&
-    isNullableString(value.cityArea) &&
-    isNullableString(value.contactHandle) &&
+    isNullableString(value.lastName) &&
+    isNullableString(value.location) &&
+    isNullableString(value.contactNotes) &&
     isNullableString(value.avatarUrl) &&
     isNullableString(value.profilePath)
   );
@@ -130,8 +129,7 @@ function isWishSnapshot(value: unknown): value is NotificationWishSnapshot {
   return (
     isRecord(value) &&
     typeof value.wishId === "string" &&
-    isNullableString(value.notes) &&
-    (value.requestedEdition === null || isEditionSnapshot(value.requestedEdition))
+    isNullableString(value.notes)
   );
 }
 
@@ -229,18 +227,21 @@ function MemberSummary({
   member: NotificationMemberSnapshot;
   emptyContactLabel?: string;
 }) {
+  const name =
+    [member.firstName, member.lastName]
+      .filter((value): value is string => !!value && value.trim().length > 0)
+      .join(" ")
+      .trim() || "Community member";
+
   return (
     <div className="space-y-1">
-      <p className="font-medium">{member.displayName}</p>
+      <p className="font-medium">{name}</p>
       <p className="text-sm text-muted-foreground">
-        {member.username ? `@${member.username}` : "Username not shared"}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {member.cityArea || "Area not shared"}
+        {member.location || "Location not shared"}
       </p>
       <p className="text-sm">
         <span className="text-muted-foreground">Public contact: </span>
-        <span>{member.contactHandle || emptyContactLabel}</span>
+        <span>{member.contactNotes || emptyContactLabel}</span>
       </p>
     </div>
   );
@@ -249,16 +250,9 @@ function MemberSummary({
 function WishSummary({ wish }: { wish: NotificationWishSnapshot }) {
   return (
     <div className="space-y-2">
-      {wish.requestedEdition ? (
-        <DetailText
-          label="Requested edition"
-          value={formatEditionSummary(wish.requestedEdition)}
-        />
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          No specific edition requested.
-        </p>
-      )}
+      <p className="text-sm text-muted-foreground">
+        This wish is for the book in general.
+      </p>
       {wish.notes ? (
         <LongText label="Wish notes" value={wish.notes} />
       ) : (
@@ -359,12 +353,6 @@ function renderNotificationDetails(
         <div className="grid gap-3 lg:grid-cols-2">
           <DetailSection label="Book">
             <BookSummary book={metadata.book} />
-            {metadata.wish.requestedEdition ? (
-              <DetailText
-                label="Requested edition"
-                value={formatEditionSummary(metadata.wish.requestedEdition)}
-              />
-            ) : null}
           </DetailSection>
           <DetailSection label="Reader looking for this book">
             <MemberSummary member={metadata.wisher} />

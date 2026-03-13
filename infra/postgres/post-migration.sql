@@ -129,8 +129,7 @@ DROP POLICY IF EXISTS member_profiles_auth_select ON member_profiles;
 CREATE POLICY member_profiles_auth_select ON member_profiles
   FOR SELECT TO postgrest_auth
   -- Hide bootstrap/admin account from community-facing reads.
-  -- Prefer the dedicated email column and fall back to username for legacy rows.
-  USING (lower(coalesce(email, username, '')) <> 'admin@bookshare.local');
+  USING (lower(coalesce(email, '')) <> 'admin@bookshare.local');
 
 -- ─── RLS Policies: copy_images ─────────────────────────────
 
@@ -276,16 +275,10 @@ SELECT
   b.subtitle AS book_subtitle,
   e.description AS edition_description,
   b.language AS book_language,
-  owner_profile.username AS owner_username,
-  COALESCE(
-    NULLIF(TRIM(CONCAT_WS(' ', owner_profile.first_name, owner_profile.last_name)), ''),
-    owner_profile.username
-  ) AS owner_display_name,
-  borrower_profile.username AS borrower_username,
-  COALESCE(
-    NULLIF(TRIM(CONCAT_WS(' ', borrower_profile.first_name, borrower_profile.last_name)), ''),
-    borrower_profile.username
-  ) AS borrower_display_name,
+  owner_profile.first_name AS owner_first_name,
+  owner_profile.last_name AS owner_last_name,
+  borrower_profile.first_name AS borrower_first_name,
+  borrower_profile.last_name AS borrower_last_name,
   primary_image.image_url AS primary_image_url,
   COALESCE(
     json_agg(
@@ -322,11 +315,9 @@ GROUP BY
   c.id,
   e.id,
   b.id,
-  owner_profile.username,
   owner_profile.first_name,
   owner_profile.last_name,
   active_loan.counterparty_user_id,
-  borrower_profile.username,
   borrower_profile.first_name,
   borrower_profile.last_name,
   primary_image.image_url;
@@ -335,7 +326,7 @@ GROUP BY
 GRANT SELECT ON browse_listings TO postgrest_auth;
 
 -- ─── Browse Wishlist View ─────────────────────────────────
--- Cross-user grouped view of active wishes by book + edition preference.
+-- Cross-user grouped view of active wishes by book.
 -- Does NOT use security_invoker — intentionally bypasses RLS so all
 -- authenticated users can browse the community wishlist.
 
@@ -344,15 +335,15 @@ DROP VIEW IF EXISTS browse_wishes;
 CREATE OR REPLACE VIEW browse_wishes AS
 SELECT
   b.id AS book_id,
-  wb.edition_id,
+  NULL::uuid AS edition_id,
   wb.wish_count,
   b.title AS book_title,
   b.subtitle AS book_subtitle,
-  e.description AS edition_description,
+  representative_edition.description AS edition_description,
   b.language AS book_language,
-  e.isbn AS edition_isbn,
-  e.format AS edition_format,
-  e.cover_image_url AS edition_cover_image_url,
+  representative_edition.isbn AS edition_isbn,
+  representative_edition.format AS edition_format,
+  representative_edition.cover_image_url AS edition_cover_image_url,
   wb.wishers,
   COALESCE(
     authors_data.authors,
@@ -372,16 +363,14 @@ LEFT JOIN (
 JOIN (
   SELECT
     w.book_id,
-    w.edition_id,
     COUNT(*)::int AS wish_count,
     json_agg(
       json_build_object(
         'user_id', w.user_id,
-        'username', mp.username,
-        'display_name', COALESCE(
-          NULLIF(TRIM(CONCAT_WS(' ', mp.first_name, mp.last_name)), ''),
-          mp.username
-        ),
+        'first_name', mp.first_name,
+        'last_name', mp.last_name,
+        'location', mp.location,
+        'contact_notes', mp.contact_notes,
         'avatar_url', mp.avatar_url,
         'notes', w.notes,
         'created_at', w.created_at,
@@ -392,9 +381,22 @@ JOIN (
   FROM wishes w
   LEFT JOIN member_profiles mp ON mp.user_id = w.user_id
   WHERE w.status = 'active'
-  GROUP BY w.book_id, w.edition_id
+  GROUP BY w.book_id
 ) AS wb ON wb.book_id = b.id
-LEFT JOIN editions e ON e.id = wb.edition_id;
+LEFT JOIN LATERAL (
+  SELECT
+    e.description,
+    e.isbn,
+    e.format,
+    e.cover_image_url
+  FROM editions e
+  WHERE e.book_id = b.id
+  ORDER BY
+    (e.cover_image_url IS NULL) ASC,
+    e.isbn ASC NULLS LAST,
+    e.created_at ASC
+  LIMIT 1
+) AS representative_edition ON TRUE;
 
 -- Grant browse wishes view to authenticated users only
 GRANT SELECT ON browse_wishes TO postgrest_auth;
@@ -411,18 +413,12 @@ CREATE OR REPLACE VIEW fulfilled_wishes_history AS
 SELECT
   w.id AS wish_id,
   w.user_id AS recipient_user_id,
-  recipient.username AS recipient_username,
-  COALESCE(
-    NULLIF(TRIM(CONCAT_WS(' ', recipient.first_name, recipient.last_name)), ''),
-    recipient.username
-  ) AS recipient_display_name,
+  recipient.first_name AS recipient_first_name,
+  recipient.last_name AS recipient_last_name,
   recipient.avatar_url AS recipient_avatar_url,
   w.fulfilled_by_user_id AS fulfiller_user_id,
-  fulfiller.username AS fulfiller_username,
-  COALESCE(
-    NULLIF(TRIM(CONCAT_WS(' ', fulfiller.first_name, fulfiller.last_name)), ''),
-    fulfiller.username
-  ) AS fulfiller_display_name,
+  fulfiller.first_name AS fulfiller_first_name,
+  fulfiller.last_name AS fulfiller_last_name,
   fulfiller.avatar_url AS fulfiller_avatar_url,
   w.book_id,
   b.title AS book_title,

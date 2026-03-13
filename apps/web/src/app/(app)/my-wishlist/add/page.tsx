@@ -19,12 +19,6 @@ import { useCreateWant, useMyWants, useWantSearchResults } from "@/shared/querie
 import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
 import { useSubmitMissingWantRequest } from "@/shared/queries/submissions";
 
-const formatLabels: Record<string, string> = {
-  hardcover: "Hardcover",
-  paperback: "Paperback",
-  mass_market: "Mass Market",
-};
-
 function parseAuthors(rawValue: string) {
   return Array.from(
     new Set(
@@ -40,7 +34,6 @@ export default function AddWishPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
-  const [selectedEditionChoice, setSelectedEditionChoice] = useState<string>("");
   const [foundBookNotes, setFoundBookNotes] = useState("");
   const [manualTitle, setManualTitle] = useState("");
   const [manualAuthorsInput, setManualAuthorsInput] = useState("");
@@ -95,20 +88,9 @@ export default function AddWishPage() {
       return;
     }
 
-    if (selectedResult.editions.length > 0 && !selectedEditionChoice) {
-      setErrorMessage("Choose a specific edition or Any edition.");
-      return;
-    }
-
-    const selectedEditionId =
-      selectedEditionChoice && selectedEditionChoice !== "any"
-        ? selectedEditionChoice
-        : undefined;
-
     try {
       await createWant.mutateAsync({
         bookId: selectedResult.bookId,
-        editionId: selectedEditionId,
         notes: foundBookNotes.trim() || undefined,
       });
       router.push("/my-wishlist");
@@ -191,7 +173,6 @@ export default function AddWishPage() {
               onChange={(event) => {
                 setSearch(event.target.value);
                 setSelectedBookId(null);
-                setSelectedEditionChoice("");
                 setFoundBookNotes("");
                 setErrorMessage(null);
                 setSuccessMessage(null);
@@ -222,7 +203,6 @@ export default function AddWishPage() {
                     type="button"
                     onClick={() => {
                       setSelectedBookId(result.bookId);
-                      setSelectedEditionChoice(result.editions.length === 0 ? "any" : "");
                       setErrorMessage(null);
                       setSuccessMessage(null);
                     }}
@@ -235,7 +215,7 @@ export default function AddWishPage() {
                       {result.hasCommunityCopy ? (
                         <Badge>Community copy exists</Badge>
                       ) : result.hasEdition ? (
-                        <Badge variant="secondary">Edition in catalog</Badge>
+                        <Badge variant="secondary">In catalog</Badge>
                       ) : (
                         <Badge variant="outline">Catalog record</Badge>
                       )}
@@ -265,44 +245,6 @@ export default function AddWishPage() {
             <div className="space-y-3 rounded-md border p-3">
               <p className="text-sm font-medium">Add selected book to your wishlist</p>
               <div className="space-y-2">
-                <Label>Edition preference</Label>
-                <div className="grid gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEditionChoice("any")}
-                    className={`rounded border px-3 py-2 text-left text-sm ${
-                      selectedEditionChoice === "any"
-                        ? "border-primary bg-accent/40"
-                        : "hover:bg-accent/20"
-                    }`}
-                  >
-                    Any edition
-                  </button>
-                  {selectedResult.editions.map((edition) => (
-                    <button
-                      key={edition.id}
-                      type="button"
-                      onClick={() => setSelectedEditionChoice(edition.id)}
-                      className={`rounded border px-3 py-2 text-left text-sm ${
-                        selectedEditionChoice === edition.id
-                          ? "border-primary bg-accent/40"
-                          : "hover:bg-accent/20"
-                      }`}
-                    >
-                      <span className="font-medium">
-                        {formatLabels[edition.format] ?? edition.format}
-                      </span>
-                      {edition.isbn ? ` • ISBN ${edition.isbn}` : " • ISBN not set"}
-                    </button>
-                  ))}
-                </div>
-                {!selectedResult.editions.length && (
-                  <p className="text-xs text-muted-foreground">
-                    No specific editions are cataloged yet. This will be saved as Any edition.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
                 <Label>Notes (optional)</Label>
                 <Textarea
                   value={foundBookNotes}
@@ -315,8 +257,7 @@ export default function AddWishPage() {
                 disabled={
                   createWant.isPending ||
                   alreadyInMyWants ||
-                  alreadyInMyLibrary ||
-                  (selectedResult.editions.length > 0 && !selectedEditionChoice)
+                  alreadyInMyLibrary
                 }
               >
                 {createWant.isPending ? "Adding..." : "Add to My Wishlist"}
@@ -331,7 +272,7 @@ export default function AddWishPage() {
           <CardHeader>
             <CardTitle>Book Not Found</CardTitle>
             <CardDescription>
-              Submit details and the admin will add the edition and wish on your behalf.
+              Submit details and the admin will add the book and wish on your behalf.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

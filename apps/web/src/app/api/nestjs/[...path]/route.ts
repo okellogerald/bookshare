@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken, getSession } from "@/features/auth/lib/session";
-import { createDPoPProof } from "@/features/auth/lib/dpop";
+import { createDPoPProof, tokenHasDpopBinding } from "@/features/auth/lib/dpop";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
@@ -30,7 +30,7 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
   };
 
   // Use DPoP auth scheme with proof header when DPoP key is available
-  if (session.dpopJwk) {
+  if (session.dpopJwk && tokenHasDpopBinding(token)) {
     const dpopProof = await createDPoPProof(
       session.dpopJwk,
       request.method,

@@ -18,6 +18,12 @@ import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { useDeleteWant, useUpdateWant } from "@/shared/queries/my-wishlist";
 
+const closureReasonLabels = {
+  removed_by_wisher: "Removed by you",
+  matched_member_lent: "Closed after a member loan",
+  matched_member_gone: "Closed after a member received a copy",
+} as const;
+
 async function fetchWant(id: string): Promise<PgWantWithBook> {
   const params = new URLSearchParams();
   params.set("id", `eq.${id}`);
@@ -72,7 +78,7 @@ export default function EditWishPage() {
       router.push("/my-wishlist");
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to delete wish."
+        error instanceof Error ? error.message : "Failed to remove wish."
       );
     }
   }
@@ -113,7 +119,7 @@ export default function EditWishPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Wish History</h1>
             <p className="text-muted-foreground">
-              Fulfilled wishes are read-only.
+              Closed wishes are read-only.
             </p>
           </div>
         </div>
@@ -122,19 +128,29 @@ export default function EditWishPage() {
           <CardHeader>
             <CardTitle>{want.book?.title ?? "Wish"}</CardTitle>
             <CardDescription>
-              This transfer has been recorded and kept as history.
+              This wish has been closed and kept as history.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p>
               <span className="font-medium">Status:</span>{" "}
-              {want.status === "fulfilled" ? "Fulfilled" : "Cancelled"}
+              {want.status === "fulfilled" ? "Fulfilled" : "Removed"}
             </p>
             <p>
               <span className="font-medium">Recorded:</span>{" "}
-              {want.fulfilled_at
-                ? new Date(want.fulfilled_at).toLocaleDateString()
+              {want.closed_at ?? want.fulfilled_at
+                ? new Date(
+                    want.closed_at ?? want.fulfilled_at ?? want.updated_at
+                  ).toLocaleDateString()
                 : "—"}
+            </p>
+            <p>
+              <span className="font-medium">Reason:</span>{" "}
+              {want.closure_reason
+                ? closureReasonLabels[want.closure_reason]
+                : want.status === "fulfilled"
+                  ? "Closed after receiving a copy"
+                  : "Removed"}
             </p>
             <p>
               <span className="font-medium">Note:</span>{" "}
@@ -193,7 +209,7 @@ export default function EditWishPage() {
               onClick={handleDelete}
               disabled={deleteWant.isPending || updateWant.isPending}
             >
-              {deleteWant.isPending ? "Deleting..." : "Delete Wish"}
+              {deleteWant.isPending ? "Removing..." : "Remove Wish"}
             </Button>
             <Button
               variant="outline"

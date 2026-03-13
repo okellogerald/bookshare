@@ -14,8 +14,8 @@ import {
   memberProfiles,
   wants,
 } from "@bookshare/db";
-import { WorkflowTopic } from "@bookshare/shared";
-import { eq, and, isNull, or } from "drizzle-orm";
+import { WishClosureReason, WorkflowTopic } from "@bookshare/shared";
+import { eq, and, isNull } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
 import { WorkflowEventsService } from "../workflow-events/workflow-events.service";
 import {
@@ -219,13 +219,7 @@ export class CopiesService {
       }
     }
 
-    const matchingWantCondition = and(
-      eq(wants.bookId, existing.edition.book.id),
-      or(
-        eq(wants.editionId, existing.edition.id),
-        isNull(wants.editionId)
-      )
-    );
+    const matchingWantCondition = eq(wants.bookId, existing.edition.book.id);
 
     if (shouldValidateActiveWant && counterpartyUserId) {
       const activeWant = await this.db.query.wants.findFirst({
@@ -356,6 +350,11 @@ export class CopiesService {
           .update(wants)
           .set({
             status: "fulfilled",
+            closureReason:
+              toStatus === "lent"
+                ? WishClosureReason.MATCHED_MEMBER_LENT
+                : WishClosureReason.MATCHED_MEMBER_GONE,
+            closedAt: now,
             fulfilledAt: now,
             fulfilledByCopyId: id,
             fulfilledByUserId: userId,

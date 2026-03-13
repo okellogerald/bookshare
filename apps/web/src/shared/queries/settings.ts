@@ -1,17 +1,7 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ProfileResponse } from "@/shared/api";
+import { useMutation } from "@tanstack/react-query";
 import { nestjsFetch } from "./fetch";
-
-interface ChangeEmailBody {
-  email: string;
-}
-
-interface ChangePasswordBody {
-  oldPassword: string;
-  newPassword: string;
-}
 
 interface DeactivateAccountBody {
   confirmation: "DEACTIVATE";
@@ -31,26 +21,6 @@ interface DeactivateAccountResponse {
 
 interface DeleteAccountResponse {
   deleted: boolean;
-}
-
-export function useChangeMyEmail() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (body: ChangeEmailBody) =>
-      nestjsFetch<ProfileResponse>("profiles/me/email", "PUT", body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["community-members"] });
-    },
-  });
-}
-
-export function useChangeMyPassword() {
-  return useMutation({
-    mutationFn: (body: ChangePasswordBody) =>
-      nestjsFetch<{ updated: boolean }>("profiles/me/password", "PUT", body),
-  });
 }
 
 export function useDeactivateMyAccount() {

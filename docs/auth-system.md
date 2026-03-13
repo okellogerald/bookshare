@@ -130,6 +130,8 @@ All cookies use `sameSite: "lax"` and `secure: true` in production.
 
 Registration is a multi-step process: email entry, code verification, password setup, and profile completion. It spans Kratos flows and ends with an OAuth2 login to obtain tokens.
 
+For live local traces of both the current code-based registration path and the raw Kratos password-based registration path, see [kratos-registration-traces.md](./kratos-registration-traces.md).
+
 ### Detailed Steps
 
 ```
@@ -237,6 +239,8 @@ The Auth Portal middleware (`apps/auth/src/middleware.ts`) handles a specific pr
 ### Overview
 
 Login uses OAuth 2.0 Authorization Code flow with PKCE and DPoP. The Web App initiates the flow, Hydra delegates to the Auth Portal, which checks for a Kratos session and handles credential entry if needed.
+
+For live local traces of the current password login path and the raw Kratos code-login path, see [kratos-login-traces.md](./kratos-login-traces.md).
 
 ### Detailed Steps
 
@@ -562,6 +566,8 @@ Three sessions invalidated:
 ### Overview
 
 Password recovery uses Kratos code-based recovery. The user requests a reset, receives a code via email, and sets a new password.
+
+For a live local trace of the recovery flow, the recovery-created settings flow, and the password credential update, see [kratos-recovery-traces.md](./kratos-recovery-traces.md).
 
 ### Detailed Steps
 

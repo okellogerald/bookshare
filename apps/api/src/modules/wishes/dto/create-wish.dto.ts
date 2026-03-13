@@ -8,11 +8,6 @@ export class CreateWishDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
-  editionId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
   notes?: string;
 }

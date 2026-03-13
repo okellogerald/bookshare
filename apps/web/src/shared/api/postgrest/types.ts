@@ -115,15 +115,14 @@ export interface PgCollection {
 
 export interface PgMemberProfile {
   user_id: string;
-  username: string;
-  display_name: string;
+  email: string;
   first_name: string | null;
   last_name: string | null;
-  nickname: string | null;
   gender: string | null;
-  city_area: string | null;
-  contact_handle: string | null;
+  location: string | null;
+  contact_notes: string | null;
   avatar_url: string | null;
+  deactivated_at: string | null;
   identity_updated_at: string;
   created_at: string;
   updated_at: string;
@@ -204,10 +203,10 @@ export interface PgBrowseListing {
   book_subtitle: string | null;
   edition_description: string | null;
   book_language: string;
-  owner_username: string | null;
-  owner_display_name: string | null;
-  borrower_username: string | null;
-  borrower_display_name: string | null;
+  owner_first_name: string | null;
+  owner_last_name: string | null;
+  borrower_first_name: string | null;
+  borrower_last_name: string | null;
   primary_image_url: string | null;
   authors: Array<{ id: string; name: string }>;
 }
@@ -224,6 +223,12 @@ export interface PgWish {
   edition_id: string | null;
   notes: string | null;
   status: "active" | "fulfilled" | "cancelled";
+  closure_reason:
+    | "removed_by_wisher"
+    | "matched_member_lent"
+    | "matched_member_gone"
+    | null;
+  closed_at: string | null;
   fulfilled_at: string | null;
   fulfilled_by_copy_id: string | null;
   fulfilled_by_user_id: string | null;
@@ -253,8 +258,10 @@ export interface PgBrowseWish {
   authors: Array<{ id: string; name: string }>;
   wishers: Array<{
     user_id: string;
-    username: string | null;
-    display_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    location: string | null;
+    contact_notes: string | null;
     avatar_url: string | null;
     notes: string | null;
     created_at: string;
@@ -268,12 +275,12 @@ export interface PgFulfilledWishHistory {
   wish_id: string;
   want_id: string;
   recipient_user_id: string;
-  recipient_username: string | null;
-  recipient_display_name: string | null;
+  recipient_first_name: string | null;
+  recipient_last_name: string | null;
   recipient_avatar_url: string | null;
   fulfiller_user_id: string | null;
-  fulfiller_username: string | null;
-  fulfiller_display_name: string | null;
+  fulfiller_first_name: string | null;
+  fulfiller_last_name: string | null;
   fulfiller_avatar_url: string | null;
   book_id: string;
   book_title: string;

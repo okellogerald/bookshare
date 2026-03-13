@@ -6,13 +6,13 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  cityArea?: string;
+  location?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  contactHandle?: string;
+  contactNotes?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

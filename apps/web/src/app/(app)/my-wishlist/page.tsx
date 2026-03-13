@@ -2,10 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { PgFulfilledWantHistory, PgWantWithBook } from "@/shared/api";
+import type { PgWantWithBook } from "@/shared/api";
 import { Button } from "@/shared/components/ui/button";
-import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
+import { WishlistBookDialog } from "@/shared/components/wishlist-book-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import {
   Table,
   TableBody,
@@ -22,16 +29,20 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { Badge } from "@/shared/components/ui/badge";
 import { MoreHorizontal, Plus } from "lucide-react";
-import { useCurrentUser } from "@/shared/providers/user-provider";
 import {
   useMyWants,
   useConfirmWant,
   useDeleteWant,
-  useFulfilledWantsHistory,
 } from "@/shared/queries/my-wishlist";
-import { FulfilledHistoryCard } from "./fulfilled-history-card";
 
 const pageSize = 24;
+
+type ActiveWishSortOption =
+  | "created_desc"
+  | "created_asc"
+  | "title_asc"
+  | "title_desc"
+  | "confirmed_desc";
 
 function isStale(lastConfirmedAt: string | null): boolean {
   if (!lastConfirmedAt) return false;
@@ -40,56 +51,55 @@ function isStale(lastConfirmedAt: string | null): boolean {
 }
 
 export default function MyWishlistPage() {
-  const currentUser = useCurrentUser();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedWant, setSelectedWant] = useState<PgWantWithBook | null>(null);
-  const [selectedHistory, setSelectedHistory] =
-    useState<PgFulfilledWantHistory | null>(null);
+  const [activeSort, setActiveSort] =
+    useState<ActiveWishSortOption>("created_desc");
   const [activePage, setActivePage] = useState(1);
-  const [receivedPage, setReceivedPage] = useState(1);
-  const [givenPage, setGivenPage] = useState(1);
 
   const { data: wants, isLoading } = useMyWants();
-  const { data: fulfilledHistory, isLoading: historyLoading } =
-    useFulfilledWantsHistory();
   const confirmWant = useConfirmWant();
   const deleteWant = useDeleteWant();
-  const activeWants = (wants ?? []).filter((want) => want.status === "active");
-  const receivedHistory = useMemo(
-    () =>
-      (fulfilledHistory ?? []).filter(
-        (entry) => entry.recipient_user_id === currentUser?.id
-      ),
-    [currentUser?.id, fulfilledHistory]
-  );
-  const givenHistory = useMemo(
-    () =>
-      (fulfilledHistory ?? []).filter(
-        (entry) => entry.fulfiller_user_id === currentUser?.id
-      ),
-    [currentUser?.id, fulfilledHistory]
-  );
+
+  const activeWants = useMemo(() => {
+    const items = [...(wants ?? [])];
+    items.sort((left, right) => {
+      switch (activeSort) {
+        case "created_asc":
+          return left.created_at.localeCompare(right.created_at);
+        case "title_asc":
+          return (
+            (left.book?.title ?? left.book_id).localeCompare(
+              right.book?.title ?? right.book_id,
+              undefined,
+              { sensitivity: "base" }
+            ) || right.created_at.localeCompare(left.created_at)
+          );
+        case "title_desc":
+          return (
+            (right.book?.title ?? right.book_id).localeCompare(
+              left.book?.title ?? left.book_id,
+              undefined,
+              { sensitivity: "base" }
+            ) || right.created_at.localeCompare(left.created_at)
+          );
+        case "confirmed_desc":
+          return (right.last_confirmed_at ?? right.created_at).localeCompare(
+            left.last_confirmed_at ?? left.created_at
+          );
+        case "created_desc":
+        default:
+          return right.created_at.localeCompare(left.created_at);
+      }
+    });
+    return items;
+  }, [activeSort, wants]);
+
   const activeTotalPages = Math.max(1, Math.ceil(activeWants.length / pageSize));
-  const receivedTotalPages = Math.max(
-    1,
-    Math.ceil(receivedHistory.length / pageSize)
-  );
-  const givenTotalPages = Math.max(
-    1,
-    Math.ceil(givenHistory.length / pageSize)
-  );
   const pagedActiveWants = useMemo(() => {
     const start = (activePage - 1) * pageSize;
     return activeWants.slice(start, start + pageSize);
   }, [activePage, activeWants]);
-  const pagedReceivedHistory = useMemo(() => {
-    const start = (receivedPage - 1) * pageSize;
-    return receivedHistory.slice(start, start + pageSize);
-  }, [receivedHistory, receivedPage]);
-  const pagedGivenHistory = useMemo(() => {
-    const start = (givenPage - 1) * pageSize;
-    return givenHistory.slice(start, start + pageSize);
-  }, [givenHistory, givenPage]);
 
   useEffect(() => {
     if (activePage > activeTotalPages) {
@@ -98,26 +108,11 @@ export default function MyWishlistPage() {
   }, [activePage, activeTotalPages]);
 
   useEffect(() => {
-    if (receivedPage > receivedTotalPages) {
-      setReceivedPage(receivedTotalPages);
-    }
-  }, [receivedPage, receivedTotalPages]);
-
-  useEffect(() => {
-    if (givenPage > givenTotalPages) {
-      setGivenPage(givenTotalPages);
-    }
-  }, [givenPage, givenTotalPages]);
+    setActivePage(1);
+  }, [activeSort]);
 
   function handleOpenBookDetails(want: PgWantWithBook) {
     setSelectedWant(want);
-    setSelectedHistory(null);
-    setDialogOpen(true);
-  }
-
-  function handleOpenHistoryDetails(entry: PgFulfilledWantHistory) {
-    setSelectedWant(null);
-    setSelectedHistory(entry);
     setDialogOpen(true);
   }
 
@@ -138,221 +133,120 @@ export default function MyWishlistPage() {
         </Link>
       </div>
 
-      {isLoading || historyLoading ? (
+      {isLoading ? (
         <p className="text-muted-foreground">Loading...</p>
-      ) : !activeWants.length && !receivedHistory.length && !givenHistory.length ? (
-        <p className="text-muted-foreground">
-          No wishlist history yet.
-        </p>
+      ) : !activeWants.length ? (
+        <p className="text-muted-foreground">No wishes yet.</p>
       ) : (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold">Active Wishes</h2>
-            {!activeWants.length ? (
-              <p className="text-sm text-muted-foreground">No active wishes.</p>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Book</TableHead>
-                      <TableHead>Edition Preference</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="w-[50px]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pagedActiveWants.map((want) => {
-                      const stale = isStale(want.last_confirmed_at);
-                      return (
-                        <TableRow key={want.id}>
-                        <TableCell className="font-medium">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenBookDetails(want)}
-                            className="text-left underline-offset-4 hover:underline"
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Wishes</h2>
+            <Select
+              value={activeSort}
+              onValueChange={(value) => setActiveSort(value as ActiveWishSortOption)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_desc">Newest added</SelectItem>
+                <SelectItem value="created_asc">Oldest added</SelectItem>
+                <SelectItem value="confirmed_desc">Recently confirmed</SelectItem>
+                <SelectItem value="title_asc">Title A-Z</SelectItem>
+                <SelectItem value="title_desc">Title Z-A</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Book</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="w-[50px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagedActiveWants.map((want) => {
+                const stale = isStale(want.last_confirmed_at);
+                return (
+                  <TableRow key={want.id}>
+                    <TableCell className="font-medium">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBookDetails(want)}
+                        className="text-left underline-offset-4 hover:underline"
+                      >
+                        {want.book?.title ?? want.book_id}
+                      </button>
+                      {want.book?.subtitle && (
+                        <p className="text-xs text-muted-foreground">
+                          {want.book.subtitle}
+                        </p>
+                      )}
+                      {stale && (
+                        <Badge
+                          variant="outline"
+                          className="mt-2 border-amber-600 text-amber-600"
+                        >
+                          Needs confirmation
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[240px] truncate">
+                      {want.notes || "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(want.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/my-wishlist/${want.id}/edit`}>
+                              Edit Wish
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => confirmWant.mutate(want.id)}
                           >
-                            {want.book?.title ?? want.book_id}
-                          </button>
-                          {want.book?.subtitle && (
-                            <p className="text-xs text-muted-foreground">
-                              {want.book.subtitle}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {want.edition_id ? (
-                            <Badge variant="outline">Edition specific</Badge>
-                          ) : (
-                            <Badge variant="secondary">Edition agnostic</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
-                          {want.notes || "—"}
-                        </TableCell>
-                        <TableCell>
-                          {stale ? (
-                            <Badge
-                              variant="outline"
-                              className="border-amber-600 text-amber-600"
-                            >
-                              Stale
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">Active</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(want.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/my-wishlist/${want.id}/edit`}>
-                                  Edit Wish
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => confirmWant.mutate(want.id)}
-                              >
-                                Confirm Still Looking
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => deleteWant.mutate(want.id)}
-                              >
-                                Remove
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                <PaginationControls
-                  page={activePage}
-                  pageSize={pageSize}
-                  totalItems={activeWants.length}
-                  onPageChange={setActivePage}
-                />
-              </>
-            )}
-          </div>
+                            Confirm Still Looking
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => deleteWant.mutate(want.id)}
+                          >
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
 
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold">Books I Received</h2>
-            {!receivedHistory.length ? (
-              <p className="text-sm text-muted-foreground">
-                No received history yet.
-              </p>
-            ) : (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {pagedReceivedHistory.map((entry) => (
-                    <FulfilledHistoryCard
-                      key={entry.want_id}
-                      entry={entry}
-                      perspective="received"
-                      onOpenDetails={handleOpenHistoryDetails}
-                    />
-                  ))}
-                </div>
-                <PaginationControls
-                  page={receivedPage}
-                  pageSize={pageSize}
-                  totalItems={receivedHistory.length}
-                  onPageChange={setReceivedPage}
-                />
-              </>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold">Wants I Fulfilled</h2>
-            {!givenHistory.length ? (
-              <p className="text-sm text-muted-foreground">
-                No fulfiller history yet.
-              </p>
-            ) : (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {pagedGivenHistory.map((entry) => (
-                    <FulfilledHistoryCard
-                      key={entry.want_id}
-                      entry={entry}
-                      perspective="given"
-                      onOpenDetails={handleOpenHistoryDetails}
-                    />
-                  ))}
-                </div>
-                <PaginationControls
-                  page={givenPage}
-                  pageSize={pageSize}
-                  totalItems={givenHistory.length}
-                  onPageChange={setGivenPage}
-                />
-              </>
-            )}
-          </div>
+          <PaginationControls
+            page={activePage}
+            pageSize={pageSize}
+            totalItems={activeWants.length}
+            onPageChange={setActivePage}
+          />
         </div>
       )}
 
-      <BookDetailsDialog
+      <WishlistBookDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        bookId={selectedWant?.book_id ?? selectedHistory?.book_id ?? null}
-        focusEditionId={
-          selectedHistory?.fulfilled_edition_id ??
-          selectedHistory?.wanted_edition_id ??
-          null
-        }
-        fallbackTitle={
-          selectedWant?.book?.title ??
-          selectedHistory?.book_title ??
-          selectedWant?.book_id
-        }
-        fallbackSubtitle={selectedWant?.book?.subtitle ?? selectedHistory?.book_subtitle}
-        preferredImageUrl={
-          selectedHistory?.fulfilled_edition_cover_image_url ??
-          selectedHistory?.wanted_edition_cover_image_url
-        }
-      >
-        {selectedWant?.notes && (
-          <div className="rounded-md border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Your note
-            </p>
-            <p className="mt-1 text-sm">{selectedWant.notes}</p>
-          </div>
-        )}
-        {selectedHistory && (
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Exchange History
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Wanter note:</span>{" "}
-              {selectedHistory.wanter_notes || "No note provided."}
-            </p>
-            {selectedHistory.fulfillment_notes && (
-              <p className="text-sm">
-                <span className="font-medium">Recorded note:</span>{" "}
-                {selectedHistory.fulfillment_notes}
-              </p>
-            )}
-          </div>
-        )}
-      </BookDetailsDialog>
+        want={selectedWant}
+      />
     </div>
   );
 }

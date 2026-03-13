@@ -463,7 +463,6 @@ export const categoriesContract = c.router({
 // Wishes
 export interface CreateWishBody {
   bookId: string;
-  editionId?: string;
   notes?: string;
 }
 
@@ -491,9 +490,14 @@ export interface WishResponse {
   id: string;
   userId: string;
   bookId: string;
-  editionId: string | null;
   notes: string | null;
   status: "active" | "fulfilled" | "cancelled";
+  closureReason:
+    | "removed_by_wisher"
+    | "matched_member_lent"
+    | "matched_member_gone"
+    | null;
+  closedAt: string | null;
   fulfilledAt: string | null;
   fulfilledByCopyId: string | null;
   fulfilledByUserId: string | null;
@@ -568,15 +572,12 @@ export interface SubmissionResponse {
 
 export interface ProfileResponse {
   userId: string;
-  username: string;
   email: string;
-  displayName: string;
   firstName: string | null;
   lastName: string | null;
-  nickname: string | null;
   gender: string | null;
-  cityArea: string | null;
-  contactHandle: string | null;
+  location: string | null;
+  contactNotes: string | null;
   avatarUrl: string | null;
   deactivatedAt?: string | null;
   identityUpdatedAt: string;
@@ -585,8 +586,8 @@ export interface ProfileResponse {
 }
 
 export interface UpdateProfileBody {
-  cityArea?: string;
-  contactHandle?: string;
+  location?: string;
+  contactNotes?: string;
   avatarUrl?: string | null;
 }
 
@@ -596,7 +597,6 @@ export type IdentityGender =
   | "GENDER_MALE";
 
 export interface UpdateProfileIdentityBody {
-  username?: string;
   firstName?: string;
   lastName?: string;
   gender?: IdentityGender;

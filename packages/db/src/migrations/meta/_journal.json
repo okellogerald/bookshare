@@ -113,6 +113,20 @@
       "when": 1773308937414,
       "tag": "0015_peaceful_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773384971000,
+      "tag": "0016_member_profiles_identity_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1773388800000,
+      "tag": "0017_wish_closure_tracking",
+      "breakpoints": true
     }
   ]
 }

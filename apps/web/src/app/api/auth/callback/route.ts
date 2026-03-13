@@ -7,6 +7,7 @@ import {
   generateDPoPKeyPair,
   exportPrivateKeyJwk,
   createDPoPProof,
+  tokenHasDpopBinding,
 } from "@/features/auth/lib/dpop";
 
 const API_URL =
@@ -76,6 +77,8 @@ export async function GET(request: NextRequest) {
 
     const claims = tokens.claims()!;
     const emailVerified = toBoolean(claims.email_verified);
+    const accessTokenIsDpopBound =
+      !!tokens.access_token && tokenHasDpopBinding(tokens.access_token);
 
     const encryptedReturnTo = request.cookies.get("oidc_return_to")?.value;
     let returnToRaw: string | null = null;
@@ -102,7 +105,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Serialize DPoP private key for session storage
-    const dpopJwk = await exportPrivateKeyJwk(dpopKeyPair);
+    const dpopJwk = accessTokenIsDpopBound
+      ? await exportPrivateKeyJwk(dpopKeyPair)
+      : undefined;
+
+    if (tokens.access_token && !accessTokenIsDpopBound) {
+      console.warn(
+        "OIDC token response did not include cnf.jkt; falling back to Bearer for API requests."
+      );
+    }
 
     await setSession({
       idToken: tokens.id_token,
@@ -124,10 +135,13 @@ export async function GET(request: NextRequest) {
         const syncUrl = `${API_URL}/profiles/sync`;
         const headers: Record<string, string> = {};
 
-        // Use DPoP auth scheme with proof header
-        const dpopProof = await createDPoPProof(dpopJwk, "POST", syncUrl, apiToken);
-        headers["Authorization"] = `DPoP ${apiToken}`;
-        headers["DPoP"] = dpopProof;
+        if (dpopJwk && tokenHasDpopBinding(apiToken)) {
+          const dpopProof = await createDPoPProof(dpopJwk, "POST", syncUrl, apiToken);
+          headers["Authorization"] = `DPoP ${apiToken}`;
+          headers["DPoP"] = dpopProof;
+        } else {
+          headers["Authorization"] = `Bearer ${apiToken}`;
+        }
 
         if (tokens.access_token) {
           headers["x-auth-access-token"] = tokens.access_token;

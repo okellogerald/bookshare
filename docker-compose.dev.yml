@@ -249,6 +249,7 @@ services:
       OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
       OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
       OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-/userinfo}
+      KRATOS_ADMIN_URL: ${KRATOS_ADMIN_URL:-http://kratos:4434}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bookshare}

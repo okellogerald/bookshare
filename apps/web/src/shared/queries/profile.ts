@@ -6,7 +6,6 @@ import type {
   ProfileAvatarPresignResponse,
   ProfileResponse,
   UpdateProfileBody,
-  UpdateProfileIdentityBody,
 } from "@/shared/api";
 import { nestjsFetch } from "./fetch";
 
@@ -27,18 +26,6 @@ export function useUpdateMyProfile() {
   return useMutation({
     mutationFn: (body: UpdateProfileBody) =>
       nestjsFetch<ProfileResponse>("profiles/me", "PUT", body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-profile"] });
-      queryClient.invalidateQueries({ queryKey: ["community-members"] });
-    },
-  });
-}
-
-export function useUpdateMyIdentity() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: UpdateProfileIdentityBody) =>
-      nestjsFetch<ProfileResponse>("profiles/me/identity", "PUT", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
       queryClient.invalidateQueries({ queryKey: ["community-members"] });

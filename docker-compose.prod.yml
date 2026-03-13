@@ -84,7 +84,7 @@ services:
     environment:
       PORT: 3335
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bookshare
-      SERVICE_VERSION: ${SERVICE_VERSION:-0.1.1}
+      SERVICE_VERSION: ${SERVICE_VERSION:-0.1.2}
     volumes:
       - workflows_state:/app/apps/workflows/data
     depends_on:

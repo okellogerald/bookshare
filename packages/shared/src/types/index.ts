@@ -10,6 +10,7 @@ import type {
   CopyLoanType,
   CounterpartyType,
   ShareType,
+  WishClosureReason,
   WishStatus,
 } from "../constants/enums";
 
@@ -128,9 +129,10 @@ export interface Wish {
   id: string;
   userId: string;
   bookId: string;
-  editionId: string | null;
   notes: string | null;
   status: WishStatus;
+  closureReason: WishClosureReason | null;
+  closedAt: Date | null;
   fulfilledAt: Date | null;
   fulfilledByCopyId: string | null;
   fulfilledByUserId: string | null;
@@ -197,11 +199,10 @@ export interface NotificationEditionSnapshot extends Record<string, unknown> {
 
 export interface NotificationMemberSnapshot extends Record<string, unknown> {
   userId: string;
-  username: string | null;
-  displayName: string;
   firstName: string | null;
-  cityArea: string | null;
-  contactHandle: string | null;
+  lastName: string | null;
+  location: string | null;
+  contactNotes: string | null;
   avatarUrl: string | null;
   profilePath: string | null;
 }
@@ -218,7 +219,6 @@ export interface NotificationCopySnapshot extends Record<string, unknown> {
 export interface NotificationWishSnapshot extends Record<string, unknown> {
   wishId: string;
   notes: string | null;
-  requestedEdition: NotificationEditionSnapshot | null;
 }
 
 export interface CopyAvailableNotificationMetadata extends Record<string, unknown> {

@@ -32,15 +32,18 @@ interface User {
   id: string;
   email?: string;
   name?: string;
-  username?: string;
   emailVerified?: boolean;
 }
 
 const navItems = [
   { href: "/browse", label: "Browse", icon: Search },
-  { href: "/community-wishlist", label: "Community Wishlist", icon: Heart },
-  { href: "/community", label: "Community", icon: Users },
+  { href: "/community-wishlist", label: "Requests", icon: Heart },
+  { href: "/community", label: "Members", icon: Users },
 ];
+
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 function getInitials(value: string): string {
   const words = value
@@ -86,10 +89,8 @@ export function AppShellClient({
     .join(" ")
     .trim();
   const displayName = profileFullName || user?.name?.trim() || "";
-  const effectiveUsername = myProfile?.username ?? user?.username ?? "";
   const avatarLabel =
     displayName ||
-    effectiveUsername ||
     user?.email?.trim() ||
     "U";
   const avatarUrl = myProfile?.avatarUrl?.trim() || null;
@@ -111,7 +112,7 @@ export function AppShellClient({
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-2 pt-4">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = isActivePath(pathname, item.href);
             return (
               <Link key={item.href} href={item.href}>
                 <Button
@@ -207,7 +208,7 @@ export function AppShellClient({
                       </span>
                     )}
                     <span className="hidden sm:inline">
-                      {effectiveUsername ? `@${effectiveUsername}` : "Account"}
+                      {displayName || "Account"}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>

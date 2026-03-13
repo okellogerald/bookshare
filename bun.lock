@@ -7,7 +7,7 @@
     },
     "apps/api": {
       "name": "@bookshare/api",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.758.0",
         "@aws-sdk/s3-request-presigner": "^3.758.0",
@@ -44,7 +44,7 @@
     },
     "apps/auth": {
       "name": "@bookshare/auth",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@radix-ui/react-checkbox": "^1.3.3",
         "@radix-ui/react-label": "^2.1.7",
@@ -71,7 +71,7 @@
     },
     "apps/web": {
       "name": "@bookshare/web",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@bookshare/shared": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.4",
@@ -104,7 +104,7 @@
     },
     "apps/workflows": {
       "name": "@bookshare/workflows",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@bookshare/db": "workspace:*",
         "@bookshare/shared": "workspace:*",
@@ -118,7 +118,7 @@
     },
     "packages/db": {
       "name": "@bookshare/db",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@bookshare/shared": "workspace:*",
         "drizzle-orm": "^0.38.0",
@@ -132,7 +132,7 @@
     },
     "packages/importer": {
       "name": "@bookshare/importer",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.734.0",
         "@bookshare/db": "workspace:*",
@@ -149,7 +149,7 @@
     },
     "packages/shared": {
       "name": "@bookshare/shared",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "devDependencies": {
         "typescript": "^5.7.0",
       },

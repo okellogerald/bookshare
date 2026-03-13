@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { BookDetailsDialog } from "@/shared/components/book-details-dialog";
+import { BrowseBookDialog } from "@/shared/components/browse-book-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -26,6 +26,12 @@ import { useCurrentUser } from "@/shared/providers/user-provider";
 import { ListingCard } from "./listing-card";
 
 const pageSize = 24;
+type BrowseSortOption =
+  | "listed_desc"
+  | "title_asc"
+  | "title_desc"
+  | "copies_desc"
+  | "confirmed_desc";
 
 function getCategoryDisplayName(name: string) {
   const segments = name
@@ -35,12 +41,17 @@ function getCategoryDisplayName(name: string) {
   return segments[segments.length - 1] ?? name.trim();
 }
 
+function getListingFreshnessValue(listing: BrowseEditionListing) {
+  return listing.last_confirmed_at ?? listing.created_at;
+}
+
 export default function BrowsePage() {
   const [search, setSearch] = useState("");
   const [shareType, setShareType] = useState<string>("");
   const [condition, setCondition] = useState<string>("");
   const [format, setFormat] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<BrowseSortOption>("listed_desc");
   const [includeOwnListings, setIncludeOwnListings] = useState(false);
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -140,16 +151,50 @@ export default function BrowsePage() {
       return false;
     });
   }, [browseBookCategoryIndex, ownershipFilteredListings, selectedCategoryIds]);
+  const sortedListings = useMemo(() => {
+    const items = [...filteredListings];
+    items.sort((left, right) => {
+      switch (sortBy) {
+        case "title_asc":
+          return (
+            left.book_title.localeCompare(right.book_title, undefined, {
+              sensitivity: "base",
+            }) || right.created_at.localeCompare(left.created_at)
+          );
+        case "title_desc":
+          return (
+            right.book_title.localeCompare(left.book_title, undefined, {
+              sensitivity: "base",
+            }) || right.created_at.localeCompare(left.created_at)
+          );
+        case "copies_desc":
+          return (
+            right.copy_count - left.copy_count ||
+            left.book_title.localeCompare(right.book_title, undefined, {
+              sensitivity: "base",
+            })
+          );
+        case "confirmed_desc":
+          return getListingFreshnessValue(right).localeCompare(
+            getListingFreshnessValue(left)
+          );
+        case "listed_desc":
+        default:
+          return right.created_at.localeCompare(left.created_at);
+      }
+    });
+    return items;
+  }, [filteredListings, sortBy]);
   const isLoadingListings = isLoading || (Boolean(categoryId) && browseBookCategoryIndexLoading);
-  const totalPages = Math.max(1, Math.ceil(filteredListings.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedListings.length / pageSize));
   const pagedListings = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return filteredListings.slice(start, start + pageSize);
-  }, [filteredListings, page]);
+    return sortedListings.slice(start, start + pageSize);
+  }, [page, sortedListings]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, shareType, condition, format, categoryId, includeOwnListings]);
+  }, [search, shareType, condition, format, categoryId, includeOwnListings, sortBy]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -193,7 +238,6 @@ export default function BrowsePage() {
     createWant.mutate(
       {
         bookId: selectedListing.book_id,
-        editionId: selectedListing.edition_id,
       },
       {
         onSuccess: () => {
@@ -316,6 +360,21 @@ export default function BrowsePage() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={sortBy}
+          onValueChange={(value) => setSortBy(value as BrowseSortOption)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="listed_desc">Newest listings</SelectItem>
+            <SelectItem value="confirmed_desc">Recently confirmed</SelectItem>
+            <SelectItem value="copies_desc">Most copies</SelectItem>
+            <SelectItem value="title_asc">Title A-Z</SelectItem>
+            <SelectItem value="title_desc">Title Z-A</SelectItem>
+          </SelectContent>
+        </Select>
         {isAuthenticated ? (
           <Button
             variant={includeOwnListings ? "secondary" : "outline"}
@@ -336,7 +395,7 @@ export default function BrowsePage() {
             />
           ))}
         </div>
-      ) : filteredListings.length > 0 ? (
+      ) : sortedListings.length > 0 ? (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pagedListings.map((listing) => (
@@ -350,7 +409,7 @@ export default function BrowsePage() {
           <PaginationControls
             page={page}
             pageSize={pageSize}
-            totalItems={filteredListings.length}
+            totalItems={sortedListings.length}
             onPageChange={setPage}
           />
         </>
@@ -360,65 +419,20 @@ export default function BrowsePage() {
         </div>
       )}
 
-      <BookDetailsDialog
+      <BrowseBookDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        bookId={selectedListing?.book_id ?? null}
-        focusEditionId={selectedListing?.edition_id ?? null}
-        fallbackTitle={selectedListing?.book_title}
-        fallbackSubtitle={selectedListing?.book_subtitle}
-        preferredImageUrl={selectedListing?.cover_image_url}
-        footer={
-          <div className="w-full space-y-1">
-            {!isAuthenticated ? (
-              <Button asChild>
-                <Link href="/api/auth/login?returnTo=/browse">
-                  Sign In to Add to Wants
-                </Link>
-              </Button>
-            ) : alreadyInMyWants ? (
-              <Button
-                variant="outline"
-                onClick={handleRemoveInterest}
-                disabled={
-                  !selectedListing ||
-                  !selectedActiveWantId ||
-                  myWantsLoading ||
-                  deleteWant.isPending
-                }
-              >
-                {myWantsLoading
-                  ? "Checking..."
-                  : deleteWant.isPending
-                    ? "Removing..."
-                    : "Remove Interest"}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleAddToWants}
-                disabled={
-                  !selectedListing ||
-                  myWantsLoading ||
-                  activeOwnedBooksLoading ||
-                  alreadyInMyWants ||
-                  alreadyInMyLibrary ||
-                  createWant.isPending
-                }
-              >
-                {myWantsLoading || activeOwnedBooksLoading
-                  ? "Checking..."
-                  : alreadyInMyLibrary
-                  ? "Already in My Library"
-                  : createWant.isPending
-                    ? "Adding..."
-                    : "Add to My Wishlist"}
-              </Button>
-            )}
-            {addWantError && (
-              <p className="text-xs text-destructive">{addWantError}</p>
-            )}
-          </div>
-        }
+        listing={selectedListing}
+        isAuthenticated={isAuthenticated}
+        alreadyInMyWants={alreadyInMyWants}
+        alreadyInMyLibrary={alreadyInMyLibrary}
+        myWantsLoading={myWantsLoading}
+        activeOwnedBooksLoading={activeOwnedBooksLoading}
+        createWantPending={createWant.isPending}
+        deleteWantPending={deleteWant.isPending}
+        addWantError={addWantError}
+        onAddToWants={handleAddToWants}
+        onRemoveInterest={handleRemoveInterest}
       />
     </div>
   );

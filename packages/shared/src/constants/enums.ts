@@ -105,9 +105,24 @@ export const WishStatus = {
 
 export type WishStatus = (typeof WishStatus)[keyof typeof WishStatus];
 
+// ─── Wish Closure Reason ─────────────────────────────────────
+export const WishClosureReason = {
+  // Wisher removed it manually.
+  REMOVED_BY_WISHER: "removed_by_wisher",
+  // Closed after a member-to-member loan.
+  MATCHED_MEMBER_LENT: "matched_member_lent",
+  // Closed after a member received the copy permanently.
+  MATCHED_MEMBER_GONE: "matched_member_gone",
+} as const;
+
+export type WishClosureReason =
+  (typeof WishClosureReason)[keyof typeof WishClosureReason];
+
 // Temporary alias while downstream modules finish the rename.
 export const WantStatus = WishStatus;
 export type WantStatus = WishStatus;
+export const WantClosureReason = WishClosureReason;
+export type WantClosureReason = WishClosureReason;
 
 // ─── Notification Type ───────────────────────────────────────
 export const NotificationType = {
