@@ -1,64 +1,113 @@
 # RS256 JWT (JSON Web Token with RSA-SHA256)
 
-## What Is RS256 JWT?
+## What Is a JWT?
 
-RS256 is an asymmetric signing algorithm for JSON Web Tokens that uses RSA with SHA-256. The authorization server (Hydra) signs tokens with a **private key**, and resource servers (NestJS API, PostgREST) verify tokens with the corresponding **public key**.
+A JSON Web Token (JWT) is a compact, URL-safe format for representing claims between two parties. Despite what many developers assume, **JWTs are not encrypted**. They are **signed** — which means anyone can read their contents, but no one can modify them without detection.
 
-**Key distinction from symmetric algorithms (HS256)**:
-- **HS256**: Uses a single shared secret for both signing and verification. Every service that needs to verify tokens must have the secret — a single compromise exposes everything.
-- **RS256**: The private key (for signing) stays with the authorization server. Public keys (for verification) are freely distributed. Compromising a public key is harmless — it can only verify, not forge tokens.
+A JWT has three parts, separated by dots:
+
+```
+eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEyMyJ9.signature_bytes
+│                      │                            │
+│  Header (base64url)  │  Payload (base64url)       │  Signature
+│  {"alg":"RS256"}     │  {"sub":"user-123",...}     │  RSA-SHA256(header.payload)
+```
+
+Anyone can base64-decode the header and payload. There are no secrets there. The security comes entirely from the **signature** — proof that the token was created by a trusted authority (Hydra) and hasn't been modified since.
+
+### The Common Misconception
+
+Many developers treat JWTs as opaque, secure tokens. They are not. If you paste a BookShare access token into [jwt.io](https://jwt.io), you'll see the full payload: user ID, email, name, roles, expiration, DPoP key thumbprint. This is by design — JWTs are meant to carry readable claims. The signature ensures those claims are trustworthy, not secret.
+
+**When this matters**: Don't put genuinely secret information in JWT claims. User IDs, emails, and roles are fine — they're not secret from the user. But an API key, a password hash, or internal system identifiers should never appear in a JWT payload.
 
 ---
 
-## Attack Scenarios That RS256 JWT Addresses
+## What Is RS256?
+
+RS256 means RSA signature with SHA-256. It's an **asymmetric** signing algorithm:
+
+- **Private key** (held by Hydra): Used to create signatures. Must be kept secret.
+- **Public key** (published at JWKS endpoint): Used to verify signatures. Safe to share with everyone.
+
+This is fundamentally different from **symmetric** algorithms like HS256, where a single shared secret is used for both signing and verification.
+
+### Why Asymmetric Matters
+
+In a microservice architecture, every service that needs to verify tokens must be able to check signatures:
+
+**With HS256 (symmetric)**: Every verifying service needs the signing secret. The NestJS API needs it. PostgREST needs it. Any future service needs it. Each copy of the secret is a potential leak. If any service is compromised, the attacker can forge unlimited tokens for any user.
+
+**With RS256 (asymmetric)**: Only Hydra has the private key. Every other service has only the public key. If the NestJS API is compromised, the attacker gets a public key — which is already public. They cannot forge tokens. Only a compromise of Hydra itself would allow token forgery.
+
+This is why BookShare uses RS256: the number of services that can verify tokens can grow without increasing the signing key's exposure.
+
+---
+
+## Attack Scenarios
 
 ### 1. Token Forgery
-**The threat**: An attacker creates a fake JWT with arbitrary claims (e.g., admin role, different user ID) and sends it to the API.
 
-**How RS256 prevents it**: Without Hydra's private key, it is computationally infeasible to produce a valid RS256 signature. The API verifies every token's signature against Hydra's public key — forged tokens are rejected instantly.
+**The threat**: An attacker creates a fake JWT with arbitrary claims — admin role, different user ID, elevated permissions — and sends it to the API.
 
-### 2. Algorithm Confusion Attack
-**The threat**: An attacker changes the JWT header's `alg` from `RS256` to `HS256` and signs with the public key (which is freely available). If the server naively accepts the `alg` from the token, it would verify the HS256 signature using the public key as the shared secret.
+**Why RS256 prevents it**: Creating a valid RS256 signature requires Hydra's private RSA key. RSA's security is based on the difficulty of factoring large prime numbers. With a 2048-bit key (standard minimum), brute-forcing the private key would take longer than the age of the universe with current computing technology.
 
-**How BookShare prevents it**: The auth guard explicitly restricts algorithms to `["RS256"]` only:
+The API verifies every token's signature using Hydra's public key. A forged token produces an invalid signature and is rejected immediately.
+
+### 2. The Algorithm Confusion Attack (Historical, Famous)
+
+This is one of the most well-known JWT vulnerabilities.
+
+**How it works**: The attacker changes the JWT header's `alg` from `RS256` to `HS256`. Then they sign the token using the **public key** (which is freely available) as if it were an HS256 shared secret.
+
+If the server naively reads the `alg` field from the token and uses it to select the verification algorithm, it would:
+1. See `alg: HS256`
+2. Use the "secret" (which happens to be the public key) for HMAC verification
+3. The signature is valid because the attacker signed with the same "secret"
+4. The forged token is accepted
+
+**Why BookShare is immune**: The auth guard explicitly hardcodes the accepted algorithm:
 ```typescript
-jwt.verify(token, signingKey, {
-  issuer,
-  algorithms: ["RS256"], // Only RS256 accepted
-});
+algorithms: ["RS256"]  // Only RS256 — never trust the token's alg claim
 ```
-Any token with a different algorithm is rejected regardless of signature validity.
 
-### 3. Key Confusion (Wrong Key)
-**The threat**: An attacker issues tokens signed by a different key and attempts to trick the server into using the wrong public key for verification.
+Any token with a different algorithm in the header is rejected regardless of signature validity. The server never uses the token's `alg` claim to select the verification algorithm.
 
-**How BookShare prevents it**: JWT headers contain a `kid` (Key ID) field. The JWKS client looks up the specific key by its `kid` from Hydra's published JWKS endpoint. Only keys published by Hydra at `/.well-known/jwks.json` are trusted.
+### 3. The `none` Algorithm Attack (Historical)
 
-### 4. Expired Token Replay
-**The threat**: An attacker captures a valid token and replays it long after it should have expired.
+Early JWT libraries accepted `"alg": "none"` — a completely unsigned token. An attacker could create a JWT with any claims, set `alg` to `none`, omit the signature, and some libraries would accept it as valid.
 
-**How BookShare prevents it**: The `jsonwebtoken` library automatically validates the `exp` (expiration) claim. Expired tokens are rejected without reaching application code.
+This is prevented the same way as the algorithm confusion attack — by explicitly restricting to `["RS256"]`. The `none` algorithm is never accepted.
+
+### 4. Key Confusion (Wrong Key)
+
+**The threat**: An attacker sets up their own key server, publishes their own public key, and attempts to trick the API into using it for verification.
+
+**How BookShare prevents it**:
+- JWT headers contain a `kid` (Key ID) that identifies which key was used to sign the token
+- The JWKS client fetches keys **only** from Hydra's configured JWKS endpoint (`/.well-known/jwks.json`)
+- It looks up the key by `kid` — only keys published by Hydra are trusted
+- An attacker's key, even if it has the same `kid`, would only be accepted if they compromised the JWKS endpoint itself
 
 ### 5. Token Issued by Wrong Authority
-**The threat**: An attacker sets up their own authorization server, issues valid RS256 JWTs, and sends them to the API.
 
-**How BookShare prevents it**: The auth guard validates the `iss` (issuer) claim against the configured `OIDC_ISSUER`. Tokens from any other issuer are rejected:
-```typescript
-jwt.verify(token, signingKey, {
-  issuer, // Must match OIDC_ISSUER config
-  algorithms: ["RS256"],
-});
-```
+**The threat**: An attacker runs their own authorization server, issues valid RS256 JWTs signed with their own key, and sends them to BookShare's API.
 
-### 6. Shared Secret Compromise (HS256 Problem)
-**The threat with HS256**: If a shared secret is compromised (leaked in logs, config files, or via a vulnerability in any verifying service), an attacker can forge unlimited tokens.
+**How BookShare prevents it**: The auth guard validates the `iss` (issuer) claim against the configured `OIDC_ISSUER`. A token from `https://evil-auth.com` is rejected because the issuer doesn't match, regardless of whether the signature is cryptographically valid.
 
-**Why RS256 eliminates this**: Only Hydra holds the private key. The NestJS API, PostgREST, and any future services only need the public key — which is safe to expose. Even if every public key is leaked, no tokens can be forged.
+### 6. Expired Token Replay
 
-### 7. Service-to-Service Token Validation Without Secret Sharing
-**The challenge**: In a microservice architecture, every service needs to validate tokens. With HS256, the signing secret must be distributed to every service — increasing the attack surface.
+**The threat**: An attacker captures a valid token (from logs, network capture, or memory dump) and replays it hours or days later.
 
-**RS256 solution**: Services fetch public keys from the JWKS endpoint. No secret distribution required. Adding a new service only requires configuring the JWKS URI.
+**How BookShare prevents it**: Every token has an `exp` (expiration) claim — a Unix timestamp after which the token is invalid. The JWT library automatically checks this during verification. Expired tokens are rejected without reaching application code.
+
+### 7. Shared Secret Compromise (The HS256 Nightmare)
+
+This isn't an attack on RS256 — it's the reason RS256 was chosen over HS256.
+
+If a shared HS256 secret leaks (from a config file, a log entry, a compromised service, an employee's laptop), the attacker can forge unlimited tokens for any user, with any claims, with any expiration. The only fix is to rotate the secret, which immediately invalidates all existing tokens and forces every user to re-authenticate.
+
+With RS256, this scenario is structurally impossible for any service except Hydra. A compromise of the NestJS API, PostgREST, or any future service does not expose token-forging capability.
 
 ---
 
@@ -66,257 +115,133 @@ jwt.verify(token, signingKey, {
 
 ### Token Issuance (Hydra)
 
-**File**: `infra/ory/hydra/hydra.yml` (line 5)
+Hydra is configured to issue JWT access tokens (not opaque tokens). When the token exchange succeeds (after PKCE and DPoP validation), Hydra:
 
-```yaml
-strategies:
-  access_token: jwt
-```
+1. Constructs the JWT payload with user claims, scopes, expiration, issuer, audience, and DPoP binding (`cnf.jkt`)
+2. Signs it with RS256 using its internally managed private key
+3. Returns the signed JWT as the `access_token`
 
-Hydra is configured to issue JWT access tokens (not opaque tokens). These are signed with RS256 using Hydra's internal key pair. Hydra publishes the public keys at `/.well-known/jwks.json`.
+Hydra publishes its public keys at `/.well-known/jwks.json`. This endpoint returns a JSON Web Key Set (JWKS) containing the public keys, their `kid` values, and their algorithm. Any service can fetch these keys to verify tokens.
 
 ### Token Verification (NestJS API)
 
-**File**: `apps/api/src/common/guards/auth.guard.ts`
+The auth guard, registered globally on every API endpoint, performs verification on every request:
 
-#### JWKS Client Setup (lines 79-86)
-
-```typescript
-this.jwksClient = jwksClient({
-  jwksUri,
-  requestHeaders: issuerInternal === issuer ? undefined : { host: issuerHost },
-  cache: true,
-  cacheMaxEntries: 5,
-  cacheMaxAge: 600000, // 10 minutes
-});
-```
-
-The JWKS client:
-- Fetches public keys from Hydra's `/.well-known/jwks.json` endpoint
-- Caches keys for 10 minutes (avoids hitting Hydra on every request)
-- Stores up to 5 key entries (supports key rotation)
-- Handles Docker networking by overriding the `host` header when internal URL differs from public URL
-
-#### Token Verification (lines 259-282)
-
-```typescript
-private async verifyToken(token: string): Promise<IdentityJwtPayload> {
-  const issuer = this.getIssuer();
-  return new Promise((resolve, reject) => {
-    jwt.verify(
-      token,
-      (header, callback) => {
-        this.jwksClient.getSigningKey(header.kid, (err, key) => {
-          if (err) return callback(err);
-          const signingKey = key?.getPublicKey();
-          callback(null, signingKey);
-        });
-      },
-      {
-        issuer,
-        algorithms: ["RS256"],
-      },
-      (err, decoded) => {
-        if (err) return reject(err);
-        resolve(decoded as IdentityJwtPayload);
-      }
-    );
-  });
-}
-```
-
-Verification steps:
-1. Parse the JWT header to extract `kid` (Key ID)
-2. Fetch the corresponding public key from JWKS (cached)
-3. Verify the RS256 signature using the public key
-4. Validate `iss` matches configured issuer
-5. Validate `exp` (expiration) is not past
-6. Return decoded payload with user claims
-
-#### JWT Payload Structure (lines 24-44)
-
-```typescript
-interface IdentityJwtPayload {
-  sub: string;           // User ID (Kratos identity ID)
-  iss: string;           // Issuer (Hydra URL)
-  aud: string[] | string; // Audience
-  exp: number;           // Expiration timestamp
-  iat: number;           // Issued-at timestamp
-  email?: string;
-  name?: string;
-  preferred_username?: string;
-  given_name?: string;
-  family_name?: string;
-  nickname?: string;
-  gender?: string;
-  roles?: string[];
-  realm_access?: {
-    roles?: string[];
-  };
-  cnf?: {
-    jkt?: string;        // DPoP key thumbprint binding
-  };
-}
-```
-
-#### Auth Scheme Detection (lines 135-146)
-
-```typescript
-private extractTokenFromHeader(request: any): {
-  scheme: "Bearer" | "DPoP";
-  token: string | null;
-} {
-  const authorization = request.headers?.authorization;
-  if (!authorization) return { scheme: "Bearer", token: null };
-
-  const [type, token] = authorization.split(" ");
-  if (type === "Bearer") return { scheme: "Bearer", token };
-  if (type === "DPoP") return { scheme: "DPoP", token };
-  return { scheme: "Bearer", token: null };
-}
-```
-
-The guard supports both `Bearer` and `DPoP` authorization schemes. Both use RS256 JWT verification — DPoP adds an additional proof validation layer (see [DPoP Token Binding](./DPOP-TOKEN-BINDING.md)).
-
-#### Post-Verification Account Check (lines 124-133)
-
-```typescript
-private async ensureActiveAccount(userId: string) {
-  const profile = await this.db.query.memberProfiles.findFirst({
-    columns: { deactivatedAt: true },
-    where: eq(memberProfiles.userId, userId),
-  });
-
-  if (profile?.deactivatedAt) {
-    throw new UnauthorizedException("Account is deactivated");
-  }
-}
-```
-
-Even after JWT validation succeeds, the guard checks if the account is deactivated. This ensures that revoking access is immediate — not dependent on token expiration.
-
----
+1. **Extract token**: Reads the `Authorization` header, determines the scheme (Bearer or DPoP), extracts the JWT string
+2. **Parse header**: Reads the JWT header to get the `kid` (Key ID)
+3. **Fetch public key**: The JWKS client looks up the key by `kid` from Hydra's JWKS endpoint. Keys are cached for 10 minutes with up to 5 entries — this supports key rotation where old and new keys coexist temporarily
+4. **Verify signature**: RS256 verification using the public key. If the signature doesn't match, the token is rejected
+5. **Validate claims**: The `iss` (issuer) must match the configured Hydra URL. The `exp` (expiration) must be in the future. The algorithm must be RS256.
+6. **DPoP validation** (if DPoP scheme): Additional verification that the DPoP proof matches the token's `cnf.jkt` claim — see [DPoP Token Binding](./DPOP-TOKEN-BINDING.md)
+7. **Account check**: Even after JWT validation succeeds, the guard queries the database to check if the account is deactivated. This provides immediate revocation — a deactivated user's existing tokens are useless even if they haven't expired.
+8. **Attach user**: The decoded JWT payload is attached to the request context for use by route handlers
 
 ### Token Verification (PostgREST)
 
-**File**: `infra/postgrest/init-jwt.sh`
+PostgREST (the database API) also verifies JWTs, but it fetches the JWKS once at startup and stores it as a file. This means PostgREST doesn't support dynamic key rotation without a restart. A bootstrap script fetches the JWKS from Hydra and writes it to a file that PostgREST reads.
 
-```bash
-#!/bin/sh
-target_file="${PGRST_JWT_SECRET_FILE:-/jwt/jwks.json}"
-jwks_uri="${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}"
+### Global Guard — Secure by Default
 
-# Fetch JWKS from Hydra and store it for PostgREST
-curl -fsS "$jwks_uri" > "$target_file"
-```
-
-**File**: `docker-compose.dev.yml` (PostgREST config)
-
-```yaml
-postgrest:
-  environment:
-    PGRST_JWT_SECRET: "@/jwt/jwks.json"
-    PGRST_JWT_SECRET_IS_BASE64: "false"
-```
-
-PostgREST uses the same JWKS from Hydra for JWT verification, ensuring consistent authentication across both the NestJS API and the database API layer.
+The auth guard is registered as a global guard. This means **every endpoint is protected by default**. Endpoints that should be publicly accessible must explicitly opt out using a `@Public()` decorator. This "secure by default" approach is significantly safer than the alternative (unprotected by default, must remember to add protection) because forgetting a decorator results in over-protection, not under-protection.
 
 ---
 
-### Token Flow Through the System
+## Stateless Verification: The Strength and the Weakness
 
-```
-Hydra (Token Issuer)
-│
-│  Signs JWT with RS256 private key
-│  Publishes public keys at /.well-known/jwks.json
-│
-├──────────────────────────────────────────────────────────┐
-│                                                          │
-▼                                                          ▼
-NestJS API (Resource Server)                    PostgREST (Database API)
-│                                               │
-│  1. Extract token from Authorization header   │  1. Extract token from header
-│  2. Fetch public key from JWKS (cached)       │  2. Verify with stored JWKS
-│  3. Verify RS256 signature                    │  3. Verify RS256 signature
-│  4. Validate issuer, expiration               │  4. Apply row-level security
-│  5. Validate DPoP proof (if DPoP scheme)      │
-│  6. Check account deactivation                │
-│  7. Attach user to request context            │
-```
+### The Strength
+
+JWT verification is **stateless** — the API doesn't need to call Hydra or any external service to validate a token. It only needs the public key (cached locally). This means:
+- Zero network latency for verification
+- No dependency on Hydra availability for ongoing requests (only for key cache refresh)
+- Each API server can verify independently — horizontal scaling is trivial
+- No shared session store needed
+
+### The Weakness: Token Revocation
+
+Because verification is stateless, there's no way to "revoke" a JWT. Once issued, a JWT is valid until it expires. If a user's account is compromised and you want to immediately invalidate their tokens, you have a problem:
+
+**What doesn't work**: You can't add the token to a "revocation list" that the API checks — that would make verification stateful, defeating the purpose of JWTs.
+
+**What BookShare does instead**: The auth guard performs a database check for account deactivation on every request. This is technically stateful (it hits the database), but it's a lightweight query on an indexed column, and it only checks a boolean flag — not the token itself. This provides:
+- Immediate revocation via account deactivation
+- No need to maintain a token blocklist
+- Minimal performance overhead (single indexed query per request)
+
+**The tradeoff**: A deactivated account's tokens are still cryptographically valid — they would pass pure JWT verification. But BookShare's auth guard catches them at the application layer. If an attacker somehow bypasses the auth guard (e.g., talking directly to PostgREST with a valid JWT), the account deactivation check wouldn't apply. PostgREST relies purely on JWT expiration for revocation.
+
+### JWTs vs. Opaque Tokens
+
+An alternative to JWTs is **opaque tokens** — random strings that the API must exchange for claims by calling the authorization server (a "token introspection" endpoint).
+
+| Aspect | JWT | Opaque Token |
+|--------|-----|-------------|
+| Verification | Local (public key) | Remote (introspection call) |
+| Latency | Near-zero | Network round-trip per request |
+| Revocation | Not possible (until expiry) | Instant (server-side) |
+| Claims visibility | Readable by anyone (base64) | Only visible to auth server |
+| Scalability | Excellent (no shared state) | Requires auth server availability |
+| Token size | Larger (payload + signature) | Small (random string) |
+
+BookShare chose JWTs for performance and independence. The account deactivation check provides a revocation mechanism that's "good enough" for most scenarios, and DPoP provides an additional layer that makes stolen tokens useless without the private key.
 
 ---
 
 ## JWKS Key Rotation
 
-RS256 supports seamless key rotation:
+RS256 supports seamless key rotation without downtime:
 
-1. Hydra generates a new key pair and adds the public key to JWKS
-2. New tokens are signed with the new key (different `kid`)
-3. The JWKS endpoint now publishes both old and new public keys
-4. Existing tokens (signed with old key) continue to verify until they expire
-5. After all old tokens expire, the old key can be removed from JWKS
+1. Hydra generates a new key pair
+2. The new public key is added to the JWKS endpoint (alongside the old one)
+3. New tokens are signed with the new key (different `kid`)
+4. Services fetching JWKS see both keys — old tokens verify with the old key, new tokens with the new key
+5. After all old tokens expire, the old key is removed from JWKS
 
-The NestJS API handles this automatically because:
-- It looks up keys by `kid` from the JWT header
-- The JWKS cache refreshes every 10 minutes
-- Up to 5 keys are cached simultaneously
+This happens transparently because the JWKS client looks up keys by `kid`. The NestJS API's JWKS cache refreshes every 10 minutes and holds up to 5 keys — enough for rotation transitions.
 
----
-
-## Global Guard Registration
-
-**File**: `apps/api/src/app.module.ts` (lines 39-42)
-
-```typescript
-providers: [
-  { provide: APP_GUARD, useClass: AuthGuard },
-  { provide: APP_GUARD, useClass: RolesGuard },
-]
-```
-
-The auth guard is registered globally — every API endpoint is protected by default. Endpoints that should be public must explicitly opt out with the `@Public()` decorator:
-
-```typescript
-export const IS_PUBLIC_KEY = "isPublic";
-export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
-```
+PostgREST, however, loads JWKS from a file at startup. It would need a restart (or a mechanism to reload the file) to pick up new keys. This is a gap worth addressing if key rotation is done frequently.
 
 ---
 
-## Parts of the System Touched
+## JWT Payload Structure
 
-| Component | File(s) | Role |
-|-----------|---------|------|
-| **Hydra** | `infra/ory/hydra/hydra.yml` | Issues RS256 JWTs, publishes JWKS |
-| **NestJS Auth Guard** | `apps/api/src/common/guards/auth.guard.ts` | Verifies RS256 signatures, validates claims |
-| **JWKS Client** | `jwks-rsa` library | Fetches and caches public keys |
-| **PostgREST Init** | `infra/postgrest/init-jwt.sh` | Bootstraps PostgREST with Hydra's JWKS |
-| **PostgREST** | Docker Compose config | Verifies JWTs for database API access |
-| **Web App Callback** | `apps/web/src/app/api/auth/callback/route.ts` | Receives and stores RS256 JWTs |
-| **API Client** | `apps/web/src/features/auth/lib/api-client.ts` | Sends JWTs to API |
-| **NestJS Proxy** | `apps/web/src/app/api/nestjs/[...path]/route.ts` | Proxies JWTs to NestJS |
-| **PostgREST Proxy** | `apps/web/src/app/api/postgrest/[...path]/route.ts` | Proxies JWTs to PostgREST |
+BookShare's access tokens contain these claims:
+
+| Claim | Purpose | Example |
+|-------|---------|---------|
+| `sub` | Subject — user ID (Kratos identity ID) | `"d4f5a2b1-..."` |
+| `iss` | Issuer — Hydra's URL | `"http://localhost:4444"` |
+| `aud` | Audience — intended recipient(s) | `["bookshare-web"]` |
+| `exp` | Expiration — Unix timestamp | `1710460800` |
+| `iat` | Issued At — Unix timestamp | `1710457200` |
+| `email` | User's email | `"user@example.com"` |
+| `name` | Full name | `"Jane Doe"` |
+| `preferred_username` | Username | `"janedoe"` |
+| `roles` | User roles | `["member"]` |
+| `cnf.jkt` | DPoP key thumbprint | `"sha256-thumbprint"` |
+
+Remember: all of these are **readable by anyone** who has the token. They are base64-encoded, not encrypted. This is fine for the claims listed — none are genuinely secret. The DPoP `cnf.jkt` is a public key thumbprint (already public by nature).
 
 ---
 
-## Dependencies
+## How JWT Fits With Other Security Measures
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `jsonwebtoken` | ^9.0.3 | RS256 JWT verification in NestJS |
-| `jwks-rsa` | ^3.2.2 | JWKS client for fetching public keys |
-| `jose` | ^6.2.1 | DPoP proof verification (ES256) |
-| `openid-client` | ^6.8.2 | OIDC client for token exchange |
+| Threat | JWT's Role | Complementary Defense |
+|--------|-----------|----------------------|
+| Token forgery | RS256 signature prevents it | Algorithm restricted to RS256 only (no confusion attacks) |
+| Token theft | JWT alone can't prevent this | DPoP binds tokens to a key the thief doesn't have |
+| Token replay after expiry | `exp` claim enforced | N/A — built into JWT |
+| Immediate revocation needed | JWT can't do this (stateless) | Account deactivation check in auth guard |
+| Token from wrong issuer | `iss` claim validation | JWKS fetched only from configured Hydra URL |
+| Claims tampering | Signature verification catches it | GCM authentication tag on encrypted cookie adds another layer |
 
 ---
 
 ## Recommendations
 
-1. **Add `aud` (audience) validation**: The auth guard validates `iss` but does not explicitly validate `aud`. Adding audience validation ensures tokens issued for one service cannot be used against another.
+1. **Add `aud` (audience) validation**: The auth guard validates `iss` but does not explicitly validate `aud`. Adding audience validation ensures tokens issued for a hypothetical different client cannot be used against BookShare's API. This matters if Hydra ever serves multiple OAuth clients.
 
-2. **Monitor JWKS cache hit rate**: If the cache miss rate is high, increase `cacheMaxAge` or `cacheMaxEntries`. Frequent JWKS fetches add latency and create a dependency on Hydra availability.
+2. **Implement JWKS fallback for PostgREST**: PostgREST reads JWKS from a file at startup. If Hydra rotates keys and PostgREST isn't restarted, new tokens will fail verification. Consider a cron job or init container that periodically refreshes the JWKS file, or configure PostgREST to fetch JWKS directly if it supports it.
 
-3. **Implement JWKS fallback**: If Hydra is temporarily unavailable, the JWKS cache will eventually expire and all token verification will fail. Consider a persistent JWKS cache (file-based) as a fallback.
+3. **Monitor token lifetimes**: Log the `exp - iat` delta on verified tokens. If access tokens are longer-lived than expected (e.g., hours instead of minutes), it may indicate a Hydra misconfiguration that increases the risk window for stolen tokens.
 
-4. **Token lifetime monitoring**: Log token `exp - iat` values to ensure access tokens have appropriate lifetimes. Too long increases the window for token abuse; too short causes excessive refresh cycles.
+4. **Consider JWKS cache resilience**: If Hydra is temporarily unavailable when the NestJS API's JWKS cache expires (after 10 minutes), all token verification fails until Hydra recovers. A persistent JWKS cache (file-based, refreshed periodically, used as fallback) would provide resilience during Hydra outages.

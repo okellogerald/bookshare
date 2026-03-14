@@ -2,243 +2,249 @@
 
 ## What Is PKCE?
 
-PKCE (pronounced "pixy") is an extension to the OAuth 2.0 Authorization Code flow (defined in RFC 7636) that prevents authorization code interception attacks. It was originally designed for public clients (mobile apps, SPAs) that cannot securely store a client secret, but is now recommended for all OAuth clients.
+PKCE (pronounced "pixy", defined in RFC 7636) is an extension to the OAuth Authorization Code flow that prevents authorization code interception attacks. It works by creating a one-time cryptographic challenge that binds the authorization request to the token exchange — so that even if an attacker intercepts the authorization code, they cannot exchange it for tokens.
 
-PKCE works by creating a one-time cryptographic challenge that binds the authorization request to the token exchange. Even if an attacker intercepts the authorization code, they cannot exchange it for tokens without the original secret.
+The core insight is simple: before starting the OAuth flow, the client generates a random secret and sends only a **hash** of that secret to the authorization server. When exchanging the code for tokens, the client sends the **original secret**. The server hashes it and compares. Only the client that initiated the flow knows the original secret.
 
 ---
 
-## Attack Scenarios That PKCE Addresses
+## Why PKCE Exists: The Public Client Problem
 
-### 1. Authorization Code Interception
-**The core attack**: In the OAuth flow, after the user authenticates, the authorization server redirects back to the client with an authorization code in the URL:
+OAuth clients come in two types:
+
+**Confidential clients** have a server-side component that can securely store a `client_secret`. When exchanging an authorization code for tokens, the client proves its identity by sending this secret. An attacker who steals the code but doesn't have the secret cannot complete the exchange.
+
+**Public clients** cannot securely store a `client_secret`. This includes:
+- Mobile apps (the binary can be decompiled — any embedded secret is extractable)
+- Single-page applications (all code is visible in the browser)
+- Desktop applications (same decompilation problem)
+
+BookShare's web app is registered as a public client (`token_endpoint_auth_method: "none"`). Even though the Next.js server can keep secrets, the architecture uses PKCE instead of a client secret. Why? Because PKCE provides **per-session security** rather than relying on a single static secret. A client secret is the same for every user, every session, forever — if it leaks once, all future exchanges are compromised. A PKCE verifier is unique to each login attempt and used exactly once.
+
+PKCE was originally designed for public clients but is now recommended for **all** OAuth clients (RFC 7636, OAuth 2.1 draft) because it provides strictly better security than a client secret alone.
+
+---
+
+## Attack Scenarios
+
+### 1. Authorization Code Interception (The Core Attack)
+
+After the user authenticates, the authorization server redirects back to the client with a code in the URL:
+
 ```
 https://bookshare.app/api/auth/callback?code=abc123&state=xyz
 ```
 
-This code travels through the browser's address bar, browser history, server logs, and potentially through malicious browser extensions or compromised network intermediaries. If an attacker captures this code, they can exchange it for access tokens.
+This code travels through several places where it could be captured:
+- **Browser history**: The full URL is saved
+- **Server logs**: Web servers often log the full request URL including query parameters
+- **Referrer headers**: If the callback page loads resources from other domains, the full URL leaks in the `Referer` header
+- **Browser extensions**: Extensions with `webRequest` or `tabs` permissions can observe navigation URLs
+- **Corporate proxies**: TLS-terminating proxies can log the URL after decryption
 
-**Without PKCE**: The attacker sends the stolen code to the token endpoint and receives valid tokens.
+**Without PKCE**: The attacker takes the stolen code to the token endpoint. Since BookShare is a public client (no client secret), there's nothing stopping the exchange. The attacker receives a valid access token, refresh token, and ID token — full access to the victim's account.
 
-**With PKCE**: The attacker has the code but not the `code_verifier` (which never left the server). The token endpoint rejects the exchange.
+**With PKCE**: The attacker has the code, but the token endpoint requires the `code_verifier` — a 128-character random string that was generated in the server's memory, encrypted, and stored in an httpOnly cookie on the user's browser. The attacker has none of these. The exchange fails.
 
-### 2. Malicious App Substitution (Mobile/Desktop)
-On mobile platforms, multiple apps can register the same custom URL scheme (e.g., `bookshare://callback`). A malicious app could register the same scheme, intercept the authorization code redirect, and exchange it for tokens.
+### 2. Malicious App URL Scheme Hijacking (Mobile Context)
 
-PKCE prevents this because the malicious app doesn't possess the `code_verifier` generated by the legitimate app.
+On mobile platforms, multiple apps can register the same custom URL scheme (e.g., `bookshare://callback`). A malicious app registers the same scheme, intercepts the redirect, captures the authorization code, and races to exchange it before the legitimate app does.
 
-### 3. Man-in-the-Middle on the Redirect
-If an attacker can observe the redirect URL (through network sniffing, compromised proxy, or browser extension), they see the authorization code. Without PKCE, this is sufficient to obtain tokens.
+PKCE defeats this because the malicious app didn't initiate the flow — it doesn't have the `code_verifier`. Even if it exchanges the code first, the token endpoint rejects it.
 
-With PKCE, the code alone is worthless — the `code_verifier` is transmitted separately during the token exchange (over HTTPS, directly to the token endpoint).
+While BookShare is currently a web app, if a mobile client is ever added, PKCE is already in place.
 
-### 4. Replay Attacks
-An attacker who records a valid authorization code cannot replay it later. Even if the code hasn't expired, without the matching `code_verifier`, the token endpoint rejects the exchange.
+### 3. Authorization Code Replay
 
-### 5. Client Impersonation (Public Clients)
-BookShare's web app is a **public client** (`token_endpoint_auth_method: "none"`) — it has no client secret. Without PKCE, any application that knows the `client_id` could exchange an intercepted authorization code. PKCE ensures that only the application that initiated the flow can complete it.
+An attacker records a valid authorization code (from logs, network capture, or browser history) and attempts to replay it later. Even if the code hasn't expired yet, without the corresponding `code_verifier`, the replay fails. And since authorization codes are single-use (Hydra invalidates them after the first exchange), even legitimate replay is impossible.
+
+### 4. Client Impersonation
+
+Without PKCE and without a client secret, the only thing identifying the client is the `client_id` — which is public information (it appears in the authorization URL, in browser history, etc.). Any application that knows the `client_id` could exchange a stolen code.
+
+PKCE turns the problem from "know the client ID" to "know the code verifier," which is a per-session cryptographic secret that never appears in any URL.
 
 ---
 
-## How PKCE Works (Conceptually)
+## How PKCE Works
 
 ```
 1. Client generates a random secret:        code_verifier  (128 random chars)
-2. Client computes a hash of that secret:   code_challenge = SHA256(code_verifier)
-3. Client sends only the HASH to the auth server (in the authorization request)
-4. Auth server stores the hash
+2. Client computes a hash of that secret:   code_challenge = base64url(SHA-256(code_verifier))
+3. Client sends only the HASH to the auth server (in the authorization request URL)
+4. Auth server stores the hash alongside the session/code
 5. User authenticates, auth server issues authorization code
 6. Client sends the ORIGINAL SECRET to the token endpoint (with the code)
-7. Token endpoint computes SHA256(code_verifier) and compares to stored hash
+7. Token endpoint computes SHA-256(code_verifier) and compares to stored hash
 8. If they match → tokens issued. If not → rejected.
 
-The key insight: the hash (code_challenge) is safe to expose because SHA-256 is
-a one-way function — you cannot reverse it to obtain the code_verifier.
+The security: SHA-256 is a one-way function.
+An attacker who sees the code_challenge cannot reverse it to get the code_verifier.
+An attacker who sees the authorization code cannot exchange it without the code_verifier.
 ```
+
+### Why SHA-256 and Not the "Plain" Method?
+
+PKCE defines two challenge methods:
+- **`plain`**: `code_challenge = code_verifier` (the challenge IS the verifier, unmodified)
+- **`S256`**: `code_challenge = base64url(SHA-256(code_verifier))`
+
+The `plain` method provides **almost no security** because the `code_challenge` is sent in the authorization URL — the same places where the authorization code could be intercepted. If an attacker can see the URL, they can see both the code and the challenge (which IS the verifier in `plain` mode). They have everything they need.
+
+With `S256`, the authorization URL contains only the hash. The verifier never appears in any URL, only in the server-to-server POST request during token exchange. Even if an attacker captures the entire authorization URL, they see the hash and cannot reverse it.
+
+BookShare uses `S256` exclusively. The `plain` method should never be used — it exists only for clients that can't perform SHA-256, which is essentially no modern client.
+
+### Why Is the Verifier 128 Characters?
+
+RFC 7636 specifies a minimum of 43 characters and maximum of 128. BookShare uses the maximum. The verifier must have enough entropy that an attacker cannot brute-force it within the code's short lifetime. At 128 characters drawn from the unreserved character set `[A-Z] [a-z] [0-9] - . _ ~` (66 possible characters), the entropy is approximately 768 bits — astronomically beyond what's needed. Even the minimum 43 characters provides approximately 256 bits of entropy, which is already computationally infeasible to brute-force.
+
+Using the maximum is a zero-cost decision (a few extra bytes in a cookie) that provides maximum safety margin.
 
 ---
 
 ## How BookShare Implements PKCE
 
-### Step 1: Generate PKCE Credentials (Login Initiation)
+### Step 1: Generate PKCE Credentials
 
-**File**: `apps/web/src/app/api/auth/login/route.ts` (lines 21-22)
+When the user initiates login (either by clicking "Login" or being redirected from a protected route), the login API route:
 
-```typescript
-const codeVerifier = client.randomPKCECodeVerifier();
-const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
-```
+1. Generates a `code_verifier`: 128 cryptographically random characters using `openid-client`'s PKCE helper
+2. Computes the `code_challenge`: `base64url(SHA-256(code_verifier))` — producing a 43-character URL-safe string
 
-- `code_verifier`: 128 cryptographically random characters from the unreserved character set `[A-Z] [a-z] [0-9] - . _ ~`
-- `code_challenge`: `base64url(SHA-256(code_verifier))` — 43 URL-safe characters
-- Generated by the `openid-client` library (v6.8.2)
+### Step 2: Store the Verifier Securely
 
-### Step 2: Store Verifier in Encrypted Cookie
+The `code_verifier` is the secret. It must be available when the callback arrives (potentially seconds to minutes later, after the user authenticates with Kratos), but it must not be accessible to attackers.
 
-**File**: `apps/web/src/app/api/auth/login/route.ts` (lines 49-55)
+BookShare stores it in an **encrypted httpOnly cookie**:
+- **Encrypted** with AES-256-GCM (via the crypto module described in [Cookie Encryption](./COOKIE-ENCRYPTION.md)) — even if the cookie is stolen from the browser, the verifier is ciphertext
+- **httpOnly** — JavaScript cannot read it (XSS cannot extract it)
+- **SameSite=Lax** — not sent on cross-site form submissions
+- **10-minute maxAge** — if the OAuth flow takes longer than 10 minutes, the cookie expires and the flow fails (the user just starts over)
+- **Secure in production** — HTTPS only
 
-```typescript
-response.cookies.set("oidc_code_verifier", await encrypt(codeVerifier), {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
-  path: "/",
-  maxAge: 600, // 10 minutes
-});
-```
+Why a cookie and not server-side storage? Because the Next.js web app runs as stateless server processes. There's no shared in-memory store between the process that initiates login and the process that handles the callback. A cookie travels with the user's browser, making it available to whichever server process handles the callback request.
 
-The `code_verifier` is encrypted with AES-256-GCM before being stored in a cookie. This means:
-- The verifier is never exposed to client-side JavaScript (httpOnly)
-- The verifier is encrypted at rest (even if the cookie is somehow extracted, the value is useless without `SESSION_SECRET`)
-- The cookie expires in 10 minutes (limiting the attack window)
+### Step 3: Send Only the Challenge
 
-### Step 3: Send Challenge to Authorization Server
+The authorization URL sent to Hydra includes:
+- `code_challenge` — the SHA-256 hash (safe to expose)
+- `code_challenge_method=S256` — tells Hydra to expect SHA-256 verification
 
-**File**: `apps/web/src/app/api/auth/login/route.ts` (lines 38-39)
-
-```typescript
-const parameters: Record<string, string> = {
-  redirect_uri: redirectUri,
-  scope,
-  code_challenge: codeChallenge,
-  code_challenge_method: "S256",
-  state,
-  prompt: "login",
-  max_age: "0",
-};
-```
-
-Only the `code_challenge` (the hash) is sent to Hydra. The `code_verifier` (the secret) stays with the web app.
+The `code_verifier` is **not** in this URL. It stays in the encrypted cookie.
 
 ### Step 4: Token Exchange with Verifier
 
-**File**: `apps/web/src/app/api/auth/callback/route.ts` (lines 48-76)
+When Hydra redirects back to the callback URL with the authorization code:
 
-```typescript
-const encryptedVerifier = request.cookies.get("oidc_code_verifier")?.value;
-// ...
-const codeVerifier = await decrypt(encryptedVerifier);
+1. The callback handler reads the `oidc_code_verifier` cookie
+2. Decrypts it with AES-256-GCM to recover the plaintext verifier
+3. Sends the verifier in the POST body to Hydra's token endpoint (server-to-server, over HTTPS)
+4. Hydra computes `SHA-256(received_verifier)` and compares to the stored `code_challenge`
+5. Match → tokens issued. Mismatch → 400 error, no tokens.
 
-const tokens = await client.authorizationCodeGrant(
-  config,
-  currentUrl,
-  {
-    pkceCodeVerifier: codeVerifier,  // Original secret sent to token endpoint
-    expectedState,
-    idTokenExpected: true,
-  },
-  undefined,
-  { DPoP: dpopHandle }
-);
-```
-
-The `openid-client` library sends the `code_verifier` in the POST body to Hydra's token endpoint. Hydra computes `SHA-256(code_verifier)` and compares it to the stored `code_challenge`. If they match, tokens are issued.
+The `openid-client` library handles the verifier inclusion and validation automatically as part of `authorizationCodeGrant()`.
 
 ### Step 5: Cleanup
 
-**File**: `apps/web/src/app/api/auth/callback/route.ts` (lines 183-185)
+After successful token exchange, all three temporary OIDC cookies are deleted:
+- `oidc_code_verifier` — the PKCE verifier
+- `oidc_state` — the OAuth CSRF state parameter
+- `oidc_return_to` — the post-login redirect path
 
-```typescript
-response.cookies.delete("oidc_code_verifier");
-response.cookies.delete("oidc_state");
-response.cookies.delete("oidc_return_to");
-```
-
-All temporary OIDC cookies are deleted after successful token exchange.
+These are single-use artifacts of the login flow. Leaving them around provides no benefit and marginally increases the attack surface.
 
 ---
 
-## Complete PKCE Flow Diagram
+## Complete PKCE Flow
 
 ```
-                    Web App                         Hydra (OAuth Server)
-                    ───────                         ────────────────────
+Web App (Next.js)                                  Hydra (OAuth Server)
+─────────────────                                  ────────────────────
 
 1. Generate:
    verifier = random(128 chars)
    challenge = base64url(SHA256(verifier))
 
 2. Store verifier:
-   cookie = AES-GCM(verifier)
-   [httpOnly, sameSite=lax, 10min TTL]
+   cookie = AES-256-GCM(verifier)
+   [httpOnly, SameSite=Lax, Secure, 10min TTL]
 
-3. Redirect user:  ──────────────────────>
-   GET /oauth2/auth?
-     code_challenge={challenge}            4. Store challenge internally
-     code_challenge_method=S256               Associate with session
+3. Redirect user with challenge: ──────────────>
+   GET /oauth2/auth?                              4. Store challenge,
+     code_challenge={challenge}                      associate with session
+     code_challenge_method=S256
      client_id=bookshare-web
      redirect_uri=/api/auth/callback
-     state={random}
+     state={encrypted_random}
+                                                   5. User authenticates (Kratos)
+                                                   6. Issue authorization code
 
-                                           5. User authenticates (Kratos)
-                                           6. Generate authorization code
-
-7. Receive callback: <─────────────────────
+7. Receive callback:  <────────────────────────
    GET /api/auth/callback?
-     code={auth_code}
-     state={random}
+     code={auth_code}&state={state}
 
 8. Decrypt verifier from cookie
 
-9. Exchange code:   ──────────────────────>
-   POST /oauth2/token                     10. Validate:
-     grant_type=authorization_code             SHA256(verifier) == challenge?
-     code={auth_code}                          YES → issue tokens
-     code_verifier={verifier}                  NO  → reject (400 error)
-     + DPoP proof
+9. Exchange code + verifier: ──────────────────>
+   POST /oauth2/token                             10. Compute SHA256(verifier)
+     grant_type=authorization_code                     Compare to stored challenge
+     code={auth_code}                                  Match? → issue tokens
+     code_verifier={original_verifier}                 Mismatch? → reject
+     + DPoP proof header
 
-11. Receive tokens: <─────────────────────
-    access_token (DPoP-bound)
-    id_token
+11. Receive tokens:  <─────────────────────────
+    access_token (DPoP-bound, RS256 JWT)
+    id_token (RS256 JWT)
     refresh_token
 
-12. Delete OIDC cookies
-    Store session
+12. Delete OIDC cookies, create session
 ```
 
 ---
 
-## Parts of the System Touched
+## The Honest Limitations
 
-| Component | Role in PKCE |
-|-----------|-------------|
-| **Web App — Login Route** (`/api/auth/login`) | Generates verifier + challenge, stores encrypted verifier in cookie, sends challenge to Hydra |
-| **Web App — Callback Route** (`/api/auth/callback`) | Decrypts verifier from cookie, sends it in token exchange, cleans up cookies |
-| **Web App — Logout Route** (`/api/auth/logout`) | Deletes OIDC cookies (including `oidc_code_verifier`) on logout |
-| **Web App — Crypto Module** (`features/auth/lib/crypto.ts`) | Encrypts/decrypts the code verifier with AES-256-GCM |
-| **Hydra** (OAuth Server) | Receives challenge at authorization, validates verifier at token exchange |
-| **Hydra Client Config** (`infra/ory/hydra/init-client.sh`) | `token_endpoint_auth_method: "none"` — public client requiring PKCE |
-| **openid-client** (npm package) | Provides `randomPKCECodeVerifier()`, `calculatePKCECodeChallenge()`, and PKCE-aware `authorizationCodeGrant()` |
+### PKCE Protects the Code Exchange, Not the Tokens After
 
----
+Once tokens are issued, PKCE's job is done. It has no role in protecting the tokens themselves. If the access token is leaked after issuance (from logs, memory, a compromised proxy), PKCE doesn't help — that's DPoP's job.
 
-## Security Properties
+### PKCE Assumes the Verifier Storage Is Secure
 
-| Property | Detail |
-|----------|--------|
-| **Challenge Method** | S256 (SHA-256) — the `plain` method is not used as it provides no security |
-| **Verifier Length** | 128 characters (exceeds the RFC 7636 minimum of 43) |
-| **Verifier Storage** | AES-256-GCM encrypted cookie (httpOnly, SameSite=Lax, 10-min TTL) |
-| **Key Derivation** | HKDF-SHA-256 from `SESSION_SECRET` |
-| **Public Client** | `token_endpoint_auth_method: "none"` — PKCE is the sole proof of client identity |
-| **One-Time Use** | Authorization codes are single-use; Hydra rejects replay attempts |
+If an attacker can extract the `code_verifier` from storage, PKCE is bypassed. BookShare mitigates this by encrypting the verifier with AES-256-GCM in an httpOnly cookie. An attacker would need either:
+- The `SESSION_SECRET` to decrypt the cookie, or
+- A browser extension with cookie API access to extract the encrypted blob, PLUS the ability to decrypt it
+
+But if the attacker compromises the server itself (accessing `SESSION_SECRET`), they can decrypt any cookie — PKCE is the least of the problems at that point.
+
+### PKCE Does Not Prevent Phishing
+
+If a user is tricked into authenticating on a fake BookShare login page, the attacker captures credentials directly. PKCE only protects the OAuth flow between the real client and the real authorization server. It doesn't help when the user interacts with a fake one.
+
+### The 10-Minute Window
+
+The PKCE verifier cookie expires in 10 minutes. If the OAuth flow takes longer (e.g., the user gets distracted during Kratos registration), the flow fails silently. The user must start over. This is a UX tradeoff for security — keeping the window short minimizes the time a verifier is "live" in the cookie store.
 
 ---
 
-## Cookie Inventory (PKCE-Related)
+## How PKCE Fits With Other Security Measures
 
-| Cookie | Content | Encrypted | httpOnly | Secure | SameSite | maxAge |
-|--------|---------|-----------|----------|--------|----------|--------|
-| `oidc_code_verifier` | PKCE code verifier | AES-256-GCM | Yes | Prod | Lax | 10 min |
-| `oidc_state` | OAuth state (CSRF) | AES-256-GCM | Yes | Prod | Lax | 10 min |
-| `oidc_return_to` | Redirect path | AES-256-GCM | Yes | Prod | Lax | 10 min |
+PKCE is one layer in the authorization code exchange. Here's how it interacts with the others:
+
+| Threat | PKCE's Role | Complementary Defense |
+|--------|------------|----------------------|
+| Code intercepted from URL | Prevents exchange without verifier | State parameter prevents injection of attacker's code |
+| Code stolen from browser history | Same — verifier required | Codes are single-use (Hydra invalidates after first exchange) |
+| Token stolen after exchange | Not PKCE's job | DPoP binds tokens to a cryptographic keypair |
+| User tricked into fake login | Not PKCE's job | Return-to URL sanitization prevents phishing redirects |
+| Verifier stolen from cookie | PKCE bypassed | Cookie encryption (AES-256-GCM) + httpOnly + SameSite |
 
 ---
 
 ## Recommendations
 
-1. **PKCE is correctly implemented** — S256 method, adequate verifier length, encrypted storage, short TTL. No changes needed.
+1. **Enforce PKCE at the Hydra level**: If Hydra supports a `require_pkce: true` flag in client configuration, enable it. This ensures PKCE cannot be accidentally bypassed by a code path that forgets to include the challenge. Currently, PKCE enforcement depends on the client code always generating and sending the challenge — a server-side requirement is stronger.
 
-2. **Consider enforcing PKCE at the Hydra level**: If Hydra supports `require_pkce: true` in client configuration, enable it to ensure PKCE cannot be accidentally bypassed.
+2. **The implementation is solid**: S256 challenge method, maximum verifier length, encrypted storage with short TTL. No changes needed to the PKCE mechanism itself.
 
-3. **Monitor for `plain` challenge method**: Ensure no code path ever uses `code_challenge_method: "plain"` as this provides no security benefit (the verifier and challenge would be identical).
+3. **Consider logging PKCE failures**: If the token exchange fails due to a PKCE mismatch, log it as a security event. Repeated PKCE failures for a specific `client_id` or from specific IPs could indicate an active code interception attack.
