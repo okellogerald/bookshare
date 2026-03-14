@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import {
-  buildAuthPortalRegisterUrl,
+  buildAppLoginUrl,
   sanitizeReturnTo,
 } from "@/features/auth/lib/auth-portal";
 
@@ -22,5 +22,5 @@ export default async function RegisterPage({
     getParam(params, "returnTo") ?? getParam(params, "return_to")
   );
 
-  redirect(buildAuthPortalRegisterUrl(returnTo));
+  redirect(buildAppLoginUrl(returnTo));
 }

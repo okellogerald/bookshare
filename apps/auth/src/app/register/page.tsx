@@ -58,7 +58,7 @@ export default async function RegisterPage({
   return (
     <KratosFlowForm
       flow={flow}
-      title={isCodeStep ? "Verify your email" : "Create account"}
+      title={isCodeStep ? "Verify your email" : "Register"}
       description={description}
       sectionGroups={["code"]}
       fieldAllowlist={fieldAllowlist}

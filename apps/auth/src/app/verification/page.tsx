@@ -31,10 +31,7 @@ export default async function VerificationPage({
       flow={flow}
       title="Verify email"
       description="Enter the code sent to your email."
-      links={[
-        { href: "/login", label: "Sign in" },
-        { href: "/register", label: "Create account" },
-      ]}
+      links={[{ href: "/login", label: "Sign in" }]}
     />
   );
 }

@@ -34,9 +34,6 @@ export default async function ErrorPage({
         <NextLink href="/login" className="auth-home-link">
           Back to sign in
         </NextLink>
-        <NextLink href="/register" className="auth-home-link">
-          Create account
-        </NextLink>
       </div>
     </AuthShell>
   );

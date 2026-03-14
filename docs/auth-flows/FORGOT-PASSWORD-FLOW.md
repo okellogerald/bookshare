@@ -60,7 +60,6 @@ STEP 1  Auth Portal login page ──→ STEP 2  Auth Portal recovery page
 
 ```tsx
 links={[
-  { href: registerHref, label: "Create account" },
   { href: "/recovery", label: "Forgot password?" },
 ]}
 ```
@@ -285,7 +284,6 @@ The "Forgot password?" link appears on the login page as a footer link:
 ```tsx
 // apps/auth/src/app/login/page.tsx
 links={[
-  { href: registerHref, label: "Create account" },
   { href: "/recovery", label: "Forgot password?" },
 ]}
 ```

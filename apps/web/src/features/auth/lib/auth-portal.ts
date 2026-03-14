@@ -27,13 +27,6 @@ export function buildAppLoginUrl(returnTo: string): string {
   return url.toString();
 }
 
-export function buildAuthPortalRegisterUrl(returnTo: string): string {
-  const appLoginUrl = buildAppLoginUrl(returnTo);
-  const url = new URL("/register", getAuthPortalBaseUrl());
-  url.searchParams.set("return_to", appLoginUrl);
-  return url.toString();
-}
-
 export function buildAuthPortalVerificationUrl(returnTo: string): string {
   const appLoginUrl = buildAppLoginUrl(returnTo);
   const url = new URL("/verification", getAuthPortalBaseUrl());

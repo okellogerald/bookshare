@@ -139,7 +139,6 @@ Kratos exposes two login methods:
   description="Use your account to continue."
   sectionGroups={["password"]}     // Only show password section
   links={[
-    { href: registerHref, label: "Create account" },
     { href: "/recovery", label: "Forgot password?" },
   ]}
 />
@@ -347,7 +346,7 @@ The Auth Portal fetches the flow (see [full response in the section above](#raw-
 - Email input (`identifier`): `autocomplete="email"`
 - Password input: `autocomplete="current-password"`
 - Submit button: "Sign in"
-- Links: "Create account", "Forgot password?"
+- Links: "Forgot password?"
 
 > **💡 Tip: `autocomplete="current-password"` vs `"new-password"`**
 > The `getFieldAutoComplete()` function checks the flow action URL. If it contains `/registration` or `/settings`, it returns `"new-password"` (telling the browser's password manager this is a new password). For login, it returns `"current-password"` (telling the browser to offer saved passwords).

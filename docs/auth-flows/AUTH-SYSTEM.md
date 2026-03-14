@@ -620,10 +620,8 @@ BookShare uses cookies at three levels. Understanding which cookie belongs to wh
 
 All cookies are `httpOnly` (inaccessible to JavaScript) and `sameSite: lax` (prevents cross-site submission). In production, all use `secure: true` (HTTPS only).
 
-> **💡 Tip: Why are there three separate cookie domains?**
-> Each service sets cookies on its own domain. Browsers enforce the Same-Origin Policy — a cookie set by localhost:4433 (Kratos) is only sent to localhost:4433. The Web App (localhost:3334) can't read Kratos cookies and vice versa.
->
-> This isolation is a security feature. Even if the Web App has an XSS vulnerability, the attacker can't steal the Kratos session cookie because it's on a different domain.
+> **💡 Tip: Cookie scope is domain + path based, not port based**
+> In local development, these apps all run on `localhost`, so the browser may send several cookies on one navigation. Each service still only acts on the cookies it understands. In production, the apps can also be split across separate hosts, which isolates them further.
 
 > **💡 Tip: Why store the registration flow ID in a cookie?**
 > During registration, Kratos redirects the browser multiple times (flow creation → email entry → code entry). Some of these redirects can lose the `?flow=` query parameter. The Auth Portal middleware stores the flow ID in a `bookshare_register_flow` cookie so it can restore the flow ID if the URL loses it.
@@ -739,29 +737,27 @@ Each field serves a specific anti-abuse purpose:
 
 ## Flow Overview: Registration
 
-Registration is a multi-step process that spans Kratos flows and ends with OAuth2 token acquisition.
+Registration is an Auth Portal flow built on Kratos. Bookshare-Web no longer exposes account creation; it only exposes sign-in.
 
 **For full technical detail with real Kratos API responses at every stage, see [REGISTRATION-FLOW.md](./REGISTRATION-FLOW.md).**
 
 ### Summary
 
 ```
-1. User clicks "Create account" on Web App landing page
-2. → Auth Portal /register (email entry form)
-3. → Kratos sends 6-digit code to email
-4. → Auth Portal /register (code entry form)
-5. → Kratos verifies code → creates identity + session
-6. → Auth Portal /setup (password form)
-7. → Auth Portal /setup (profile form)
-8. → Web App /api/auth/login (starts OAuth2 flow)
-9. → Hydra login challenge → Auth Portal auto-accepts (session exists)
-10. → Hydra consent challenge → Auth Portal auto-grants
-11. → Web App /api/auth/callback (exchanges code for tokens with DPoP)
-12. → User lands on /browse, fully authenticated
+1. User opens Auth Portal /register directly
+2. → Kratos creates browser registration flow
+3. → Auth Portal /register renders email entry
+4. → Kratos sends 6-digit code to email
+5. → Auth Portal /register renders code entry
+6. → Kratos verifies code → creates identity + session
+7. → Auth Portal /setup (password form)
+8. → Auth Portal /setup (profile form)
+9. → Auth Portal redirects to /login by default
+10. → User can later sign in through Bookshare-Web or the Auth Portal login page
 ```
 
 > **💡 Tip: Why does registration end with an OAuth flow?**
-> After Kratos registration, the user has a Kratos session but no OAuth tokens. The Web App needs OAuth tokens (access token, ID token) to authenticate API requests. So the final step of registration is an automatic login through Hydra — the user has a Kratos session, so the Auth Portal accepts the login challenge without asking for credentials again.
+> It does not by default anymore. Registration finishes at the Auth Portal, and Bookshare-Web sign-in remains a separate Hydra-driven flow. The setup page still honors an explicit `return_to` if some external system provides one.
 
 > **💡 Tip: Why is the password set AFTER email verification?**
 > BookShare uses code-based registration: enter email → verify with code → set password. This order ensures:

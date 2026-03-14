@@ -249,9 +249,6 @@ export function AppShellClient({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/auth/register">Create Account</Link>
-              </Button>
               <Button size="sm" asChild>
                 <Link href="/api/auth/login?returnTo=/browse">Sign In</Link>
               </Button>

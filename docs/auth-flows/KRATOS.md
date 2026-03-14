@@ -496,7 +496,7 @@ The `/register` page calls `getBrowserFlow("registration", flowId)` and passes t
 ```tsx
 <KratosFlowForm
   flow={flow}
-  title="Create account"
+  title="Register"
   description="Enter your email to start account creation."
   sectionGroups={["code"]}
   fieldAllowlist={["traits.email"]}     // Only show email field
@@ -906,7 +906,6 @@ Location: http://localhost:3337/login?flow=b2c3d4e5-...
   description="Use your account to continue."
   sectionGroups={["password"]}
   links={[
-    { href: registerHref, label: "Create account" },
     { href: "/recovery", label: "Forgot password?" },
   ]}
 />
@@ -944,7 +943,6 @@ The `identifier` node belongs to the `default` group, but `buildSections` merges
   <button type="submit" name="method" value="password">Sign in</button>
 </form>
 
-<a href="/register?return_to=...">Create account</a>
 <a href="/recovery">Forgot password?</a>
 ```
 
@@ -1125,7 +1123,6 @@ Browser → GET http://localhost:4433/self-service/verification/browser
   description="Enter the code sent to your email."
   links={[
     { href: "/login", label: "Sign in" },
-    { href: "/register", label: "Create account" },
   ]}
 />
 ```
@@ -1555,7 +1552,6 @@ The error page renders this:
     <pre>{JSON.stringify(flowError.error, null, 2)}</pre>
   )}
   <a href="/login">Back to sign in</a>
-  <a href="/register">Create account</a>
 </AuthShell>
 ```
 

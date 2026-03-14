@@ -11,9 +11,6 @@ export default function HomePage() {
         <NextLink href="/login" className="auth-home-link">
           Login
         </NextLink>
-        <NextLink href="/register" className="auth-home-link">
-          Registration
-        </NextLink>
         <NextLink href="/recovery" className="auth-home-link">
           Password Recovery
         </NextLink>

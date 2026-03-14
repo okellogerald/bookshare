@@ -26,20 +26,13 @@ export default async function LoginPage({
     redirect(createBrowserFlowUrl("login", returnTo));
   }
 
-  const registerHref = flow.return_to
-    ? `/register?return_to=${encodeURIComponent(flow.return_to)}`
-    : "/register";
-
   return (
     <KratosFlowForm
       flow={flow}
       title="Sign in"
       description="Use your account to continue."
       sectionGroups={["password"]}
-      links={[
-        { href: registerHref, label: "Create account" },
-        { href: "/recovery", label: "Forgot password?" },
-      ]}
+      links={[{ href: "/recovery", label: "Forgot password?" }]}
     />
   );
 }

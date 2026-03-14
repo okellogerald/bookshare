@@ -48,9 +48,6 @@ export default async function LandingPage({
         <Button size="lg" asChild>
           <Link href={signInHref}>Sign In</Link>
         </Button>
-        <Button size="lg" variant="outline" asChild>
-          <Link href="/auth/register">Create Account</Link>
-        </Button>
       </div>
     </div>
   );

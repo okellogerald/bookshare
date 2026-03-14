@@ -13,12 +13,12 @@
 - [Execution Path — File by File](#execution-path--file-by-file)
 - [The Registration Journey at a Glance](#the-registration-journey-at-a-glance)
 - [What Kratos Exposes vs. What the UI Shows](#what-kratos-exposes-vs-what-the-ui-shows)
-- [Phase 1: Entering the Auth Portal](#phase-1-entering-the-auth-portal)
+- [Phase 1: Entering Registration](#phase-1-entering-registration)
 - [Phase 2: Email Entry](#phase-2-email-entry)
 - [Phase 3: Code Verification](#phase-3-code-verification)
 - [Phase 4: Password Setup](#phase-4-password-setup)
 - [Phase 5: Profile Completion](#phase-5-profile-completion)
-- [Phase 6: OAuth2 Token Acquisition](#phase-6-oauth2-token-acquisition)
+- [Phase 6: Post-Registration Redirect](#phase-6-post-registration-redirect)
 - [Alternate Path: Password Registration (Raw Kratos)](#alternate-path-password-registration-raw-kratos)
 - [Configuration That Drives This Flow](#configuration-that-drives-this-flow)
 - [Error Scenarios](#error-scenarios)
@@ -32,46 +32,20 @@
 This is the complete linear execution path of the registration flow. Every file is listed in the exact order it executes. Each entry says who arrives, what it does, and where the user goes next.
 
 > **💡 Tip: Why this section exists**
-> The registration flow touches 7 files across 2 apps. When debugging, you need to know "which file handles this step?" without reading the entire document. This section answers that directly.
+> Bookshare-Web no longer exposes account creation. Registration is now an Auth Portal concern, independent from the client sign-in entrypoint.
 
 ```
-STEP 1  Web App register page ─→ STEP 2  Auth Portal middleware ─→ STEP 3  Auth Portal register page
-                                                                           (email entry → code entry)
-                                                                                  │
-                                                                                  ▼
-STEP 4  Auth Portal register/reset ←─ (optional: "use different email")    STEP 5  Auth Portal setup page
-                                                                           (password → profile)
-                                                                                  │
-                                                                                  ▼
-                                                                    STEP 6  Auth Portal OAuth login handler
-                                                                                  │
-                                                                                  ▼
-                                                                    STEP 7  Web App callback
+STEP 1  Auth Portal middleware ─→ STEP 2  Auth Portal register page ─→ STEP 3  Auth Portal register/reset
+                                          (email entry → code entry)             (optional: "use different email")
+                                                                 │
+                                                                 ▼
+STEP 4  Auth Portal setup page ─→ STEP 5  Post-registration destination
+          (password → profile)                (/login by default, or explicit return_to)
 ```
 
 ---
 
-### Step 1: Web App Register Page
-
-**File:** `apps/web/src/app/auth/register/page.tsx`
-
-**Who comes here:** User clicks "Create account" on the Web App landing page or any unauthenticated page.
-
-**What it does:** This is a thin redirect page. It does not render any UI. It:
-1. Reads `returnTo` (or `return_to`) from query params
-2. Sanitizes it via `sanitizeReturnTo()` — rejects absolute URLs, protocol-relative URLs, and `/api/auth` paths (defaults to `/browse`)
-3. Builds the Auth Portal registration URL: `http://localhost:3337/register?return_to=http://localhost:3334/api/auth/login?returnTo=/browse`
-4. Redirects immediately
-
-**Why the indirection:** The Web App doesn't handle registration directly. It wraps the user's intended destination inside `/api/auth/login` so that after registration completes, the user returns to the Web App's OAuth entry point to get tokens. The chain is: registration → `/api/auth/login` → PKCE → Hydra → tokens → `/browse`.
-
-**Why check returnTo:** Without sanitization, an attacker could craft `?returnTo=https://evil.com` and the user would be redirected there after registration. The 3-layer check (must start with `/`, must not start with `//`, must not start with `/api/auth`) prevents open redirect attacks.
-
-**Where they go next:** 302 redirect to Auth Portal `/register` (Step 2).
-
----
-
-### Step 2: Auth Portal Middleware
+### Step 1: Auth Portal Middleware
 
 **File:** `apps/auth/src/middleware.ts`
 
@@ -86,38 +60,69 @@ STEP 4  Auth Portal register/reset ←─ (optional: "use different email")    S
 | `/register` (no `?flow`, no cookie) | Pass through (page will create a new flow) |
 | `/setup` | Delete the `bookshare_register_flow` cookie (registration phase is over) |
 
-**Why this exists:** During code verification, Kratos redirects the browser back to `/register` after form submission. Some redirects can lose the `?flow=` parameter. Without this cookie, the Auth Portal would lose track of the flow and start over — wasting the user's progress.
+**Why this exists:** During code verification, Kratos redirects the browser back to `/register` after form submission. Some redirects can lose the `?flow=` parameter. Without this cookie, the Auth Portal would lose track of the flow and start over.
 
-**Where they go next:** Request continues to the register page (Step 3) or setup page (Step 5).
+**Where they go next:** Request continues to the register page (Step 2) or setup page (Step 4).
 
 ---
 
-### Step 3: Auth Portal Register Page
+### Step 2: Auth Portal Register Page
 
 **File:** `apps/auth/src/app/register/page.tsx`
 
-**Who comes here:** User arriving at the Auth Portal for registration (redirected from Step 1 or Kratos).
+**Who comes here:** User arriving at `/register` directly, or returning from Kratos with a flow ID.
 
-**What it does:** This single page handles **two states** of the same Kratos registration flow:
+**What it does:** This single page handles two states of the same Kratos registration flow:
+1. Email entry (`traits.email`)
+2. Code verification (`code`)
 
-#### State A: Email Entry (`isCodeStep = false`)
+If `flow` is missing or invalid, it redirects to Kratos `GET /self-service/registration/browser` to create a new one. Once the flow exists, the page renders the email step first, then the code step after Kratos updates the flow.
 
-The page checks params:
-- `flowId` — If missing, redirects to Kratos `GET /self-service/registration/browser` to create a new flow. Kratos responds with 303 + `?flow={id}`, which loops back here.
-- `return_to` — Preserved for the "Back to sign in" link and forwarded to Kratos.
+**Where they go next:** Kratos redirects back here until code verification succeeds, then redirects to `/setup` (Step 4).
 
-The page fetches the flow via `getBrowserFlow("registration", flowId)`. If the flow is expired/invalid, it creates a new one.
+---
 
-It detects the current state by checking if a `code` input node exists:
+### Step 3: Auth Portal Register Reset
 
-```ts
-const isCodeStep = flow.ui.nodes.some(
-  (node) => node.type === "input" && node.attributes.name === "code"
-);
-```
+**File:** `apps/auth/src/app/register/reset/route.ts`
 
-For email entry (`isCodeStep = false`):
-- Renders: email field only (`fieldAllowlist=["traits.email"]`)
+**Who comes here:** User clicks "Use a different email" during code verification.
+
+**What it does:** Deletes the `bookshare_register_flow` cookie and redirects back to `/register` without a flow ID, forcing Kratos to create a fresh registration flow.
+
+**Where they go next:** Fresh registration flow → Step 1 → Step 2.
+
+---
+
+### Step 4: Auth Portal Setup Page
+
+**File:** `apps/auth/src/app/setup/page.tsx`
+
+**Who comes here:** User arriving after successful code verification.
+
+**What it does:** Handles the two-step settings flow:
+1. Password setup
+2. Profile completion
+
+Both steps reuse the same Kratos settings flow. After the profile step succeeds, the page redirects to `return_to` if one exists, or `/login` if it does not.
+
+**Where they go next:** Default path is the Auth Portal sign-in page; externally supplied `return_to` values are resumed in Step 5.
+
+---
+
+### Step 5: Post-Registration Destination
+
+**File:** `apps/auth/src/app/setup/page.tsx`
+
+**Who comes here:** User after password and profile setup completes.
+
+**What it does:** Finishes the registration flow by redirecting:
+1. To `/login` by default
+2. To the provided `return_to` when registration was initiated by some external flow
+
+**Why this matters:** Registration no longer implies an immediate Bookshare-Web sign-in. The client only exposes sign-in; registration is separate.
+
+---
 - Section: code group only (`sectionGroups=["code"]`)
 - Button: "Sign up with code" (`submitAllowlist=["method"]`)
 - Links: "Back to sign in"
@@ -139,16 +144,16 @@ The form POSTs the code to Kratos. On success, Kratos creates the identity, crea
 
 **Where they go next:**
 - State A → Kratos redirects back here (same page, now State B)
-- State B → Kratos redirects to `/setup` (Step 5)
-- "Use a different email" → Step 4
+- State B → Kratos redirects to `/setup` (Step 7)
+- "Use a different email" → Step 6
 
 ---
 
-### Step 4: Auth Portal Register Reset
+### Step 6: Auth Portal Register Reset
 
 **File:** `apps/auth/src/app/register/reset/route.ts`
 
-**Who comes here:** User clicks "Use a different email" during code verification (State B of Step 3).
+**Who comes here:** User clicks "Use a different email" during code verification (State B of Step 5).
 
 **What it does:** Two things:
 1. Deletes the `bookshare_register_flow` cookie
@@ -156,22 +161,22 @@ The form POSTs the code to Kratos. On success, Kratos creates the identity, crea
 
 **Why:** This abandons the current flow entirely. The old flow (with the wrong email) still exists in Kratos but will expire after 1 hour. The user starts fresh with a new email. Since the cookie is deleted and there's no `?flow=` param, Step 3 will redirect to Kratos to create a brand new flow.
 
-**Where they go next:** 302 → `/register` → Step 2 (middleware) → Step 3 (fresh flow).
+**Where they go next:** 302 → `/register` → Step 4 (middleware) → Step 5 (fresh flow).
 
 ---
 
-### Step 5: Auth Portal Setup Page
+### Step 7: Auth Portal Setup Page
 
 **File:** `apps/auth/src/app/setup/page.tsx`
 
-**Who comes here:** User arriving after successful code verification (Kratos redirected here from Step 3, State B).
+**Who comes here:** User arriving after successful code verification (Kratos redirected here from Step 5, State B).
 
 **What it does:** Handles **two sequential steps** using the **same Kratos settings flow**:
 
 The page checks params:
 - `flowId` — If missing, creates a settings flow via `initBrowserFlow("settings", returnTo)`. This server-side call requires the `ory_kratos_session` cookie (created in Step 3). If the session is missing, Kratos returns 401 and the flow creation fails.
 - `step` — Determines which section to render. Defaults to `"password"` unless explicitly `"profile"`.
-- `return_to` — Preserved across both steps. After profile completion, this is where the user goes (= Web App's `/api/auth/login`).
+- `return_to` — Preserved across both steps. After profile completion, this is where the user goes if the flow was started externally; otherwise the page falls back to `/login`.
 - `hasSuccessMessage` — Triggers auto-transition between steps.
 
 #### Step A: Password (`step=password`)
@@ -205,122 +210,60 @@ The page checks params:
 
 **Where they go next:**
 - Step A → auto-redirect to Step B (same page, different `?step=`)
-- Step B → redirect to `return_to` = `http://localhost:3334/api/auth/login` → Step 6
-
----
-
-### Step 6: Auth Portal OAuth Login Handler
-
-**File:** `apps/auth/src/app/oauth/login/route.ts`
-
-**Who comes here:** Hydra redirects here during the OAuth flow (after the Web App initiated PKCE in Step 5's `return_to`).
-
-**What it does:** This is the **gatekeeper** — the single point where all prerequisites are validated before OAuth tokens are issued. It performs three checks in sequence:
-
-| Check | Method | If fails |
-|---|---|---|
-| 1. Kratos session exists | `getKratosSession(cookies)` | Redirect to `/login` with challenge in `return_to` |
-| 2. Email is verified | `isKratosEmailVerified(session)` | Redirect to `/verification` with challenge in `return_to` |
-| 3. Profile is complete | `isKratosProfileComplete(session)` | Redirect to `/setup` with challenge in `return_to` |
-
-If all three pass, it accepts the Hydra login challenge with the identity ID and traits context. Hydra then proceeds to the consent challenge (auto-granted by `apps/auth/src/app/oauth/consent/route.ts`).
-
-**Why these checks matter:** Even if someone bypasses the UI and calls Kratos APIs directly, they cannot get OAuth tokens without passing all three gates. This is defense-in-depth — the UI flow guides users through registration steps, but the OAuth handler enforces them.
-
-**Where they go next:** Hydra issues an auth code → redirects to Web App callback → Step 7.
-
----
-
-### Step 7: Web App Callback
-
-**File:** `apps/web/src/app/api/auth/callback/route.ts`
-
-**Who comes here:** Hydra redirects here after consent is granted.
-
-**What it does:** Completes the OAuth flow and creates the authenticated session:
-1. Decrypts PKCE cookies (`oidc_code_verifier`, `oidc_state`)
-2. Validates state matches (CSRF protection)
-3. Generates DPoP keypair (P-256 ECDSA)
-4. Exchanges auth code for tokens at Hydra (`/oauth2/token`) with PKCE verifier + DPoP proof
-5. Validates DPoP binding (`cnf.jkt` matches proof key thumbprint)
-6. Creates encrypted session cookie (`bookshare_session`) containing tokens + DPoP private key + user info
-7. Syncs profile to local PostgreSQL via `POST /api/profiles/sync`
-8. Redirects to `/browse`
-
-**Where they go next:** User lands on `/browse` — fully authenticated.
+- Step B → redirect to `return_to` if present, otherwise `/login`
 
 ---
 
 ## The Registration Journey at a Glance
 
 ```
-User clicks          Auth Portal          Kratos               Hydra            Web App
-"Create account"
+User opens          Auth Portal             Kratos
+/register
      │
-     ├──────────────→ /register
-     │                    │
-     │                    ├──────────────→ GET /self-service/registration/browser
-     │                    │                    │
-     │                    │◄───────────── 303 + ?flow={id} + csrf cookie
-     │                    │
-     │                    ├──────────────→ GET /self-service/registration/flows?id=...
-     │                    │◄───────────── 200 { ui: { nodes: [email, code submit] } }
-     │                    │
-     │◄───────────── render email form
+     ├────────────→ /register
+     │                │
+     │                ├────────────→ GET /self-service/registration/browser
+     │                │
+     │                ◄──────────── 303 + ?flow={id} + csrf cookie
+     │◄──────────── render email form
      │
      │ enters email
-     ├──────────────→ POST /self-service/registration?flow=...
-     │                                   │
-     │                    │◄───────────── 303 (flow updated, code sent)
-     │                    │
-     │◄───────────── render code form
-     │                                   📧 code sent to email
+     ├──────────────────────────────────────────────────────────────→ POST /self-service/registration?flow=...
+     │                                                                       │
+     │                                                        ◄───────────── 303 (flow updated, code sent)
+     │◄──────────── render code form                          📧
+     │
      │ enters code
-     ├──────────────→ POST /self-service/registration?flow=...
-     │                                   │
-     │                    │◄───────────── 303 + ory_kratos_session cookie
-     │                                   │ identity created, email verified
-     │                    │
-     ├──────────────→ /setup?step=password
-     │                    │
-     │                    ├──────────────→ GET /self-service/settings/browser
-     │                    │◄───────────── 303 + ?flow={settings-id}
-     │                    │
-     │◄───────────── render password form
+     ├──────────────────────────────────────────────────────────────→ POST /self-service/registration?flow=...
+     │                                                                       │
+     │                                                        ◄───────────── 303 + ory_kratos_session
+     │                                                                       │ identity created, email verified
+     │
+     ├────────────→ /setup?step=password
+     │                │
+     │                ├────────────→ GET /self-service/settings/browser
+     │                │
+     │                ◄──────────── 303 + ?flow={settings-id}
+     │◄──────────── render password form
      │
      │ enters password
-     ├──────────────→ POST /self-service/settings?flow=...
-     │                                   │
-     │                    │◄───────────── 303 (password saved)
-     │                    │
-     ├──────────────→ /setup?step=profile
-     │                    │
-     │◄───────────── render profile form
+     ├──────────────────────────────────────────────────────────────→ POST /self-service/settings?flow=...
+     │                                                                       │
+     │                                                        ◄───────────── 303 (password saved)
+     │
+     ├────────────→ /setup?step=profile
+     │◄──────────── render profile form
      │
      │ enters name, gender
-     ├──────────────→ POST /self-service/settings?flow=...
-     │                                   │
-     │                    │◄───────────── 303 (traits updated)
-     │                    │
-     ├──────────────→ return_to → Web App /api/auth/login
-     │                                                        │
-     │                                              ◄──────── /oauth2/auth (PKCE)
-     │                                                        │
-     │                    ◄─────────────────────────────────── login_challenge
-     │                    │
-     │                    ├──────────────→ GET /sessions/whoami ✅
-     │                    │
-     │                    ├──────────────────────────────────→ PUT /login/accept
-     │                    │                                    │
-     │                    ◄─────────────────────────────────── consent_challenge
-     │                    │
-     │                    ├──────────────────────────────────→ PUT /consent/accept
-     │                                                        │
-     │                                              ◄──────── auth code → /callback
-     │                                                        │
-     │                                              ────────→ token exchange (PKCE+DPoP)
-     │                                                        │
-     │◄────────────────────────────────────────────────────── redirect /browse (session set)
+     ├──────────────────────────────────────────────────────────────→ POST /self-service/settings?flow=...
+     │                                                                       │
+     │                                                        ◄───────────── 303 (traits updated)
+     │
+     ├────────────→ /login (default)
+     │
+     │   or
+     │
+     └────────────→ return_to (if explicitly supplied)
 ```
 
 ---
@@ -381,47 +324,25 @@ Result: The user sees **only** an email field and a "Sign up with code" button. 
 
 ---
 
-## Phase 1: Entering the Auth Portal
+## Phase 1: Entering Registration
 
-### Step 1.1: User Clicks "Create Account"
+### Step 1.1: User Opens `/register`
 
-The Web App landing page has a link to:
-
-```
-http://localhost:3337/register?return_to=http://localhost:3334/api/auth/login
-```
-
-> **💡 Tip: Why does `return_to` point to `/api/auth/login`?**
-> After registration is fully complete (email verified, password set, profile filled), the user needs OAuth tokens to use the Web App. The `return_to` URL tells Kratos "when everything is done, send the user here." `/api/auth/login` is the Web App's OAuth flow entry point — it generates PKCE credentials and redirects to Hydra.
->
-> So the chain is: registration complete → return to Web App login route → OAuth flow → tokens acquired → user lands on /browse.
-
-### Step 1.2: Auth Portal Creates Kratos Flow
-
-The `/register` page (file: `apps/auth/src/app/register/page.tsx`) checks for a `flow` query parameter. If missing, it redirects to Kratos to create one:
+Bookshare-Web no longer exposes account creation. Users who need registration arrive directly at:
 
 ```
-Browser → GET http://localhost:4433/self-service/registration/browser
-            ?return_to=http://localhost:3334/api/auth/login
+http://localhost:3337/register
 ```
 
-**Kratos response:**
+The Auth Portal asks Kratos to create a browser registration flow when `flow` is missing:
 
 ```http
-HTTP/1.1 303 See Other
-Location: http://localhost:3337/register?flow=4db47807-f3a9-4d26-8f0f-7d599370359c
-Set-Cookie: csrf_token_...=6EZeayeTY80HrXK3eoNDbYJrRSYm3IYvT1JCdX+7zU4=; HttpOnly; SameSite=Lax
+GET http://localhost:4433/self-service/registration/browser
 ```
 
-**What happened:**
-1. Kratos created a registration flow object in the database with a 1-hour lifespan
-2. Kratos set a CSRF cookie on the Kratos domain
-3. Kratos redirected to the configured `registration.ui_url` with the flow ID
+Kratos responds with a redirect back to `/register?flow={flow_id}` plus a CSRF cookie.
 
-> **💡 Tip: The CSRF cookie is on the Kratos domain, not the Auth Portal domain**
-> The cookie is set on `localhost:4433` (Kratos). When the Auth Portal later POSTs the form to `localhost:4433/self-service/registration?flow=...`, the browser automatically sends this cookie. Kratos compares it to the `csrf_token` hidden field in the form. This is the double-submit cookie pattern.
-
-### Step 1.3: Flow ID Persistence (Middleware)
+### Step 1.2: Flow ID Persistence (Middleware)
 
 The Auth Portal middleware (`apps/auth/src/middleware.ts`) intercepts the `/register` request and stores the flow ID:
 
@@ -474,7 +395,7 @@ const isCodeStep = flow.ui.nodes.some(
 ```
 
 **Rendered UI:**
-- Title: "Create account"
+- Title: "Register"
 - Description: "Enter your email to start account creation."
 - Fields: Email only
 - Button: "Sign up with code"
@@ -812,11 +733,11 @@ if (setupStep === "profile" && hasSuccessMessage) {
 }
 ```
 
-The `returnTo` is `http://localhost:3334/api/auth/login` — which starts the OAuth2 flow.
+If `returnTo` is absent, the setup page redirects to `http://localhost:3337/login`. If it is present, the Auth Portal resumes that explicit destination instead.
 
 ---
 
-## Phase 6: OAuth2 Token Acquisition
+## Phase 6: Post-Registration Redirect
 
 At this point, the user has:
 - ✅ Verified email
@@ -824,83 +745,34 @@ At this point, the user has:
 - ✅ Completed profile
 - ✅ Active Kratos session (`ory_kratos_session`)
 
-Now they need OAuth tokens.
+Now the Auth Portal decides where to send the user next.
 
-### Step 6.1: Web App Initiates PKCE Flow
+### Step 6.1: Default Redirect to Sign In
 
-`GET /api/auth/login` (file: `apps/web/src/app/api/auth/login/route.ts`):
+If no explicit `return_to` was supplied, the setup page redirects to:
 
-1. Generate PKCE: `codeVerifier`, `codeChallenge` (SHA-256), `state`
-2. Store encrypted cookies: `oidc_code_verifier`, `oidc_state`, `oidc_return_to`
-3. Redirect to Hydra: `http://localhost:4444/oauth2/auth?response_type=code&client_id=bookshare-web&scope=openid+profile+email+offline_access&code_challenge={challenge}&code_challenge_method=S256&state={state}&redirect_uri=http://localhost:3334/api/auth/callback&prompt=login&max_age=0`
-
-### Step 6.2: Hydra Login Challenge
-
-Hydra creates a `login_challenge` and redirects to:
 ```
-http://localhost:3337/oauth/login?login_challenge={challenge}
+http://localhost:3337/login
 ```
 
-### Step 6.3: Auth Portal Accepts Login
+By default the setup page redirects to:
 
-`GET /oauth/login` (file: `apps/auth/src/app/oauth/login/route.ts`):
+```
+http://localhost:3337/login
+```
 
-1. Fetch challenge from Hydra admin: `GET /admin/oauth2/auth/requests/login?login_challenge={challenge}`
-2. Check Kratos session: `GET /sessions/whoami` → **Session exists** (from Phase 3)
-3. Check email verified: `isKratosEmailVerified(session)` → **true** (verified in Phase 3)
-4. Check profile complete: `isKratosProfileComplete(session)` → **true** (completed in Phase 5)
-5. Accept login challenge:
+This keeps registration and sign-in independent.
 
-```http
-PUT /admin/oauth2/auth/requests/login/accept?login_challenge={challenge}
-Body: {
-  "subject": "f9c95ce2-8654-4ea2-8f89-eb85f877352f",
-  "remember": true,
-  "remember_for": 3600,
-  "context": { "traits": { "email": "...", "name": { "first": "Jane", "last": "Doe" } } }
+If an external system initiated registration with a `return_to`, that value is used instead:
+
+```ts
+if (setupStep === "profile" && hasSuccessMessage) {
+  if (returnTo) redirect(returnTo);
+  redirect("/login");
 }
 ```
 
-### Step 6.4: Hydra Consent Challenge (Auto-Granted)
-
-Hydra creates a `consent_challenge`. Auth Portal auto-grants with ID token claims:
-
-```json
-{
-  "grant_scope": ["openid", "profile", "email", "offline_access"],
-  "session": {
-    "id_token": {
-      "email_verified": true,
-      "email": "codex.1773385571@example.com",
-      "preferred_username": "codex.1773385571",
-      "given_name": "Jane",
-      "family_name": "Doe",
-      "name": "Jane Doe"
-    },
-    "access_token": {
-      "sub": "f9c95ce2-8654-4ea2-8f89-eb85f877352f",
-      "email_verified": true
-    }
-  }
-}
-```
-
-### Step 6.5: Token Exchange with DPoP
-
-`GET /api/auth/callback?code={authCode}&state={state}`:
-
-1. Decrypt cookies: `oidc_code_verifier`, `oidc_state`
-2. Validate state matches
-3. Generate DPoP keypair (P-256 ECDSA)
-4. Exchange code for tokens at `http://hydra:4444/oauth2/token` with PKCE verifier + DPoP proof
-5. Receive: access_token, id_token, refresh_token
-6. Store encrypted session in `bookshare_session` cookie
-7. POST to `/api/profiles/sync` to ensure member profile exists
-8. Redirect to `/browse`
-
-**User is now fully authenticated** with:
-- Encrypted Web App session cookie containing all tokens + DPoP private key
-- Kratos identity with verified email, password, and complete profile
+This makes registration and Bookshare-Web sign-in independent. Registration finishes at the Auth Portal; Bookshare-Web still only exposes sign-in.
 
 ---
 
@@ -1101,20 +973,15 @@ identities:                     1 row (traits: {email, name: {first, last}, gend
 
 | Step | File | Purpose |
 |---|---|---|
-| 1 | `apps/web/src/app/auth/register/page.tsx` | Web App → Auth Portal redirect (sanitizes returnTo, builds URL) |
-| 2 | `apps/auth/src/middleware.ts` | Flow ID cookie persistence across redirects |
-| 3 | `apps/auth/src/app/register/page.tsx` | Email entry + code verification UI (two states, one flow) |
-| 4 | `apps/auth/src/app/register/reset/route.ts` | "Use different email" — abandons flow, starts fresh |
-| 5 | `apps/auth/src/app/setup/page.tsx` | Password + profile setup (two steps, one settings flow) |
-| 6 | `apps/auth/src/app/oauth/login/route.ts` | OAuth gatekeeper — validates session, email, profile |
-| 6 | `apps/auth/src/app/oauth/consent/route.ts` | Auto-grants consent with ID/access token claims |
-| 7 | `apps/web/src/app/api/auth/login/route.ts` | PKCE flow initiation |
-| 7 | `apps/web/src/app/api/auth/callback/route.ts` | Token exchange with DPoP, session creation |
+| 1 | `apps/auth/src/middleware.ts` | Flow ID cookie persistence across `/register` and `/setup` redirects |
+| 2 | `apps/auth/src/app/register/page.tsx` | Email entry + code verification UI (two states, one flow) |
+| 3 | `apps/auth/src/app/register/reset/route.ts` | "Use different email" — abandons flow, starts fresh |
+| 4 | `apps/auth/src/app/setup/page.tsx` | Password + profile setup (two steps, one settings flow) |
 | — | `apps/auth/src/lib/kratos.ts` | Kratos API client (flow fetch, session check) |
 | — | `apps/auth/src/components/kratos-flow-form.tsx` | Main form renderer |
 | — | `apps/auth/src/components/flow/partition.ts` | Node grouping + filtering |
 | — | `apps/auth/src/components/flow/section.tsx` | Password confirmation logic |
 | — | `apps/auth/src/components/flow/field.tsx` | Code input (numeric, 6-digit) |
-| — | `apps/web/src/features/auth/lib/auth-portal.ts` | `buildAuthPortalRegisterUrl()`, `sanitizeReturnTo()` |
+| — | `apps/web/src/features/auth/lib/auth-portal.ts` | `buildAppLoginUrl()`, `sanitizeReturnTo()` |
 | — | `infra/ory/kratos/kratos.yml` | Flow lifespans, hooks, methods |
 | — | `infra/ory/kratos/identity.schema.json` | Trait definitions |
