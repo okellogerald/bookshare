@@ -5,34 +5,73 @@
 > For step-by-step technical traces with real request/response data, see the companion docs:
 > - [REGISTRATION-FLOW.md](./REGISTRATION-FLOW.md) — Complete registration walkthrough with live Kratos traces
 > - [LOGIN-FLOW.md](./LOGIN-FLOW.md) — Complete login walkthrough with live Kratos traces
+> - [FORGOT-PASSWORD-FLOW.md](./FORGOT-PASSWORD-FLOW.md) — Complete password recovery walkthrough with live Kratos traces
+> - [SECURITY.md](./SECURITY.md) — Comprehensive security reference: all protections, risks mitigated, future improvements
 > - [kratos-deep-dive.md](./kratos-deep-dive.md) — Kratos internals, UI rendering, component architecture
 > - [kratos-registration-traces.md](./kratos-registration-traces.md) — Raw registration API traces with SQLite rows
 > - [kratos-login-traces.md](./kratos-login-traces.md) — Raw login API traces with SQLite rows
+> - [kratos-recovery-traces.md](./kratos-recovery-traces.md) — Raw recovery API traces with SQLite rows
 
 ---
 
 ## Table of Contents
 
-- [The Big Picture](#the-big-picture)
-- [Why Two Systems (Kratos + Hydra)?](#why-two-systems-kratos--hydra)
-- [Key Concepts & Glossary](#key-concepts--glossary)
-- [Architecture](#architecture)
-- [How Kratos Works](#how-kratos-works)
-- [How Hydra Works](#how-hydra-works)
-- [How the Auth Portal Bridges Them](#how-the-auth-portal-bridges-them)
-- [Cookie Strategy](#cookie-strategy)
-- [Cookie Encryption (AES-256-GCM)](#cookie-encryption-aes-256-gcm)
-- [DPoP Token Binding (RFC 9449)](#dpop-token-binding-rfc-9449)
-- [Flow Overview: Registration](#flow-overview-registration)
-- [Flow Overview: Login](#flow-overview-login)
-- [Flow Overview: Logout](#flow-overview-logout)
-- [Flow Overview: Password Recovery](#flow-overview-password-recovery)
-- [Flow Overview: Email Verification](#flow-overview-email-verification)
-- [Flow Overview: Account Settings](#flow-overview-account-settings)
-- [API Authentication Guard](#api-authentication-guard)
-- [Security Summary](#security-summary)
-- [File Reference](#file-reference)
-- [Further Reading](#further-reading)
+- [BookShare Authentication System](#bookshare-authentication-system)
+  - [Table of Contents](#table-of-contents)
+  - [The Big Picture](#the-big-picture)
+  - [Why Two Systems (Kratos + Hydra)?](#why-two-systems-kratos--hydra)
+  - [Key Concepts \& Glossary](#key-concepts--glossary)
+    - [Kratos Concepts](#kratos-concepts)
+    - [Hydra Concepts](#hydra-concepts)
+  - [Architecture](#architecture)
+    - [Services \& Ports](#services--ports)
+  - [How Kratos Works](#how-kratos-works)
+    - [The Flow Lifecycle](#the-flow-lifecycle)
+    - [Flow Types](#flow-types)
+    - [How Kratos Tracks State](#how-kratos-tracks-state)
+    - [What Kratos Returns (and Why)](#what-kratos-returns-and-why)
+    - [Sessions and `/sessions/whoami`](#sessions-and-sessionswhoami)
+    - [Identity Schema](#identity-schema)
+  - [How Hydra Works](#how-hydra-works)
+    - [The Challenge Flow](#the-challenge-flow)
+    - [What Hydra Issues](#what-hydra-issues)
+  - [How the Auth Portal Bridges Them](#how-the-auth-portal-bridges-them)
+    - [Role 1: Kratos UI](#role-1-kratos-ui)
+    - [Role 2: Hydra Challenge Handler](#role-2-hydra-challenge-handler)
+  - [Cookie Strategy](#cookie-strategy)
+    - [By Domain](#by-domain)
+  - [Cookie Encryption (AES-256-GCM)](#cookie-encryption-aes-256-gcm)
+    - [Why Encrypt?](#why-encrypt)
+    - [How It Works](#how-it-works)
+    - [What's Inside `bookshare_session`](#whats-inside-bookshare_session)
+  - [DPoP Token Binding (RFC 9449)](#dpop-token-binding-rfc-9449)
+    - [The Problem It Solves](#the-problem-it-solves)
+    - [How DPoP Fixes This](#how-dpop-fixes-this)
+    - [DPoP Proof Structure](#dpop-proof-structure)
+  - [Flow Overview: Registration](#flow-overview-registration)
+    - [Summary](#summary)
+  - [Flow Overview: Login](#flow-overview-login)
+    - [Summary](#summary-1)
+  - [Flow Overview: Logout](#flow-overview-logout)
+    - [Summary](#summary-2)
+  - [Flow Overview: Password Recovery](#flow-overview-password-recovery)
+    - [Summary](#summary-3)
+  - [Flow Overview: Email Verification](#flow-overview-email-verification)
+    - [Triggers](#triggers)
+  - [Flow Overview: Account Settings](#flow-overview-account-settings)
+    - [Summary](#summary-4)
+  - [API Authentication Guard](#api-authentication-guard)
+    - [Verification Steps](#verification-steps)
+  - [Security Summary](#security-summary)
+  - [File Reference](#file-reference)
+    - [Web App (`apps/web/src/`)](#web-app-appswebsrc)
+    - [Auth Portal (`apps/auth/src/`)](#auth-portal-appsauthsrc)
+    - [NestJS API (`apps/api/src/`)](#nestjs-api-appsapisrc)
+    - [Infrastructure](#infrastructure)
+  - [Further Reading](#further-reading)
+    - [Ory Documentation](#ory-documentation)
+    - [RFCs \& Standards](#rfcs--standards)
+    - [Security References](#security-references)
 
 ---
 
@@ -49,6 +88,8 @@ When a user signs up, logs in, or performs any identity action in BookShare, the
 > Kratos handles identity (who you are) but not authorization tokens. If you only had Kratos, the Web App would need to talk directly to Kratos for every request, and you'd have no standardized token format for the API. Hydra adds the OAuth2/OIDC layer — it issues JWTs that the API can verify independently without calling Kratos on every request.
 >
 > 📖 [Ory documentation: Kratos vs Hydra](https://www.ory.sh/docs/ecosystem/projects)
+>
+> There are expectations for future clients that may be built, which will depend on Kratos for identity. So Hydra will be responsible for authorizing all different clients that will need access to our resources. One app would be an Admin Dashboard to manage users, organizations etc. Other systems may also be built on top of the resources we have such as specific project for bookstores to view wished books and reach out to those people with others etc. So Hydra will handle authorizations. Kratos will handle identity
 
 ---
 
@@ -758,7 +799,9 @@ Login combines Kratos password authentication with Hydra's OAuth2 challenge flow
 > **💡 Tip: Why does Kratos expose both password and code login methods?**
 > Kratos's login flow returns nodes for BOTH `password` and `code` groups because both methods are enabled in `kratos.yml`. The Auth Portal only renders `sectionGroups={["password"]}`, effectively hiding the code login option. This is a UI decision, not a Kratos restriction. Raw Kratos still accepts code login via the API.
 >
-> This matters for security: if you truly want to disable code login, you should set `passwordless_enabled: false` in `kratos.yml` rather than relying on the UI to hide it.
+> [CONSIDERED FOR REMOVAL] This matters for security: if you truly want to disable code login, you should set `passwordless_enabled: false` in `kratos.yml` rather than relying on the UI to hide it.
+>
+> [ADDED] Code login can't be disabled since it is what the user logs in with initially during registration. During registration, user logs in with email + code even though we do not call it "login". Kratos calls it, but we do not. Since we need only email + password. We call it "partial login". To be "fully logged-in" in our terms, you need a password and a complete profile.
 
 ---
 

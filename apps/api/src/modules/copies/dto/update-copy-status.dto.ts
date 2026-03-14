@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsEnum } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { CopyStatus, GoneReason } from "@bookshare/shared";
+import { CopyStatus, CounterpartyType, GoneReason } from "@bookshare/shared";
 
 export class UpdateCopyStatusDto {
   @ApiProperty({
@@ -25,11 +25,11 @@ export class UpdateCopyStatusDto {
 
   @ApiPropertyOptional({
     description:
-      "Optional for lent or gone when you want to record who received the copy",
-    enum: ["member", "external"],
+      "Required for lent, optional for gone when you want to record who received the copy",
+    enum: Object.values(CounterpartyType),
   })
   @IsOptional()
-  @IsEnum(["member", "external"])
+  @IsEnum(CounterpartyType)
   counterpartyType?: string;
 
   @ApiPropertyOptional({

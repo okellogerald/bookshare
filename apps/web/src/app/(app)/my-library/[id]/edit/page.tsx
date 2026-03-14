@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { CopyStatusTransitionFields } from "@/shared/components/copy-status-transition-fields";
 import { Button } from "@/shared/components/ui/button";
 import {
   Card,
@@ -24,36 +25,23 @@ import {
 import { Textarea } from "@/shared/components/ui/textarea";
 import { useUpdateCopy, useUpdateCopyStatus } from "@/shared/queries/my-library";
 import type { PgCopyDetail } from "@/shared/api";
-
-type GoneReason = "sold" | "donated" | "given_away" | "lost";
-
-const statusLabels: Record<string, string> = {
-  available: "Available",
-  shelved: "Shelved",
-  lent: "Lent",
-  gone: "Gone",
-};
-
-const goneReasonLabels: Record<GoneReason, string> = {
-  sold: "Sold",
-  donated: "Donated",
-  given_away: "Given Away",
-  lost: "Lost",
-};
+import {
+  buildStatusTransitionBody,
+  createStatusTransitionFormState,
+  getApiErrorMessage,
+  getDefaultGoneReason,
+  getStatusTransitionValidationMessage,
+  shareTypeLabels,
+  statusLabels,
+  type LibraryCopyStatus,
+  type StatusTransitionFormState,
+} from "@/shared/lib/copy-status";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
   paperback: "Paperback",
   mass_market: "Mass Market",
 };
-
-function getDefaultGoneReason(
-  shareType: string | null | undefined
-): GoneReason | "" {
-  if (shareType === "sell") return "sold";
-  if (shareType === "give_away") return "given_away";
-  return "";
-}
 
 async function fetchCopy(id: string): Promise<PgCopyDetail> {
   const params = new URLSearchParams();
@@ -73,9 +61,13 @@ export default function EditCopyPage() {
   const [condition, setCondition] = useState("");
   const [status, setStatus] = useState("");
   const [shareType, setShareType] = useState("");
-  const [goneReason, setGoneReason] = useState<GoneReason | "">("");
+  const [statusTransition, setStatusTransition] =
+    useState<StatusTransitionFormState>(() =>
+      createStatusTransitionFormState("available", null)
+    );
   const [notes, setNotes] = useState("");
   const [contactNote, setContactNote] = useState("");
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const { data: copy, isLoading } = useQuery({
     queryKey: ["copy", id],
@@ -89,18 +81,36 @@ export default function EditCopyPage() {
     setCondition(copy.condition ?? "good");
     setStatus(copy.status ?? "available");
     setShareType(copy.share_type ?? "");
-    setGoneReason(getDefaultGoneReason(copy.share_type));
+    setStatusTransition(
+      createStatusTransitionFormState(
+        (copy.status ?? "available") as LibraryCopyStatus,
+        copy.share_type
+      )
+    );
     setNotes(copy.notes ?? "");
     setContactNote(copy.contact_note ?? "");
+    setStatusError(null);
   }, [copy]);
 
   useEffect(() => {
-    if (status !== "gone" || goneReason) return;
-    setGoneReason(getDefaultGoneReason(shareType));
-  }, [goneReason, shareType, status]);
+    if (statusTransition.targetStatus !== "gone" || statusTransition.goneReason) {
+      return;
+    }
+
+    setStatusTransition((current) => ({
+      ...current,
+      goneReason: getDefaultGoneReason(shareType),
+    }));
+  }, [shareType, statusTransition.goneReason, statusTransition.targetStatus]);
 
   async function handleSubmit() {
-    if (copy && status === "gone" && status !== copy.status && !goneReason) {
+    const statusChanged = !!copy && status !== copy.status;
+    const validationMessage = statusChanged
+      ? getStatusTransitionValidationMessage(statusTransition)
+      : null;
+
+    if (validationMessage) {
+      setStatusError(validationMessage);
       return;
     }
 
@@ -113,17 +123,30 @@ export default function EditCopyPage() {
         contactNote: contactNote.trim() || undefined,
       },
     });
-    if (copy && status && status !== copy.status) {
-      await updateCopyStatus.mutateAsync({
-        id,
-        body: {
-          status,
-          goneReason: status === "gone" ? goneReason : undefined,
-        },
-      });
+
+    if (statusChanged) {
+      try {
+        await updateCopyStatus.mutateAsync({
+          id,
+          body: buildStatusTransitionBody(statusTransition),
+        });
+      } catch (error) {
+        setStatusError(
+          getApiErrorMessage(error, "Failed to update the copy status.")
+        );
+        return;
+      }
     }
+
     router.push("/my-library");
   }
+
+  const statusChanged = !!copy && status !== copy.status;
+  const statusValidationMessage = statusChanged
+    ? getStatusTransitionValidationMessage(statusTransition)
+    : null;
+  const displayedStatusMessage = statusError ?? statusValidationMessage;
+  const hasStatusError = !!statusError;
 
   if (isLoading) {
     return (
@@ -161,7 +184,19 @@ export default function EditCopyPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  setStatus(value);
+                  setStatusError(null);
+                  setStatusTransition(
+                    createStatusTransitionFormState(
+                      value as LibraryCopyStatus,
+                      shareType || copy?.share_type
+                    )
+                  );
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -194,39 +229,49 @@ export default function EditCopyPage() {
 
           <div className="space-y-2">
             <Label>Share Type</Label>
-            <Select value={shareType} onValueChange={setShareType}>
+            <Select
+              value={shareType}
+              onValueChange={(value) => {
+                setShareType(value);
+                setStatusError(null);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="lend">Lend</SelectItem>
-                <SelectItem value="sell">Sell</SelectItem>
-                <SelectItem value="give_away">Give Away</SelectItem>
+                {Object.entries(shareTypeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          {status === "gone" && (
+          {statusChanged && (
             <div className="space-y-2">
-              <Label>Gone Reason</Label>
-              <Select
-                value={goneReason}
-                onValueChange={(value) => setGoneReason(value as GoneReason)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select why this copy is gone" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(goneReasonLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Required when changing the status to Gone.
-              </p>
+              <Label>Status change details</Label>
+              <CopyStatusTransitionFields
+                bookId={copy?.edition?.book?.id ?? null}
+                values={statusTransition}
+                onChange={(patch) => {
+                  setStatusError(null);
+                  setStatusTransition((current) => ({
+                    ...current,
+                    ...patch,
+                  }));
+                }}
+              />
+              {displayedStatusMessage ? (
+                <p
+                  className={`text-sm ${
+                    hasStatusError ? "text-destructive" : "text-muted-foreground"
+                  }`}
+                >
+                  {displayedStatusMessage}
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -269,7 +314,7 @@ export default function EditCopyPage() {
               disabled={
                 updateCopy.isPending ||
                 updateCopyStatus.isPending ||
-                (!!copy && status === "gone" && status !== copy.status && !goneReason)
+                !!statusValidationMessage
               }
               className="gap-2"
             >

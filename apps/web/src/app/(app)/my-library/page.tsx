@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal, Plus } from "lucide-react";
+import { CopyStatusTransitionFields } from "@/shared/components/copy-status-transition-fields";
 import { LibraryCopyDialog } from "@/shared/components/library-copy-dialog";
 import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Badge } from "@/shared/components/ui/badge";
@@ -23,7 +24,6 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -45,42 +45,24 @@ import {
   useMyCopies,
   useUpdateCopyStatus,
 } from "@/shared/queries/my-library";
+import {
+  buildStatusTransitionBody,
+  createStatusTransitionFormState,
+  getApiErrorMessage,
+  getStatusTransitionValidationMessage,
+  type LibraryCopyStatus,
+  type StatusTransitionFormState,
+  shareTypeLabels,
+  statusActionLabels,
+  statusLabels,
+} from "@/shared/lib/copy-status";
 
-type LibraryCopyStatus = "available" | "shelved" | "lent" | "gone";
-type GoneReason = "sold" | "donated" | "given_away" | "lost";
 type LibrarySortOption =
   | "added_desc"
   | "added_asc"
   | "title_asc"
   | "title_desc"
   | "confirmed_desc";
-
-const statusLabels: Record<LibraryCopyStatus, string> = {
-  available: "Available",
-  shelved: "Shelved",
-  lent: "Lent",
-  gone: "Gone",
-};
-
-const statusActionLabels: Record<LibraryCopyStatus, string> = {
-  available: "Mark Available",
-  shelved: "Mark Shelved",
-  lent: "Mark Lent",
-  gone: "Mark Gone",
-};
-
-const shareTypeLabels: Record<string, string> = {
-  lend: "Lend",
-  sell: "Sell",
-  give_away: "Give Away",
-};
-
-const goneReasonLabels: Record<GoneReason, string> = {
-  sold: "Sold",
-  donated: "Donated",
-  given_away: "Given Away",
-  lost: "Lost",
-};
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -102,14 +84,6 @@ const statusOptions: LibraryCopyStatus[] = [
   "lent",
   "gone",
 ];
-
-function getDefaultGoneReason(
-  shareType: string | null | undefined
-): GoneReason | "" {
-  if (shareType === "sell") return "sold";
-  if (shareType === "give_away") return "given_away";
-  return "";
-}
 
 function humanizeToken(value: string) {
   return value.replace(/_/g, " ");
@@ -134,10 +108,14 @@ export default function MyLibraryPage() {
   const [selectedBookCopy, setSelectedBookCopy] = useState<
     NonNullable<ReturnType<typeof useMyCopies>["data"]>[number] | null
   >(null);
-  const [goneDialogCopy, setGoneDialogCopy] = useState<
+  const [statusDialogCopy, setStatusDialogCopy] = useState<
     NonNullable<ReturnType<typeof useMyCopies>["data"]>[number] | null
   >(null);
-  const [goneReason, setGoneReason] = useState<GoneReason | "">("");
+  const [statusDialogForm, setStatusDialogForm] =
+    useState<StatusTransitionFormState>(() =>
+      createStatusTransitionFormState("available", null)
+    );
+  const [statusDialogError, setStatusDialogError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const { data: copies, isLoading } = useMyCopies();
@@ -220,37 +198,47 @@ export default function MyLibraryPage() {
     copy: NonNullable<typeof copies>[number],
     status: LibraryCopyStatus
   ) {
-    if (status === "gone") {
-      setGoneDialogCopy(copy);
-      setGoneReason(getDefaultGoneReason(copy.share_type));
+    setStatusDialogCopy(copy);
+    setStatusDialogForm(createStatusTransitionFormState(status, copy.share_type));
+    setStatusDialogError(null);
+  }
+
+  function closeStatusDialog() {
+    setStatusDialogCopy(null);
+    setStatusDialogForm(createStatusTransitionFormState("available", null));
+    setStatusDialogError(null);
+  }
+
+  async function handleConfirmStatusChange() {
+    if (!statusDialogCopy) return;
+
+    const validationMessage =
+      getStatusTransitionValidationMessage(statusDialogForm);
+    if (validationMessage) {
+      setStatusDialogError(validationMessage);
       return;
     }
 
-    statusMutation.mutate({
-      id: copy.id,
-      body: { status },
-    });
+    setStatusDialogError(null);
+
+    try {
+      await statusMutation.mutateAsync({
+        id: statusDialogCopy.id,
+        body: buildStatusTransitionBody(statusDialogForm),
+      });
+      closeStatusDialog();
+    } catch (error) {
+      setStatusDialogError(
+        getApiErrorMessage(error, "Failed to update the copy status.")
+      );
+    }
   }
 
-  function handleConfirmGone() {
-    if (!goneDialogCopy || !goneReason) return;
-
-    statusMutation.mutate(
-      {
-        id: goneDialogCopy.id,
-        body: {
-          status: "gone",
-          goneReason,
-        },
-      },
-      {
-        onSuccess: () => {
-          setGoneDialogCopy(null);
-          setGoneReason("");
-        },
-      }
-    );
-  }
+  const statusValidationMessage = statusDialogCopy
+    ? getStatusTransitionValidationMessage(statusDialogForm)
+    : null;
+  const displayedStatusMessage = statusDialogError ?? statusValidationMessage;
+  const hasStatusError = !!statusDialogError;
 
   return (
     <div className="space-y-6">
@@ -514,64 +502,71 @@ export default function MyLibraryPage() {
       />
 
       <Dialog
-        open={!!goneDialogCopy}
+        open={!!statusDialogCopy}
         onOpenChange={(open) => {
           if (statusMutation.isPending) return;
           if (!open) {
-            setGoneDialogCopy(null);
-            setGoneReason("");
+            closeStatusDialog();
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mark Copy Gone</DialogTitle>
+            <DialogTitle>
+              {statusDialogForm.targetStatus
+                ? statusActionLabels[statusDialogForm.targetStatus]
+                : "Update Status"}
+            </DialogTitle>
             <DialogDescription>
-              Choose why this copy is no longer in your library. This reason
-              becomes the timeline event.
+              Record who has the copy or why the status changed. These details
+              are saved to the book timeline.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2">
-            <Label>Gone Reason</Label>
-            <Select
-              value={goneReason}
-              onValueChange={(value) => setGoneReason(value as GoneReason)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(goneReasonLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {goneDialogCopy?.edition?.book?.title && (
+          <div className="space-y-4">
+            {statusDialogCopy?.edition?.book?.title ? (
               <p className="text-xs text-muted-foreground">
-                Copy: {goneDialogCopy.edition.book.title}
+                Copy: {statusDialogCopy.edition.book.title}
               </p>
-            )}
+            ) : null}
+
+            <CopyStatusTransitionFields
+              bookId={statusDialogCopy?.edition?.book?.id ?? null}
+              values={statusDialogForm}
+              onChange={(patch) => {
+                setStatusDialogError(null);
+                setStatusDialogForm((current) => ({
+                  ...current,
+                  ...patch,
+                }));
+              }}
+              enabled={!!statusDialogCopy}
+            />
+
+            {displayedStatusMessage ? (
+              <p
+                className={`text-sm ${
+                  hasStatusError ? "text-destructive" : "text-muted-foreground"
+                }`}
+              >
+                {displayedStatusMessage}
+              </p>
+            ) : null}
           </div>
 
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setGoneDialogCopy(null);
-                setGoneReason("");
-              }}
+              onClick={closeStatusDialog}
               disabled={statusMutation.isPending}
             >
               Cancel
             </Button>
             <Button
-              onClick={handleConfirmGone}
-              disabled={!goneReason || statusMutation.isPending}
+              onClick={handleConfirmStatusChange}
+              disabled={!!statusValidationMessage || statusMutation.isPending}
             >
-              Save Reason
+              Save Status Change
             </Button>
           </DialogFooter>
         </DialogContent>

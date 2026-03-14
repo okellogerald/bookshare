@@ -6,6 +6,7 @@
 COMPOSE_FILE ?= docker-compose.dev.yml
 COMPOSE := docker compose -f $(COMPOSE_FILE)
 DB_URL  := postgresql://bookshare:bookshare_dev@localhost:5434/bookshare
+DELETE_MEMBER_EMAIL ?= codex.auth.check@example.com
 
 .DEFAULT_GOAL := help
 
@@ -66,8 +67,9 @@ db-post-migrate: ## Apply RLS policies, views, and grants (post-migration.sql)
 	psql "$(DB_URL)" -f infra/postgres/post-migration.sql
 
 .PHONY: db-reset-user-data
-db-reset-user-data: ## Clear users + user-related records, keep catalog tables
-	psql "$(DB_URL)" -f infra/postgres/reset-user-data.sql
+db-reset-user-data: ## Reset app state, keep catalog tables + member profiles
+	DB_URL=$(DB_URL) DELETE_MEMBER_EMAIL=$(DELETE_MEMBER_EMAIL) \
+		./scripts/dev-reset-state.sh
 
 .PHONY: db-seed
 db-seed: ## Insert test data (books, authors, copies, etc.)
@@ -78,9 +80,16 @@ db-psql: ## Open an interactive psql shell
 	psql "$(DB_URL)"
 
 .PHONY: db-reset
-db-reset: ## Reset database — destroy volumes and restart all services
+db-reset: ## Reset database volume and reapply baseline migration + post-migration SQL
 	$(COMPOSE) down -v
-	$(COMPOSE) up -d
+	$(COMPOSE) up -d postgres
+	@until psql "$(DB_URL)" -c 'select 1' >/dev/null 2>&1; do sleep 1; done
+	$(MAKE) db-migrate
+	$(MAKE) db-post-migrate
+	$(COMPOSE) up -d --remove-orphans
+
+.PHONY: reset
+reset: db-reset-user-data ## Reset local app state, keep catalog + member profiles
 
 # ─── Cleanup ──────────────────────────────────────────────────
 
@@ -92,5 +101,5 @@ clean: ## Remove all containers, volumes, and orphans
 
 .PHONY: help
 help: ## Show this help
-	@grep -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -h -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

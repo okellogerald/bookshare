@@ -8,8 +8,8 @@ declare module 'motia' {
   interface Streams {}
 
   interface Enqueues {
-    'edition.enriched': unknown
     'stale_listings.report': unknown
+    'edition.enriched': unknown
     'copy.created': unknown
     'copy.status_changed': unknown
     'wish.created': unknown

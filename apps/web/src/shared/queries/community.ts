@@ -27,9 +27,13 @@ async function fetchCommunityMembers(
   return json.data as PgMemberProfile[];
 }
 
-export function useCommunityMembers(filters: CommunityFilters = {}) {
+export function useCommunityMembers(
+  filters: CommunityFilters = {},
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ["community-members", filters],
     queryFn: () => fetchCommunityMembers(filters),
+    enabled: options?.enabled ?? true,
   });
 }

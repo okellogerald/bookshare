@@ -354,7 +354,7 @@ export default function AddCopyPage() {
                             result.editions.length === 1 ? "" : "s"
                           }`
                         : "No cataloged editions yet"}
-                      {result.primaryIsbn ? ` • ISBN ${result.primaryIsbn}` : ""}
+                      {/* {result.primaryIsbn ? ` • ISBN ${result.primaryIsbn}` : ""} */}
                     </p>
                   </button>
                 );

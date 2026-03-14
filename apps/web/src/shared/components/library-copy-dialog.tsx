@@ -57,6 +57,21 @@ const eventLabels: Record<string, string> = {
   note_added: "Note added",
 };
 
+const recipientEventTypes = new Set(["lent", "sold", "donated", "given_away"]);
+
+interface CounterpartyDisplay {
+  type: "member" | "external";
+  name: string;
+  location: string | null;
+  contactNotes: string | null;
+  contact: string | null;
+}
+
+interface EventDetailLine {
+  label: string;
+  value: string;
+}
+
 function formatTimelineDate(value: string) {
   const date = new Date(value);
   return {
@@ -71,32 +86,99 @@ function formatTimelineDate(value: string) {
   };
 }
 
+function getMetadataRecord(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string
+) {
+  const value = metadata?.[key];
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function getMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string
+) {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function getCounterpartyDisplay(
+  metadata: Record<string, unknown> | null | undefined,
+  key: "counterparty" | "closedLoanCounterparty"
+): CounterpartyDisplay | null {
+  const snapshot = getMetadataRecord(metadata, key);
+
+  if (snapshot) {
+    const type =
+      snapshot.type === "member" || snapshot.type === "external"
+        ? snapshot.type
+        : null;
+    const name =
+      typeof snapshot.name === "string" && snapshot.name.trim().length > 0
+        ? snapshot.name
+        : null;
+
+    if (type && name) {
+      return {
+        type,
+        name,
+        location:
+          typeof snapshot.location === "string" ? snapshot.location : null,
+        contactNotes:
+          typeof snapshot.contactNotes === "string"
+            ? snapshot.contactNotes
+            : null,
+        contact:
+          typeof snapshot.contact === "string" ? snapshot.contact : null,
+      };
+    }
+  }
+
+  if (key === "counterparty") {
+    const externalCounterpartyName = getMetadataString(
+      metadata,
+      "externalCounterpartyName"
+    );
+    if (externalCounterpartyName) {
+      return {
+        type: "external",
+        name: externalCounterpartyName,
+        location: null,
+        contactNotes: null,
+        contact: getMetadataString(metadata, "externalCounterpartyContact"),
+      };
+    }
+
+    if (getMetadataString(metadata, "counterpartyType") === "member") {
+      return {
+        type: "member",
+        name: "Community member",
+        location: null,
+        contactNotes: null,
+        contact: null,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getEventContext(event: MyCopyDialogDetail["events"][number]) {
   const metadata = event.metadata;
-  if (!metadata || typeof metadata !== "object") {
-    if (event.eventType === "status_changed" && event.fromStatus && event.toStatus) {
-      return `${statusLabels[event.fromStatus] ?? event.fromStatus} to ${
-        statusLabels[event.toStatus] ?? event.toStatus
-      }`;
-    }
-    return null;
+  const counterparty = getCounterpartyDisplay(metadata, "counterparty");
+  const previousCounterparty = getCounterpartyDisplay(
+    metadata,
+    "closedLoanCounterparty"
+  );
+
+  if (event.eventType === "returned" && previousCounterparty) {
+    return `from ${previousCounterparty.name}`;
   }
 
-  const externalCounterpartyName =
-    typeof metadata.externalCounterpartyName === "string"
-      ? metadata.externalCounterpartyName
-      : null;
-  const counterpartyType =
-    typeof metadata.counterpartyType === "string"
-      ? metadata.counterpartyType
-      : null;
-
-  if (externalCounterpartyName) {
-    return `with ${externalCounterpartyName}`;
-  }
-
-  if (counterpartyType === "member") {
-    return "with a community member";
+  if (counterparty) {
+    return `${recipientEventTypes.has(event.eventType) ? "to" : "with"} ${
+      counterparty.name
+    }`;
   }
 
   if (event.eventType === "status_changed" && event.fromStatus && event.toStatus) {
@@ -105,7 +187,77 @@ function getEventContext(event: MyCopyDialogDetail["events"][number]) {
     }`;
   }
 
+  if (event.eventType === "lost" && previousCounterparty) {
+    return `last recorded with ${previousCounterparty.name}`;
+  }
+
   return null;
+}
+
+function pushCounterpartyLines(
+  lines: EventDetailLine[],
+  label: string,
+  counterparty: CounterpartyDisplay
+) {
+  const primaryValue =
+    counterparty.type === "member" && counterparty.location
+      ? `${counterparty.name} · ${counterparty.location}`
+      : counterparty.name;
+
+  lines.push({
+    label,
+    value: primaryValue,
+  });
+
+  if (counterparty.type === "member" && counterparty.contactNotes) {
+    lines.push({
+      label: "Member contact notes",
+      value: counterparty.contactNotes,
+    });
+  }
+
+  if (counterparty.type === "external" && counterparty.contact) {
+    lines.push({
+      label: "External contact",
+      value: counterparty.contact,
+    });
+  }
+}
+
+function getEventDetailLines(event: MyCopyDialogDetail["events"][number]) {
+  const metadata = event.metadata;
+  const lines: EventDetailLine[] = [];
+  const counterparty = getCounterpartyDisplay(metadata, "counterparty");
+  const previousCounterparty = getCounterpartyDisplay(
+    metadata,
+    "closedLoanCounterparty"
+  );
+  const autoClosedWish = getMetadataRecord(metadata, "autoClosedWish");
+
+  if (counterparty) {
+    pushCounterpartyLines(
+      lines,
+      event.eventType === "lent" ? "Borrower" : "Recipient",
+      counterparty
+    );
+  }
+
+  if (previousCounterparty) {
+    pushCounterpartyLines(
+      lines,
+      event.eventType === "returned" ? "Returned from" : "Previous borrower",
+      previousCounterparty
+    );
+  }
+
+  if (autoClosedWish) {
+    lines.push({
+      label: "Wishlist",
+      value: "Matching community wish closed automatically",
+    });
+  }
+
+  return lines;
 }
 
 function shouldHideEventNote(event: MyCopyDialogDetail["events"][number]) {
@@ -261,6 +413,7 @@ export function LibraryCopyDialog({
                 <div className="px-1 sm:px-2">
                   {events.map((event, index) => {
                     const context = getEventContext(event);
+                    const detailLines = getEventDetailLines(event);
                     const formatted = formatTimelineDate(event.createdAt);
                     const isLast = index === events.length - 1;
                     return (
@@ -286,6 +439,21 @@ export function LibraryCopyDialog({
                           </p>
                           {context ? (
                             <p className="text-sm text-muted-foreground">{context}</p>
+                          ) : null}
+                          {detailLines.length > 0 ? (
+                            <div className="mt-1 space-y-1">
+                              {detailLines.map((line) => (
+                                <p
+                                  key={`${event.id}-${line.label}-${line.value}`}
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  <span className="font-medium text-foreground/80">
+                                    {line.label}:
+                                  </span>{" "}
+                                  {line.value}
+                                </p>
+                              ))}
+                            </div>
                           ) : null}
                           {!shouldHideEventNote(event) ? (
                             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">

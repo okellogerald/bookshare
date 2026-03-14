@@ -25,6 +25,86 @@ import {
   UpdateCopyStatusDto,
 } from "./dto";
 
+type MemberProfileRecord = typeof memberProfiles.$inferSelect;
+type ActiveLoanRecord = typeof copyLoans.$inferSelect & {
+  counterpartyProfile?: MemberProfileRecord | null;
+};
+
+interface MemberCounterpartySnapshot extends Record<string, unknown> {
+  type: "member";
+  userId: string;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  location: string | null;
+  contactNotes: string | null;
+  avatarUrl: string | null;
+}
+
+interface ExternalCounterpartySnapshot extends Record<string, unknown> {
+  type: "external";
+  name: string;
+  contact: string | null;
+}
+
+type CounterpartySnapshot =
+  | MemberCounterpartySnapshot
+  | ExternalCounterpartySnapshot;
+
+function trimToUndefined(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function getMemberDisplayName(profile: MemberProfileRecord) {
+  const fullName = [profile.firstName, profile.lastName]
+    .filter((value): value is string => !!value && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  return fullName || "Community member";
+}
+
+function buildMemberCounterpartySnapshot(
+  profile: MemberProfileRecord
+): MemberCounterpartySnapshot {
+  return {
+    type: "member",
+    userId: profile.userId,
+    name: getMemberDisplayName(profile),
+    firstName: profile.firstName ?? null,
+    lastName: profile.lastName ?? null,
+    location: profile.location ?? null,
+    contactNotes: profile.contactNotes ?? null,
+    avatarUrl: profile.avatarUrl ?? null,
+  };
+}
+
+function buildExternalCounterpartySnapshot(
+  name: string,
+  contact?: string
+): ExternalCounterpartySnapshot {
+  return {
+    type: "external",
+    name,
+    contact: contact ?? null,
+  };
+}
+
+function buildLoanCounterpartySnapshot(loan: ActiveLoanRecord) {
+  if (loan.counterpartyType === "member" && loan.counterpartyProfile) {
+    return buildMemberCounterpartySnapshot(loan.counterpartyProfile);
+  }
+
+  if (loan.counterpartyType === "external" && loan.externalName) {
+    return buildExternalCounterpartySnapshot(
+      loan.externalName,
+      loan.externalContact ?? undefined
+    );
+  }
+
+  return null;
+}
+
 @Injectable()
 export class CopiesService {
   constructor(
@@ -146,10 +226,19 @@ export class CopiesService {
     const fromStatus = existing.status;
     const toStatus = dto.status;
     const goneReason = dto.goneReason;
-    const externalCounterpartyName = dto.externalCounterpartyName?.trim();
-    const externalCounterpartyContact = dto.externalCounterpartyContact?.trim();
+    const notes = trimToUndefined(dto.notes);
+    const externalCounterpartyName = trimToUndefined(
+      dto.externalCounterpartyName
+    );
+    const externalCounterpartyContact = trimToUndefined(
+      dto.externalCounterpartyContact
+    );
     const counterpartyStatuses = ["lent", "gone"] as const;
     const wishFulfillmentStatuses = ["lent", "gone"] as const;
+
+    if (fromStatus === toStatus) {
+      throw new BadRequestException("status must change");
+    }
 
     const allowsCounterparty = (counterpartyStatuses as readonly string[]).includes(
       toStatus
@@ -159,10 +248,33 @@ export class CopiesService {
       dto.counterpartyUserId !== undefined ||
       externalCounterpartyName !== undefined ||
       externalCounterpartyContact !== undefined;
+    const hasCounterpartyDetailsWithoutType =
+      dto.counterpartyType === undefined &&
+      (dto.counterpartyUserId !== undefined ||
+        externalCounterpartyName !== undefined ||
+        externalCounterpartyContact !== undefined);
 
     if (!allowsCounterparty && hasCounterpartyFields) {
       throw new BadRequestException(
         "counterparty fields are only allowed for lent and gone"
+      );
+    }
+
+    if (hasCounterpartyDetailsWithoutType) {
+      throw new BadRequestException(
+        "counterpartyType is required when counterparty details are provided"
+      );
+    }
+
+    if ((toStatus === "available" || toStatus === "shelved") && !notes) {
+      throw new BadRequestException(
+        "notes are required when marking a copy available or shelved"
+      );
+    }
+
+    if (toStatus === "lent" && !dto.counterpartyType) {
+      throw new BadRequestException(
+        "counterpartyType is required when status is lent"
       );
     }
 
@@ -178,10 +290,21 @@ export class CopiesService {
       );
     }
 
+    if (toStatus === "gone" && !dto.counterpartyType && !notes) {
+      throw new BadRequestException(
+        "status changes to gone require notes or counterparty details"
+      );
+    }
+
     if (dto.counterpartyType === "member") {
       if (!dto.counterpartyUserId) {
         throw new BadRequestException(
           "counterpartyUserId is required when counterpartyType is member"
+        );
+      }
+      if (dto.counterpartyUserId === userId) {
+        throw new BadRequestException(
+          "counterpartyUserId cannot be the owner of the copy"
         );
       }
       if (externalCounterpartyName || externalCounterpartyContact) {
@@ -206,9 +329,11 @@ export class CopiesService {
 
     const counterpartyUserId =
       dto.counterpartyType === "member" ? dto.counterpartyUserId ?? null : null;
-    const shouldValidateActiveWant =
+    const shouldResolveActiveWant =
       dto.counterpartyType === "member" &&
       (wishFulfillmentStatuses as readonly string[]).includes(toStatus);
+
+    let counterpartyProfile: MemberProfileRecord | null = null;
 
     if (counterpartyUserId) {
       const counterparty = await this.db.query.memberProfiles.findFirst({
@@ -217,25 +342,30 @@ export class CopiesService {
       if (!counterparty) {
         throw new NotFoundException("Counterparty member profile not found");
       }
+      counterpartyProfile = counterparty;
     }
 
     const matchingWantCondition = eq(wants.bookId, existing.edition.book.id);
+    const selectedCounterpartySnapshot =
+      dto.counterpartyType === "member" && counterpartyProfile
+        ? buildMemberCounterpartySnapshot(counterpartyProfile)
+        : dto.counterpartyType === "external" && externalCounterpartyName
+          ? buildExternalCounterpartySnapshot(
+              externalCounterpartyName,
+              externalCounterpartyContact
+            )
+          : null;
 
-    if (shouldValidateActiveWant && counterpartyUserId) {
-      const activeWant = await this.db.query.wants.findFirst({
+    const activeWant =
+      shouldResolveActiveWant && counterpartyUserId
+        ? await this.db.query.wants.findFirst({
         where: and(
           eq(wants.userId, counterpartyUserId),
           matchingWantCondition,
           eq(wants.status, "active")
         ),
-      });
-
-      if (!activeWant) {
-        throw new BadRequestException(
-          "counterpartyUserId must belong to a member with an active want for this book"
-        );
-      }
-    }
+          })
+        : null;
 
     // Determine event type from the target status
     const eventTypeMap: Record<string, string> = {
@@ -255,18 +385,16 @@ export class CopiesService {
     const now = new Date();
 
     const updatedCopy = await this.db.transaction(async (tx) => {
-      const [activeLoan] = await tx
-        .select({
-          id: copyLoans.id,
-        })
-        .from(copyLoans)
-        .where(
-          and(eq(copyLoans.copyId, id), isNull(copyLoans.returnedAt))
-        )
-        .limit(1);
+      const activeLoan = await tx.query.copyLoans.findFirst({
+        where: and(eq(copyLoans.copyId, id), isNull(copyLoans.returnedAt)),
+        with: {
+          counterpartyProfile: true,
+        },
+      });
 
       let openedLoanId: string | undefined;
       let closedLoanId: string | undefined;
+      let closedLoanCounterparty: CounterpartySnapshot | null = null;
 
       if (isLoanStatus && dto.counterpartyType) {
         if (activeLoan) {
@@ -285,7 +413,7 @@ export class CopiesService {
             counterpartyUserId,
             externalName: externalCounterpartyName,
             externalContact: externalCounterpartyContact,
-            notes: dto.notes,
+            notes,
             startedAt: now,
             createdBy: userId,
           })
@@ -293,6 +421,7 @@ export class CopiesService {
 
         openedLoanId = createdLoan?.id;
       } else if (activeLoan) {
+        closedLoanCounterparty = buildLoanCounterpartySnapshot(activeLoan);
         const [closedLoan] = await tx
           .update(copyLoans)
           .set({
@@ -312,6 +441,52 @@ export class CopiesService {
           and(eq(copies.id, id), eq(copies.userId, userId))
         );
 
+      const metadata: Record<string, unknown> = {};
+
+      if (selectedCounterpartySnapshot) {
+        metadata.counterpartyType = selectedCounterpartySnapshot.type;
+        metadata.counterpartyUserId =
+          selectedCounterpartySnapshot.type === "member"
+            ? selectedCounterpartySnapshot.userId
+            : null;
+        metadata.externalCounterpartyName =
+          selectedCounterpartySnapshot.type === "external"
+            ? selectedCounterpartySnapshot.name
+            : null;
+        metadata.externalCounterpartyContact =
+          selectedCounterpartySnapshot.type === "external"
+            ? selectedCounterpartySnapshot.contact
+            : null;
+        metadata.counterparty = selectedCounterpartySnapshot;
+      }
+
+      if (openedLoanId) {
+        metadata.openedLoanId = openedLoanId;
+      }
+
+      if (closedLoanId) {
+        metadata.closedLoanId = closedLoanId;
+      }
+
+      if (closedLoanCounterparty) {
+        metadata.closedLoanCounterparty = closedLoanCounterparty;
+      }
+
+      if (goneReason) {
+        metadata.goneReason = goneReason;
+      }
+
+      if (activeWant) {
+        metadata.autoClosedWish = {
+          wishId: activeWant.id,
+          userId: activeWant.userId,
+          closureReason:
+            toStatus === "lent"
+              ? WishClosureReason.MATCHED_MEMBER_LENT
+              : WishClosureReason.MATCHED_MEMBER_GONE,
+        };
+      }
+
       await tx.insert(copyEvents).values({
         userId,
         copyId: id,
@@ -319,33 +494,11 @@ export class CopiesService {
         fromStatus: fromStatus as any,
         toStatus: toStatus as any,
         performedBy: userId,
-        notes: dto.notes,
-        metadata: dto.counterpartyType
-          ? {
-              counterpartyType: dto.counterpartyType,
-              counterpartyUserId,
-              externalCounterpartyName: externalCounterpartyName ?? null,
-              externalCounterpartyContact: externalCounterpartyContact ?? null,
-              openedLoanId: openedLoanId ?? null,
-              closedLoanId: closedLoanId ?? null,
-              goneReason: goneReason ?? null,
-            }
-          : openedLoanId || closedLoanId
-            ? {
-                openedLoanId: openedLoanId ?? null,
-                closedLoanId: closedLoanId ?? null,
-              }
-            : goneReason
-              ? {
-                  goneReason,
-                }
-            : undefined,
+        notes,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       });
 
-      if (
-        counterpartyUserId &&
-        (wishFulfillmentStatuses as readonly string[]).includes(toStatus)
-      ) {
+      if (activeWant) {
         await tx
           .update(wants)
           .set({
@@ -359,13 +512,7 @@ export class CopiesService {
             fulfilledByCopyId: id,
             fulfilledByUserId: userId,
           })
-          .where(
-            and(
-              eq(wants.userId, counterpartyUserId),
-              matchingWantCondition,
-              eq(wants.status, "active")
-            )
-          );
+          .where(and(eq(wants.id, activeWant.id), eq(wants.status, "active")));
       }
 
       return this.findOne(id, userId);
