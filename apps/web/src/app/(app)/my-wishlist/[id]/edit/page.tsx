@@ -16,6 +16,7 @@ import {
 } from "@/shared/components/ui/card";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
+import { formatUiDate } from "@/shared/lib/date";
 import { useDeleteWant, useUpdateWant } from "@/shared/queries/my-wishlist";
 
 const closureReasonLabels = {
@@ -139,9 +140,9 @@ export default function EditWishPage() {
             <p>
               <span className="font-medium">Recorded:</span>{" "}
               {want.closed_at ?? want.fulfilled_at
-                ? new Date(
+                ? formatUiDate(
                     want.closed_at ?? want.fulfilled_at ?? want.updated_at
-                  ).toLocaleDateString()
+                  )
                 : "—"}
             </p>
             <p>

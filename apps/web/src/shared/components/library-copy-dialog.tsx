@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogFooter,
 } from "@/shared/components/ui/dialog";
+import { formatUiDate, formatUiTime } from "@/shared/lib/date";
 
 const statusLabels: Record<string, string> = {
   available: "Available",
@@ -73,16 +74,9 @@ interface EventDetailLine {
 }
 
 function formatTimelineDate(value: string) {
-  const date = new Date(value);
   return {
-    day: date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    }),
-    time: date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }),
+    day: formatUiDate(value),
+    time: formatUiTime(value),
   };
 }
 
@@ -378,12 +372,12 @@ export function LibraryCopyDialog({
               ) : null}
               {createdAt ? (
                 <p className="text-sm text-muted-foreground">
-                  Added {new Date(createdAt).toLocaleDateString()}
+                  Added {formatUiDate(createdAt)}
                 </p>
               ) : null}
               {lastConfirmedAt ? (
                 <p className="text-sm text-muted-foreground">
-                  Last confirmed {new Date(lastConfirmedAt).toLocaleDateString()}
+                  Last confirmed {formatUiDate(lastConfirmedAt)}
                 </p>
               ) : null}
               {notes ? (

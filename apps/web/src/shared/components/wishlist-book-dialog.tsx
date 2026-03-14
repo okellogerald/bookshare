@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogFooter,
 } from "@/shared/components/ui/dialog";
+import { formatUiDate } from "@/shared/lib/date";
 
 function isStale(lastConfirmedAt: string | null): boolean {
   if (!lastConfirmedAt) return false;
@@ -88,12 +89,12 @@ export function WishlistBookDialog({
                   Tracking
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Added {new Date(want.created_at).toLocaleDateString()}
+                  Added {formatUiDate(want.created_at)}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Last confirmed{" "}
                   {want.last_confirmed_at
-                    ? new Date(want.last_confirmed_at).toLocaleDateString()
+                    ? formatUiDate(want.last_confirmed_at)
                     : "not yet"}
                 </p>
               </div>

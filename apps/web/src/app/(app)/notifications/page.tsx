@@ -36,11 +36,12 @@ import {
   useMarkNotificationRead,
   useNotifications,
 } from "@/shared/queries/notifications";
+import { formatUiDateTime } from "@/shared/lib/date";
 
 const pageSize = 20;
 
 function formatTimestamp(value: string) {
-  return new Date(value).toLocaleString();
+  return formatUiDateTime(value);
 }
 
 function humanizeToken(value: string) {

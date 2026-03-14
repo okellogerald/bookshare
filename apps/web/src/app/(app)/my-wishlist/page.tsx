@@ -29,6 +29,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { Badge } from "@/shared/components/ui/badge";
 import { MoreHorizontal, Plus } from "lucide-react";
+import { formatUiDate } from "@/shared/lib/date";
 import {
   useMyWants,
   useConfirmWant,
@@ -198,7 +199,7 @@ export default function MyWishlistPage() {
                       {want.notes || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(want.created_at).toLocaleDateString()}
+                      {formatUiDate(want.created_at)}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
