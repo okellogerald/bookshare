@@ -21,16 +21,22 @@ If `--zip` is omitted, the importer auto-selects the newest `.zip` file from:
 
 ## ZIP Contract
 
-### Catalog Import (default)
+### Standard Import (default)
 
-Required:
-- `books.csv`
-- `editions.csv`
-- `covers/` directory with image files named `<isbn>.<ext>`
-
-Optional:
+Allowed combinations:
+- `books.csv` + `editions.csv` + `covers/`
+- `books.csv` + `editions.csv` + `covers/` + `copies.csv`
+- `books.csv` + `editions.csv` + `covers/` + `wishes.csv`
+- `books.csv` + `editions.csv` + `covers/` + `copies.csv` + `wishes.csv`
 - `copies.csv`
 - `wishes.csv`
+- `copies.csv` + `wishes.csv`
+
+Rules:
+- `books.csv` and `editions.csv` must be provided together.
+- `covers/` is required when `editions.csv` is included.
+- `covers/` must not be included when `books.csv` and `editions.csv` are absent.
+- `copies.csv` and `wishes.csv` may reference editions imported in the same ZIP or editions that already exist in the database.
 
 ### Inventory-Only Import (`--inventory-only`)
 

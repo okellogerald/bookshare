@@ -119,17 +119,33 @@ export async function parseZipFile(
   }
 
   if (options.mode === "catalog") {
-    const missingRequired = ["books.csv", "editions.csv"].filter(
-      (fileName) => !csvFilesByName.has(fileName as CsvFileName)
-    );
-    if (missingRequired.length > 0) {
+    const hasBooks = csvFilesByName.has("books.csv");
+    const hasEditions = csvFilesByName.has("editions.csv");
+    const hasCopies = csvFilesByName.has("copies.csv");
+    const hasWishes = csvFilesByName.has("wishes.csv");
+    const hasCatalogRows = hasBooks || hasEditions;
+
+    if (hasBooks !== hasEditions) {
       throw new Error(
-        `ZIP is missing required CSV files: ${missingRequired.join(", ")}`
+        "Catalog ZIP must include both books.csv and editions.csv together"
       );
     }
-    if (covers.length === 0) {
+
+    if (!hasCatalogRows && !hasCopies && !hasWishes) {
       throw new Error(
-        "ZIP must include at least one cover file under covers/ for catalog imports"
+        "Catalog ZIP must include books.csv + editions.csv, copies.csv, wishes.csv, or a valid combination of them"
+      );
+    }
+
+    if (hasCatalogRows && covers.length === 0) {
+      throw new Error(
+        "Catalog ZIP must include at least one cover file under covers/ when editions.csv is present"
+      );
+    }
+
+    if (!hasCatalogRows && covers.length > 0) {
+      throw new Error(
+        "Catalog ZIP must not include covers/ unless books.csv and editions.csv are included"
       );
     }
   }

@@ -128,6 +128,113 @@ function parsedInputFor(params: {
 
 describe("importer validation integration", () => {
   integrationTest(
+    "accepts standard import with only wishes.csv when edition already exists",
+    async () => {
+      if (!databaseUrl) return;
+      const db = createDb(databaseUrl);
+      const suffix = randomUUID().slice(0, 8);
+      const actorUserId = `it_validate_actor_${suffix}`;
+      const actorEmail = `${actorUserId}@bookshare.local`;
+      const suffixDigits = suffix.replace(/\D/g, "").padEnd(4, "7").slice(0, 4);
+      const isbn = isbn13FromPrefix12(`97803064${suffixDigits}`);
+
+      let bookId = "";
+      let editionId = "";
+
+      try {
+        await db.insert(memberProfiles).values({
+          userId: actorUserId,
+          email: actorEmail,
+        });
+
+        const [createdBook] = await db
+          .insert(books)
+          .values({
+            title: `Existing Catalog Book ${suffix}`,
+            subtitle: null,
+            language: "en",
+          })
+          .returning({ id: books.id });
+        bookId = createdBook!.id;
+
+        const [createdEdition] = await db
+          .insert(editions)
+          .values({
+            bookId,
+            isbn,
+            format: "paperback",
+            description: null,
+            publisher: null,
+            publishedYear: null,
+            pageCount: null,
+            coverImageUrl: null,
+          })
+          .returning({ id: editions.id });
+        editionId = createdEdition!.id;
+
+        const parsed: ParsedZipInput = {
+          zipName: "integration-standard-inventory.zip",
+          sha256: "0".repeat(64),
+          mode: "catalog",
+          files: {
+            "books.csv": {
+              fileName: "books.csv",
+              present: false,
+              headers: [],
+              rows: [],
+            },
+            "editions.csv": {
+              fileName: "editions.csv",
+              present: false,
+              headers: [],
+              rows: [],
+            },
+            "copies.csv": {
+              fileName: "copies.csv",
+              present: false,
+              headers: [],
+              rows: [],
+            },
+            "wishes.csv": {
+              fileName: "wishes.csv",
+              present: true,
+              headers: ["id", "edition_isbn", "email", "notes"],
+              rows: [
+                {
+                  id: "wish_new_1",
+                  edition_isbn: isbn,
+                  email: actorEmail,
+                  notes: "new wish from standard import",
+                },
+              ],
+            },
+          },
+          covers: [],
+        };
+
+        const result = await validateParsedInput(db, parsed, actorEmail, {
+          mode: "catalog",
+          replaceInventory: false,
+        });
+
+        expect(result.status).toBe("validated");
+        expect(result.payloads.wishes).toHaveLength(1);
+        expect(result.summary.issues).toHaveLength(0);
+      } finally {
+        if (editionId) {
+          await db.delete(editions).where(eq(editions.id, editionId));
+        }
+        if (bookId) {
+          await db.delete(books).where(eq(books.id, bookId));
+        }
+        await db
+          .delete(memberProfiles)
+          .where(eq(memberProfiles.userId, actorUserId));
+      }
+    }
+  );
+
+  integrationTest(
     "fails when an active wish already exists for the same user/book",
     async () => {
       if (!databaseUrl) return;
@@ -144,9 +251,7 @@ describe("importer validation integration", () => {
       try {
         await db.insert(memberProfiles).values({
           userId: actorUserId,
-          username: actorUserId,
           email: actorEmail,
-          displayName: "Importer Validation Actor",
         });
 
         const [createdBook] = await db
@@ -253,14 +358,12 @@ describe("importer validation integration", () => {
     const db = createDb(databaseUrl);
     const suffix = randomUUID().slice(0, 8);
     const actorUserId = `it_validate_actor_${suffix}`;
-    const actorUsername = `it_validate_actor_${suffix}`;
+    const actorEmail = `${actorUserId}@bookshare.local`;
 
     try {
       await db.insert(memberProfiles).values({
         userId: actorUserId,
-        username: actorUsername,
-        email: `${actorUsername}@bookshare.local`,
-        displayName: "Importer Validation Actor",
+        email: actorEmail,
       });
 
       const result = await validateParsedInput(
@@ -269,7 +372,7 @@ describe("importer validation integration", () => {
           categorySlugs: "missing-category",
           includeCover: true,
         }),
-        actorUsername,
+        actorEmail,
         { mode: "catalog", replaceInventory: false }
       );
 
@@ -294,15 +397,13 @@ describe("importer validation integration", () => {
     const db = createDb(databaseUrl);
     const suffix = randomUUID().slice(0, 8);
     const actorUserId = `it_validate_actor_${suffix}`;
-    const actorUsername = `it_validate_actor_${suffix}`;
+    const actorEmail = `${actorUserId}@bookshare.local`;
     const categorySlug = `it-validate-category-${suffix}`;
 
     try {
       await db.insert(memberProfiles).values({
         userId: actorUserId,
-        username: actorUsername,
-        email: `${actorUsername}@bookshare.local`,
-        displayName: "Importer Validation Actor",
+        email: actorEmail,
       });
       await db.insert(categories).values({
         name: `Validate Category ${suffix}`,
@@ -315,7 +416,7 @@ describe("importer validation integration", () => {
           categorySlugs: categorySlug,
           includeCover: false,
         }),
-        actorUsername,
+        actorEmail,
         { mode: "catalog", replaceInventory: false }
       );
 
@@ -345,15 +446,13 @@ describe("importer validation integration", () => {
       const db = createDb(databaseUrl);
       const suffix = randomUUID().slice(0, 8);
       const actorUserId = `it_validate_actor_${suffix}`;
-      const actorUsername = `it_validate_actor_${suffix}`;
+      const actorEmail = `${actorUserId}@bookshare.local`;
       const categorySlug = `it-validate-category-${suffix}`;
 
       try {
         await db.insert(memberProfiles).values({
           userId: actorUserId,
-          username: actorUsername,
-          email: `${actorUsername}@bookshare.local`,
-          displayName: "Importer Validation Actor",
+          email: actorEmail,
         });
         await db.insert(categories).values({
           name: `Validate Category ${suffix}`,
@@ -366,7 +465,7 @@ describe("importer validation integration", () => {
             categorySlugs: categorySlug,
             includeCover: true,
           }),
-          actorUsername,
+          actorEmail,
           { mode: "catalog", replaceInventory: false }
         );
 

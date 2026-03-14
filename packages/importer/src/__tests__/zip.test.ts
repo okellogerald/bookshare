@@ -61,6 +61,54 @@ describe("parseZipFile", () => {
     expect(parsed.covers[0]?.zipPath).toBe("seed/covers/9780306406157.png");
   });
 
+  test("accepts standard import zip with only copies.csv", async () => {
+    const zipPath = await writeZip([
+      {
+        path: "copies.csv",
+        content:
+          "id,edition_isbn,email,condition,notes,share_type,contact_note,status\ncopy_1,9780306406157,user@bookshare.local,good,,lend,,available",
+      },
+    ]);
+
+    const parsed = await parseZipFile(zipPath, { mode: "catalog" });
+    expect(parsed.files["copies.csv"].present).toBe(true);
+    expect(parsed.files["wishes.csv"].present).toBe(false);
+    expect(parsed.files["books.csv"].present).toBe(false);
+    expect(parsed.files["editions.csv"].present).toBe(false);
+    expect(parsed.covers).toHaveLength(0);
+  });
+
+  test("rejects standard import zip when only books.csv is included", async () => {
+    const zipPath = await writeZip([
+      {
+        path: "books.csv",
+        content: "id,title,subtitle,language,author_names,category_slugs\n",
+      },
+    ]);
+
+    await expect(parseZipFile(zipPath, { mode: "catalog" })).rejects.toThrow(
+      "Catalog ZIP must include both books.csv and editions.csv together"
+    );
+  });
+
+  test("rejects standard import zip with covers but no catalog files", async () => {
+    const zipPath = await writeZip([
+      {
+        path: "copies.csv",
+        content:
+          "id,edition_isbn,email,condition,notes,share_type,contact_note,status\ncopy_1,9780306406157,user@bookshare.local,good,,lend,,available",
+      },
+      {
+        path: "covers/9780306406157.png",
+        content: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      },
+    ]);
+
+    await expect(parseZipFile(zipPath, { mode: "catalog" })).rejects.toThrow(
+      "Catalog ZIP must not include covers/ unless books.csv and editions.csv are included"
+    );
+  });
+
   test("accepts inventory-only zip with only copies.csv", async () => {
     const zipPath = await writeZip([
       {

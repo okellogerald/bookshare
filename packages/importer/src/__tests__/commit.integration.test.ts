@@ -24,8 +24,8 @@ describe("importer commit integration", () => {
 
     const actorUserId = `it_actor_${suffix}`;
     const ownerUserId = `it_owner_${suffix}`;
-    const actorUsername = `it_actor_${suffix}`;
-    const ownerUsername = `it_owner_${suffix}`;
+    const actorEmail = `${actorUserId}@bookshare.local`;
+    const ownerEmail = `${ownerUserId}@bookshare.local`;
     const categorySlug = `it_category_${suffix}`;
 
     const newBookTitle = `Rollback New ${suffix}`;
@@ -37,15 +37,11 @@ describe("importer commit integration", () => {
       await db.insert(memberProfiles).values([
         {
           userId: actorUserId,
-          username: actorUsername,
-          email: `${actorUsername}@bookshare.local`,
-          displayName: "Integration Actor",
+          email: actorEmail,
         },
         {
           userId: ownerUserId,
-          username: ownerUsername,
-          email: `${ownerUsername}@bookshare.local`,
-          displayName: "Integration Owner",
+          email: ownerEmail,
         },
       ]);
       await db.insert(categories).values({
@@ -56,7 +52,7 @@ describe("importer commit integration", () => {
       const [run] = await db
         .insert(importRuns)
         .values({
-          actorUsername,
+          actorUsername: actorEmail,
           sourceZipName: `integration-${suffix}.zip`,
           sourceZipSha256: "f".repeat(64),
           status: "validated",
@@ -118,14 +114,14 @@ describe("importer commit integration", () => {
           runId,
           entityType: "wishes",
           rowNumber: 1,
-          sourceRef: "w_new",
-          payload: {
             sourceRef: "w_new",
-            editionIsbn: "9780000000002",
-            email: `${ownerUsername}@bookshare.local`,
-            userId: ownerUserId,
-            notes: "should fail commit",
-          },
+            payload: {
+              sourceRef: "w_new",
+              editionIsbn: "9780000000002",
+              email: ownerEmail,
+              userId: ownerUserId,
+              notes: "should fail commit",
+            },
         },
       ]);
 
