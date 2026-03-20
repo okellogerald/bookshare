@@ -121,9 +121,9 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Button type="button" variant="outline" asChild>
-                    <Link href="/auth/settings?returnTo=/settings">
+                    <Link href="/auth/settings?returnTo=/settings&section=profile">
                       <Mail className="mr-2 h-4 w-4" />
-                      Open Account Settings
+                      Open Profile Settings
                     </Link>
                   </Button>
                 </div>
@@ -132,11 +132,11 @@ export default function SettingsPage() {
                   <div className="space-y-1">
                     <p className="font-medium">Manage Password</p>
                     <p className="text-sm text-muted-foreground">
-                      Password changes are handled in the same Kratos settings flow.
+                      Password changes use the same Kratos settings flow with a dedicated password view.
                     </p>
                   </div>
                   <Button type="button" variant="outline" asChild>
-                    <Link href="/auth/settings?returnTo=/settings">
+                    <Link href="/auth/settings?returnTo=/settings&section=password">
                       <Key className="mr-2 h-4 w-4" />
                       Open Password Settings
                     </Link>

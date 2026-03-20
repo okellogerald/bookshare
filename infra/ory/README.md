@@ -1,215 +1,164 @@
 # Ory in This Project (Kratos + Hydra + Auth Portal)
 
-This document explains the auth system in very simple terms, then maps each part to the real config/code.
+This is the short project-specific reference for how BookShare currently uses Ory.
 
-## 1) Mental Model (Very Simple)
+## Mental Model
 
-Think of auth as 3 workers:
+1. `Kratos` owns identities, passwords, verification state, recovery, and self-service flows.
+2. `Hydra` owns OAuth2/OIDC for client applications such as `bookshare-web`.
+3. `apps/auth` is the custom Auth Portal that renders Kratos flows and answers Hydra login / consent / logout challenges.
 
-1. `Kratos` is the **identity worker**.
-It stores users, passwords, verification state, recovery state, MFA, and profile traits.
+BookShare Web is not the identity provider. It is an OAuth client that sends users into the Auth Portal when identity work is needed.
 
-2. `Hydra` is the **OAuth/OIDC worker**.
-It issues authorization codes, access tokens, ID tokens, and refresh tokens for apps.
+## What The User Sees
 
-3. `Auth Portal` (`apps/auth`) is the **UI + glue worker**.
-It renders login/register/recovery/settings pages from Kratos flows, and handles Hydra login/consent/logout challenges.
+### Registration
 
-BookShare Web (`apps/web`) is an OAuth client only. It should not directly own identity logic.
+Current BookShare UX:
 
-## 2) What Runs in Docker and Why
+1. Open `/register`.
+2. Fill `First Name`, `Last Name`, `Gender`, `Email`, `Password`, `Confirm Password`.
+3. Submit the Kratos password registration flow.
+4. Kratos creates the identity, stores the password, creates a session, and redirects into email verification.
+5. User verifies the email with the code sent by Kratos.
+6. After verification, the user signs in with email + password.
 
-In `docker-compose.dev.yml`, auth needs these services:
+Important detail:
+- Registration is password-first.
+- Email verification still happens afterward with the Kratos verification flow.
+- The web app does not expose registration directly.
 
-1. `hydra-migrate` (one-shot)
-Runs Hydra DB migrations before Hydra starts. Without it, Hydra can fail on boot.
+### Login
 
-2. `hydra` (long-running)
-OAuth/OIDC server. Public API on `4444`, admin API on `4445`.
+Current BookShare UX:
 
-3. `hydra-client-init` (one-shot)
-Creates or updates OAuth client `bookshare-web` via Hydra Admin API.
-Without this, login fails with `invalid_client`.
+1. Open `/login`.
+2. Enter `Email` and `Password`.
+3. Kratos creates a session.
+4. Hydra login challenge resumes and OAuth tokens are issued to the web app.
 
-4. `kratos-migrate` (one-shot)
-Runs Kratos DB migrations before Kratos starts.
+The Auth Portal login form and Kratos config now both align on email + password only.
 
-5. `kratos` (long-running)
-Identity/self-service engine. Public API on `4433`, admin API on `4434`.
+### Settings
 
-6. `auth` (long-running)
-Your custom auth UI and Hydra challenge handlers on `3337`.
+Kratos settings are split in the UI, not in Ory configuration:
 
-7. `mailpit` (dev only)
-Catches emails (verification/recovery codes) at `http://localhost:4436`.
+1. `/settings?section=profile`
+   Updates email, first name, last name, and gender.
+2. `/settings?section=password`
+   Updates the password.
 
-## 3) File Map
+Both views use the same Kratos settings flow. The portal chooses which Kratos group to render:
+- `profile`
+- `password`
+
+This means the profile/password split does **not** require extra Ory customization.
+
+### Recovery And Verification
+
+1. Recovery still uses Kratos email codes.
+2. Verification still uses Kratos email codes.
+3. Recovery resets land in the password section of the settings flow.
+
+## Main Files
+
+### Infrastructure
 
 1. `infra/ory/kratos/kratos.yml`
-Kratos behavior (flows, methods, redirects, SMTP, schema link).
-
+   Main Kratos behavior: enabled methods, self-service flow URLs, verification/recovery settings.
 2. `infra/ory/kratos/identity.schema.json`
-What user traits exist (`email`, `name.first`, `name.last`, `gender`) and what can be used as credentials identifiers.
-
+   BookShare identity traits:
+   - `traits.email`
+   - `traits.name.first`
+   - `traits.name.last`
+   - `traits.gender`
 3. `infra/ory/hydra/hydra.yml`
-Hydra issuer and where Hydra sends login/consent/logout challenges.
-
+   Hydra issuer and Auth Portal challenge URLs.
 4. `infra/ory/hydra/init-client.sh`
-Idempotent upsert for OAuth client `bookshare-web`.
+   Upserts OAuth client `bookshare-web`.
 
-5. `apps/auth/src/app/*`
-Auth pages and Hydra challenge endpoints.
+### Auth Portal
 
-## 4) How Requests Flow (End-to-End)
+1. `apps/auth/src/app/register/page.tsx`
+   Password-first registration UI.
+2. `apps/auth/src/app/verification/page.tsx`
+   Verification UI.
+3. `apps/auth/src/app/login/page.tsx`
+   Password-only login UI.
+4. `apps/auth/src/app/settings/page.tsx`
+   Split profile/password settings UI on top of one Kratos settings flow.
+5. `apps/auth/src/app/setup/page.tsx`
+   Legacy compatibility redirect to profile settings.
+6. `apps/auth/src/app/oauth/login/route.ts`
+   Hydra login gatekeeper. Redirects incomplete users to verification or profile settings before accepting the login challenge.
 
-### 4.1 Sign in from BookShare
+### Web App
 
-1. User opens protected page in `apps/web`.
-2. `apps/web/src/middleware.ts` redirects to `/api/auth/login` if no valid session.
-3. `/api/auth/login` starts OAuth Authorization Code + PKCE with Hydra (`/oauth2/auth`).
-4. Hydra redirects to Auth Portal `/oauth/login?login_challenge=...`.
-5. Auth Portal checks Kratos session:
-- no Kratos session: redirect to `/login`
-- email not verified: redirect to `/verification`
-- profile incomplete: redirect to `/setup`
-6. If checks pass, Auth Portal accepts Hydra login challenge.
-7. Hydra calls Auth Portal `/oauth/consent?consent_challenge=...`.
-8. Auth Portal builds claims (`sub`, `email`, `name`, `given_name`, `family_name`, `email_verified`) and accepts consent.
-9. Hydra redirects to `apps/web` callback (`/api/auth/callback`).
-10. Web exchanges code for tokens, stores app session cookie, then returns user to requested page.
+1. `apps/web/src/app/auth/register/page.tsx`
+   Compatibility redirect. Sends users into login instead of exposing registration from the web app.
+2. `apps/web/src/app/auth/settings/page.tsx`
+   Sends users into the requested Auth Portal settings section.
+3. `apps/web/src/app/(app)/settings/page.tsx`
+   App-side entry points for profile settings and password changes.
 
-### 4.2 Registration in Auth Portal
+## Current Kratos Config Notes
 
-1. User opens `http://localhost:3337/register`.
-2. Kratos registration flow first collects only email (code method).
-3. Kratos emails a 6-digit code.
-4. User enters code on same flow.
-5. On success, Kratos creates session (`hook: session`) and redirects to `/setup`.
-6. `/setup` runs Kratos settings flow and collects profile + password.
+From `infra/ory/kratos/kratos.yml`:
 
-Important details:
+1. `selfservice.methods.password.enabled: true`
+   Required for registration and login.
+2. `selfservice.methods.code.enabled: true`
+   Still used for verification and recovery.
+3. `selfservice.methods.code.passwordless_enabled: false`
+   Prevents passwordless code login / registration branches.
+4. `selfservice.flows.verification.use: code`
+   Verification is still email-code based.
+5. `selfservice.flows.settings.privileged_session_max_age: 15m`
+   Sensitive settings actions require a recent session.
 
-1. Registration flow ID is remembered in cookie `bookshare_register_flow` via `apps/auth/src/middleware.ts`.
-2. `/register/reset` clears that cookie and starts fresh registration flow.
-3. If user requests multiple codes, only the latest code/flow pairing should be used.
+## Why `/setup` Still Exists
 
-### 4.3 Recovery and Verification
+`/setup` is no longer the primary onboarding step.
 
-1. Recovery page: `/recovery` (Kratos `use: code`).
-2. Verification page: `/verification` (Kratos `use: code`).
-3. Emails are sent through Kratos courier to Mailpit in dev.
+It now exists only as a compatibility redirect to:
 
-## 5) `kratos.yml` Explained
+```text
+/settings?section=profile
+```
 
-Path: `infra/ory/kratos/kratos.yml`
+That keeps old links or bookmarks working while the real UX is now:
 
-1. `dsn`
-Kratos DB location (SQLite volume in dev).
+```text
+register -> verification -> login
+```
 
-2. `serve.public.base_url`
-Public Kratos URL used by browser-facing self-service redirects.
-
-3. `selfservice.default_browser_return_url`
-Fallback browser return URL if flow has no `return_to`.
-
-4. `selfservice.allowed_return_urls`
-Allowlist of safe redirect targets.
-If a URL is not here, Kratos refuses `return_to`.
-
-5. `selfservice.methods`
-Enabled auth methods:
-- `password`
-- `code` (with `passwordless_enabled: true`, used for code flows)
-- `link` (enabled for future use)
-
-6. `selfservice.flows.*.ui_url`
-Where Kratos sends the browser for each UI flow (`/login`, `/register`, `/settings`, etc.) on Auth Portal.
-
-7. `selfservice.flows.registration`
-`lifespan: 1h`, `style: unified`, and after registration:
-- default redirect to `/setup`
-- `after.code.hooks: [session]`
-
-8. `identity.schemas`
-Points Kratos to `identity.schema.json`.
-
-9. `courier.smtp.connection_uri`
-SMTP transport. In dev this points to Mailpit container.
-
-## 6) `identity.schema.json` Explained
-
-Path: `infra/ory/kratos/identity.schema.json`
-
-1. Required trait: `traits.email`.
-2. Optional traits: `traits.name.first`, `traits.name.last`, `traits.gender`.
-3. `ory.sh/kratos.credentials.password.identifier: true`
-Email can be used as password login identifier.
-4. `ory.sh/kratos.credentials.code.identifier: true`
-Email can be used for code flows.
-5. `verification.via: email`
-Kratos email verification channel.
-6. `recovery.via: email`
-Kratos password recovery channel.
-
-## 7) `hydra.yml` Explained
-
-Path: `infra/ory/hydra/hydra.yml`
-
-1. `urls.self.issuer`
-Public issuer URL used by OIDC discovery/JWKS/token validation.
-
-2. `urls.error`
-Error redirect target (`/error` in Auth Portal).
-
-3. `urls.login`, `urls.consent`, `urls.logout`
-Hydra challenge endpoints owned by Auth Portal.
-Hydra delegates human interaction there.
-
-4. `secrets.system`
-Hydra crypto secret.
-Must be changed outside dev.
-
-5. `oidc.subject_identifiers`
-Supported `sub` styles (`public`, `pairwise`) and pairwise salt.
-
-## 8) Why Hydra Is Still Needed Here
-
-Kratos handles identity and self-service UX/state.
-Hydra handles OAuth/OIDC for client applications (`bookshare-web`, future apps).
-
-If you want multi-app login with standard OAuth/OIDC tokens, Hydra is the right server in this split design.
-
-## 9) Common Failure Modes
+## Common Failure Modes
 
 1. `invalid_client`
-Cause: `bookshare-web` OAuth client missing in Hydra.
-Fix: ensure `hydra-client-init` ran successfully.
+   Hydra client `bookshare-web` is missing or not initialized.
+2. Verification loop
+   User is authenticated in Kratos but the email is still unverified, so the OAuth login gate sends them to `/verification`.
+3. Profile completion loop
+   User exists but is missing `first` or `last` name, so the OAuth login gate sends them to `/settings?section=profile`.
+4. Passwordless flow unexpectedly appears
+   Check that `selfservice.methods.code.passwordless_enabled` is still `false`.
 
-2. `registration code is invalid or already used`
-Cause: stale flow, code from older email, or mismatched flow/code.
-Fix: go to `/register/reset`, request fresh code once, use latest code in same tab.
+## Practical Answer To “Do We Need More Ory Tweaks?”
 
-3. Login loops to auth pages
-Cause: missing Kratos session, unverified email, or incomplete profile.
-Fix: complete `/verification` and `/setup`.
+For the requested UX:
 
-## 10) Security Notes for Contributors
+1. Password-first registration form
+2. Email verification afterward
+3. Password-only login
+4. Separate profile settings vs password changes
 
-1. Do not expose Hydra/Kratos admin ports publicly.
-2. Keep secrets out of git and rotate for non-dev environments.
-3. Keep `allowed_return_urls` strict.
-4. Keep consent claims minimal and explicit.
+The answer is: **mostly no**.
 
-## 11) Admin UI Reality
+We can do that in the Auth Portal by:
 
-1. Self-hosted Kratos/Hydra are API-first and do not ship a full built-in admin dashboard.
-2. Day-to-day operations are usually done with Admin APIs and the Ory CLI.
-3. Ory Network includes the hosted Ory Console (web UI).
-4. Community UI projects may exist, but they are not the official management plane for self-hosted deployments.
+1. Rendering the `password` registration section plus the profile traits.
+2. Letting Kratos handle verification with the existing verification flow.
+3. Rendering only the `password` login section.
+4. Rendering `profile` and `password` groups separately on the settings page.
 
-## 12) Quick Local Checks
-
-1. Kratos health: `curl -sS http://localhost:4433/health/ready`
-2. Hydra health: `curl -sS http://localhost:4444/health/ready`
-3. OAuth client exists: `curl -sS http://localhost:4445/admin/clients/bookshare-web`
-4. Mailpit UI: `http://localhost:4436`
+The config now matches the chosen product flow closely.

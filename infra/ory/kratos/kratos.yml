@@ -26,17 +26,13 @@ selfservice:
   methods:
     password:
       enabled: true
-    # Used for registration verification + recovery/verification flows.
+    # Used for verification and recovery codes only.
     code:
       enabled: true
-      # Enables registration/login code flows. We keep login UI password-only in Auth Portal.
-      passwordless_enabled: true
+      passwordless_enabled: false
       config:
-        # Keep code validity aligned with registration flow lifetime.
+        # Keep verification/recovery code validity aligned with our current flow timings.
         lifespan: 1h
-    # Keep enabled for future email-link style flows.
-    link:
-      enabled: true
 
   flows:
     error:
@@ -67,23 +63,15 @@ selfservice:
       lifespan: 10m
 
     registration:
-      # Keep enough time for users to receive and enter the emailed code.
+      # Keep enough time for users to complete the registration form.
       lifespan: 1h
-      # Keep registration as a single method-submit flow in the portal (email -> code verify).
-      style: unified
       ui_url: http://localhost:3337/register
       after:
-        # After successful code verification, continue into profile/password setup.
-        default_browser_return_url: http://localhost:3337/setup
-        code:
-          hooks:
-            # Creates a Kratos session after successful code verification.
-            - hook: session
         password:
           hooks:
             # Creates a Kratos session immediately after registration.
             - hook: session
-            # Redirects into verification UI to verify email.
+            # Redirects into verification UI right after password registration.
             - hook: show_verification_ui
 
 log:

@@ -29,42 +29,24 @@ export default async function RegisterPage({
   const loginHref = flow.return_to
     ? `/login?return_to=${encodeURIComponent(flow.return_to)}`
     : "/login";
-  const isCodeStep = flow.ui.nodes.some(
-    (node) => node.type === "input" && node.attributes.name === "code"
-  );
-  const codeEmail = (() => {
-    const node = flow.ui.nodes.find(
-      (item) => item.type === "input" && item.attributes.name === "traits.email"
-    );
-    return typeof node?.attributes.value === "string"
-      ? node.attributes.value.trim()
-      : "";
-  })();
-  const description = isCodeStep
-    ? codeEmail
-      ? `Enter the latest 6-digit code sent to ${codeEmail}. Keep this tab open while verifying.`
-      : "Enter the latest 6-digit code sent to your email. Keep this tab open while verifying."
-    : "Enter your email to start account creation.";
-  const links = isCodeStep
-    ? [
-      { href: loginHref, label: "Back to sign in" },
-      { href: "/register/reset", label: "Use a different email" },
-    ]
-    : [{ href: loginHref, label: "Back to sign in" }];
-  const fieldAllowlist = isCodeStep
-    ? ["code"]
-    : ["traits.email"];
 
   return (
     <KratosFlowForm
       flow={flow}
-      title={isCodeStep ? "Verify your email" : "Register"}
-      description={description}
-      sectionGroups={["code"]}
-      fieldAllowlist={fieldAllowlist}
+      title="Create your account"
+      description="Enter your details, choose a password, then verify your email."
+      sectionGroups={["password"]}
+      fieldAllowlist={[
+        "traits.name.first",
+        "traits.name.last",
+        "traits.gender",
+        "traits.email",
+        "password",
+      ]}
       submitAllowlist={["method"]}
       hideBackOnlySections
-      links={links}
+      links={[{ href: loginHref, label: "Back to sign in" }]}
+      enablePasswordConfirmation
     />
   );
 }

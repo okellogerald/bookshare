@@ -2,7 +2,7 @@
 
 > This document traces the full BookShare password recovery flow from clicking "Forgot password?" to setting a new password and signing back in. It includes real Kratos API responses captured from a live local environment, explains every decision and redirect, and calls out exactly what happens at the database level.
 >
-> **Prerequisites:** Read [AUTH-SYSTEM-V2.md](./AUTH-SYSTEM-V2.md) first for key concepts (flows, methods, hooks, CSRF, etc.)
+> **Prerequisites:** Read [AUTH-SYSTEM.md](./AUTH-SYSTEM.md) first for key concepts (flows, methods, hooks, CSRF, etc.)
 >
 > **Raw traces:** [kratos-recovery-traces.md](./kratos-recovery-traces.md) — Contains the full recovery path with SQLite row dumps.
 
@@ -271,7 +271,7 @@ The recovery page is the simplest Auth Portal page — no `sectionGroups` filter
 - A "Back to sign in" link
 
 > **💡 Tip: No `sectionGroups` prop means "render all sections"**
-> When `sectionGroups` is not passed to `KratosFlowForm`, the `buildSections()` function in `partition.ts` includes all non-default groups. For recovery, there's only one group (`code`), so it renders a single section. This contrasts with the login page, which explicitly passes `sectionGroups={["password"]}` to hide the code login method.
+> When `sectionGroups` is not passed to `KratosFlowForm`, the `buildSections()` function in `partition.ts` includes all non-default groups. For recovery, there's only one group (`code`), so it renders a single section. The login page still explicitly passes `sectionGroups={["password"]}`, and the config now also disables passwordless code login underneath.
 
 ---
 

@@ -21,6 +21,11 @@ export default async function SettingsRedirectPage({
   const returnTo = sanitizeReturnTo(
     getParam(params, "returnTo") ?? getParam(params, "return_to")
   );
+  const sectionParam = getParam(params, "section");
+  const section =
+    sectionParam === "password" || sectionParam === "profile"
+      ? sectionParam
+      : undefined;
 
-  redirect(buildAuthPortalSettingsUrl(returnTo));
+  redirect(buildAuthPortalSettingsUrl(returnTo, section));
 }

@@ -139,11 +139,11 @@ export function FlowSection({
 
         {needsPasswordConfirmation ? (
           <div className="space-y-2">
-            <Label htmlFor="setup-confirm-password" className="flow-field-label">
+            <Label htmlFor="flow-confirm-password" className="flow-field-label">
               Confirm password
             </Label>
             <Input
-              id="setup-confirm-password"
+              id="flow-confirm-password"
               type="password"
               autoComplete="new-password"
               placeholder="Re-enter your password"

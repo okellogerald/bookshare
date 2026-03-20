@@ -3,7 +3,7 @@
 > This document catalogs every security measure implemented in BookShare, explains what attack or risk each one prevents, shows how it works with real code references, and recommends future improvements. It covers authentication, authorization, database access, infrastructure, input validation, and secrets management.
 >
 > **Companion docs:**
-> - [AUTH-SYSTEM-V2.md](./AUTH-SYSTEM-V2.md) — High-level auth architecture
+> - [AUTH-SYSTEM.md](../auth-flows/AUTH-SYSTEM.md) — High-level auth architecture
 > - [LOGIN-FLOW.md](./LOGIN-FLOW.md) — Login flow with real Kratos/Hydra traces
 > - [REGISTRATION-FLOW.md](./REGISTRATION-FLOW.md) — Registration flow with real traces
 > - [FORGOT-PASSWORD-FLOW.md](./FORGOT-PASSWORD-FLOW.md) — Password recovery flow with real traces

@@ -183,7 +183,6 @@ BookShare generates a fresh random 12-byte IV for every encryption call. The pro
 | Cookie | What It Contains | Why Not Encrypted |
 |--------|-----------------|-------------------|
 | `bookshare_logged_out` | Just the string `"1"` | Non-sensitive flag. Knowing someone logged out reveals nothing exploitable. |
-| `bookshare_register_flow` | Kratos flow UUID | Flow IDs are opaque identifiers with built-in server-side expiration. Knowing a flow ID doesn't grant any access — Kratos requires the user to complete the flow's steps. |
 | `csrf_token_*` | Kratos CSRF tokens | Managed by Kratos directly, not by our encryption system. Kratos handles its own cookie security. |
 
 ### The Most Sensitive Encrypted Field

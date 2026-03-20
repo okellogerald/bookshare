@@ -5,6 +5,7 @@ import {
   getBrowserFlow,
   getKratosSession,
   hasKratosAuthenticationMethod,
+  initBrowserFlow,
 } from "@/lib/kratos";
 import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
 
@@ -18,13 +19,39 @@ export default async function SettingsPage({
   const params = await searchParams;
   const flowId = getSingleParam(params, "flow");
   const returnTo = getSingleParam(params, "return_to");
+  const sectionParam = getSingleParam(params, "section");
+  const requestedSection = sectionParam === "password" ? "password" : "profile";
 
   if (!flowId) {
+    const newFlowId = await initBrowserFlow("settings", returnTo);
+    if (newFlowId) {
+      const query = new URLSearchParams({
+        flow: newFlowId,
+        section: requestedSection,
+      });
+      if (returnTo) {
+        query.set("return_to", returnTo);
+      }
+      redirect(`/settings?${query.toString()}`);
+    }
+
     redirect(createBrowserFlowUrl("settings", returnTo));
   }
 
   const flow = await getBrowserFlow("settings", flowId);
   if (!flow) {
+    const newFlowId = await initBrowserFlow("settings", returnTo);
+    if (newFlowId) {
+      const query = new URLSearchParams({
+        flow: newFlowId,
+        section: requestedSection,
+      });
+      if (returnTo) {
+        query.set("return_to", returnTo);
+      }
+      redirect(`/settings?${query.toString()}`);
+    }
+
     redirect(createBrowserFlowUrl("settings", returnTo));
   }
 
@@ -40,6 +67,10 @@ export default async function SettingsPage({
 
   if (isRecoveryReset && hasSuccessMessage) {
     redirect("/login");
+  }
+
+  if (!isRecoveryReset && hasSuccessMessage && returnTo) {
+    redirect(returnTo);
   }
 
   const accountEmail = (() => {
@@ -61,23 +92,45 @@ export default async function SettingsPage({
       : "";
   })();
 
-  const title = isRecoveryReset ? "Reset password" : "Account settings";
+  const activeSection = isRecoveryReset ? "password" : requestedSection;
+  const title = isRecoveryReset
+    ? "Reset password"
+    : activeSection === "password"
+      ? "Password changes"
+      : "Profile settings";
   const description = isRecoveryReset
     ? accountEmail
       ? `Set a new password for ${accountEmail}.`
       : "Set a new password for your account."
-    : accountEmail
-      ? `Manage profile details for ${accountEmail}.`
-      : "Manage your profile details.";
-  const sectionGroups = isRecoveryReset ? ["password"] : ["profile"];
-  const fieldAllowlist = isRecoveryReset
-    ? ["password"]
-    : [
-      "traits.email",
-      "traits.name.first",
-      "traits.name.last",
-      "traits.gender",
-    ];
+    : activeSection === "password"
+      ? accountEmail
+        ? `Choose a new password for ${accountEmail}.`
+        : "Choose a new password for your account."
+      : accountEmail
+        ? `Manage profile details for ${accountEmail}.`
+        : "Manage your profile details.";
+  const sectionGroups = [activeSection];
+  const fieldAllowlist =
+    activeSection === "password"
+      ? ["password"]
+      : [
+        "traits.email",
+        "traits.name.first",
+        "traits.name.last",
+        "traits.gender",
+      ];
+  const switchSection = activeSection === "password" ? "profile" : "password";
+  const switchLabel =
+    activeSection === "password" ? "Profile settings" : "Password changes";
+  const switchParams = new URLSearchParams({
+    flow: flow.id,
+    section: switchSection,
+  });
+  if (returnTo) {
+    switchParams.set("return_to", returnTo);
+  }
+  const backHref = returnTo || "/login";
+  const backLabel = returnTo ? "Back" : "Back to sign in";
 
   return (
     <KratosFlowForm
@@ -88,8 +141,15 @@ export default async function SettingsPage({
       fieldAllowlist={fieldAllowlist}
       submitAllowlist={["method"]}
       hideBackOnlySections
-      links={[{ href: "/login", label: "Back to sign in" }]}
-      enablePasswordConfirmation={isRecoveryReset}
+      links={
+        isRecoveryReset
+          ? [{ href: "/login", label: "Back to sign in" }]
+          : [
+            { href: `/settings?${switchParams.toString()}`, label: switchLabel },
+            { href: backHref, label: backLabel },
+          ]
+      }
+      enablePasswordConfirmation={activeSection === "password"}
     />
   );
 }

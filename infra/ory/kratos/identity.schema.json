@@ -14,10 +14,6 @@
           "minLength": 3,
           "ory.sh/kratos": {
             "credentials": {
-              "code": {
-                "identifier": true,
-                "via": "email"
-              },
               "password": {
                 "identifier": true
               }

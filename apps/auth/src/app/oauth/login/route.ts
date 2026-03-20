@@ -58,10 +58,11 @@ export async function GET(request: NextRequest) {
       const returnTo = new URL(`${getAuthPortalPublicUrl()}/oauth/login`);
       returnTo.searchParams.set("login_challenge", challenge);
 
-      const setupUrl = new URL(`${getAuthPortalPublicUrl()}/setup`);
-      setupUrl.searchParams.set("return_to", returnTo.toString());
+      const settingsUrl = new URL(`${getAuthPortalPublicUrl()}/settings`);
+      settingsUrl.searchParams.set("section", "profile");
+      settingsUrl.searchParams.set("return_to", returnTo.toString());
 
-      return NextResponse.redirect(setupUrl.toString());
+      return NextResponse.redirect(settingsUrl.toString());
     }
 
     if (loginRequest.skip && loginRequest.subject) {

@@ -83,7 +83,7 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    - Config reference for contributors: `infra/ory/README.md`
 
 5. **Register a user (first time)**
-   - Open `http://localhost:3337/register` (or `http://localhost:3334/auth/register`)
+   - Open `http://localhost:3337/register`
    - Create an account with email/password, verify email, then continue to BookShare login.
 
 6. **PostgREST JWT keyset (auto in dev)**

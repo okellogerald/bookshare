@@ -32,7 +32,10 @@ export default async function LoginPage({
       title="Sign in"
       description="Use your account to continue."
       sectionGroups={["password"]}
-      links={[{ href: "/recovery", label: "Forgot password?" }]}
+      links={[
+        { href: "/register", label: "Register" },
+        { href: "/recovery", label: "Forgot password?" }
+      ]}
     />
   );
 }

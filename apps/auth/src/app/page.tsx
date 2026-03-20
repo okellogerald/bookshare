@@ -8,6 +8,9 @@ export default function HomePage() {
       description="Central authentication UI and OAuth challenge handler."
     >
       <div className="space-y-2">
+        <NextLink href="/register" className="auth-home-link">
+          Register
+        </NextLink>
         <NextLink href="/login" className="auth-home-link">
           Login
         </NextLink>
@@ -17,11 +20,11 @@ export default function HomePage() {
         <NextLink href="/verification" className="auth-home-link">
           Email Verification
         </NextLink>
-        <NextLink href="/setup" className="auth-home-link">
-          Finish Account Setup
+        <NextLink href="/settings?section=profile" className="auth-home-link">
+          Profile Settings
         </NextLink>
-        <NextLink href="/settings" className="auth-home-link">
-          Settings / 2FA
+        <NextLink href="/settings?section=password" className="auth-home-link">
+          Password Changes
         </NextLink>
       </div>
     </AuthShell>
