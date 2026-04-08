@@ -39,15 +39,20 @@ BookShare auth is split across four parts:
 
 Current BookShare registration UX:
 
-1. First Name
-2. Last Name
-3. Gender
-4. Email
-5. Password
-6. Confirm Password
-7. Email Verification
+1. Email
+2. First Name
+3. Last Name
+4. Gender
+5. Continue profile step
+6. Password
+7. Confirm Password
+8. Submit password step
+9. Email Verification
 
-The Auth Portal renders a password-first registration form and then hands off to Kratos verification.
+The Auth Portal renders one Kratos registration flow as two explicit UI steps:
+
+1. a profile form
+2. a password form
 
 ### Login
 
@@ -113,18 +118,19 @@ The important nuance is this:
 User
   -> /register
   -> Kratos registration flow
-  -> Auth Portal renders password-first form
-  -> POST registration to Kratos
-  -> Kratos creates identity + password + session
+  -> Auth Portal renders profile step form
+  -> POST profile step to Kratos
+  -> Auth Portal renders password step form
+  -> POST password step to Kratos
+  -> Kratos creates identity + password
   -> Kratos redirects into verification UI
   -> User verifies email
-  -> /welcome
   -> /login
 ```
 
 Important consequence:
 
-Because we are using password registration in the UI, the identity exists before verification is completed. BookShare compensates for that by enforcing email verification before granting access through the OAuth login gate.
+Because Kratos creates the identity after the password step, the identity exists before verification is completed. BookShare does not create a login session during registration, and it still enforces email verification before OAuth login is accepted.
 
 ## Login Overview
 

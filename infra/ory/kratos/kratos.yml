@@ -26,6 +26,10 @@ selfservice:
   methods:
     password:
       enabled: true
+      config:
+        # Keep local registration reliable when the external breach API is
+        # unavailable or slow under the dev stack.
+        haveibeenpwned_enabled: false
     # Used for verification and recovery codes only.
     code:
       enabled: true
@@ -52,7 +56,7 @@ selfservice:
       ui_url: http://localhost:3337/verification
       use: code
       after:
-        default_browser_return_url: http://localhost:3337/welcome
+        default_browser_return_url: http://localhost:3337/login
 
     logout:
       after:
@@ -69,8 +73,6 @@ selfservice:
       after:
         password:
           hooks:
-            # Creates a Kratos session immediately after registration.
-            - hook: session
             # Redirects into verification UI right after password registration.
             - hook: show_verification_ui
 

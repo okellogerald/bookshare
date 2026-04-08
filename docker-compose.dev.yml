@@ -65,7 +65,7 @@ services:
   # One-shot job: apply Kratos SQL schema before Kratos starts.
   # Required because Kratos expects its DB schema to exist at boot.
   kratos-migrate:
-    image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v25.4.0}
+    image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v26.2.0}
     restart: on-failure
     environment:
       DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
@@ -76,7 +76,7 @@ services:
 
   # Long-running Kratos identity/self-service engine.
   kratos:
-    image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v25.4.0}
+    image: ${ORY_KRATOS_IMAGE:-oryd/kratos:v26.2.0}
     restart: unless-stopped
     environment:
       DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc

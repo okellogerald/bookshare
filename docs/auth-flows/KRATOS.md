@@ -24,15 +24,17 @@ Kratos is still headless. The Auth Portal reads Kratos flow JSON and decides wha
 
 ### Registration
 
-The visible BookShare registration UX is password-first:
+The visible BookShare registration UX now follows Kratos' default two-step flow:
 
-1. First name
-2. Last name
-3. Gender
-4. Email
-5. Password
-6. Confirm password
-7. Email verification after submit
+1. Email
+2. First name
+3. Last name
+4. Gender
+5. Continue profile step
+6. Password
+7. Confirm password
+8. Submit password step
+9. Email verification after submit
 
 ### Login
 
@@ -73,8 +75,8 @@ Consequences:
 
 This is the key answer to “How will Ory behave by default here?”:
 
-1. The Auth Portal will look simple.
-2. Kratos underneath now largely matches that same shape.
+1. Registration is two-step by default.
+2. The Auth Portal should model those two steps explicitly instead of collapsing them into one generic form.
 
 ## Identity Schema
 
@@ -102,36 +104,24 @@ So the same email trait underpins login, verification, and recovery behavior.
 
 ### Raw Kratos
 
-A registration flow from Kratos can include:
+The current registration flow shape is:
 
-1. Default trait fields
-2. Password submit branch
-3. Code submit branch
+1. Step 1: visible trait fields plus `method=profile`
+2. Step 2: hidden trait values, visible `password`, `method=password`, and optional `screen=previous`
 
 ### Auth Portal Rendering
 
-File:
+Files:
 - `apps/auth/src/app/register/page.tsx`
+- `apps/auth/src/features/auth-flows/registration/server/build-registration-model.ts`
+- `apps/auth/src/features/auth-flows/registration/components/registration-profile-step-form.tsx`
+- `apps/auth/src/features/auth-flows/registration/components/registration-password-step-form.tsx`
 
-The portal selects:
+The portal now renders:
 
-```tsx
-sectionGroups={["password"]}
-fieldAllowlist={[
-  "traits.name.first",
-  "traits.name.last",
-  "traits.gender",
-  "traits.email",
-  "password",
-]}
-enablePasswordConfirmation
-```
-
-So the portal renders:
-
-1. the default trait nodes
-2. the password node
-3. the password submit button
+1. a dedicated profile step form
+2. a dedicated password step form
+3. a separate Back action on the password step
 
 ## What Happens After Password Registration
 
@@ -144,7 +134,6 @@ selfservice:
       after:
         password:
           hooks:
-            - hook: session
             - hook: show_verification_ui
 ```
 
@@ -152,10 +141,10 @@ That means:
 
 1. The identity is created immediately.
 2. The password is written immediately.
-3. A Kratos session is created immediately.
-4. Kratos redirects into verification UI immediately.
+3. Kratos redirects into verification UI immediately.
+4. The user must sign in after verification.
 
-This is simpler for the user, but it also means the identity exists before verification finishes.
+This keeps registration and login as separate product flows while still allowing the identity to exist before verification finishes.
 
 ## Verification Flow Mapping
 
@@ -284,7 +273,7 @@ That lets older links continue to work without keeping the old code-first-then-s
 
 ### What We Changed In The UI
 
-1. Registration is one password-first form.
+1. Registration is one Kratos flow rendered as two app-owned forms.
 2. Verification happens after registration.
 3. Login stays email + password.
 4. Settings are split into profile vs password views.

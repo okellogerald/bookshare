@@ -26,6 +26,17 @@ export default async function VerificationPage({
     redirect(createBrowserFlowUrl("verification", returnTo));
   }
 
+  // Once verification succeeds, this flow should stop rendering the form and
+  // hand control back to the next auth step. Registration now defaults that
+  // next step to /login because verification no longer creates a session.
+  const verificationSucceeded =
+    flow.state === "passed_challenge" ||
+    (flow.ui.messages || []).some((message) => message.type === "success");
+
+  if (verificationSucceeded) {
+    redirect(returnTo || "/login");
+  }
+
   return (
     <KratosFlowForm
       flow={flow}

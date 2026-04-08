@@ -11,15 +11,16 @@ Related docs:
 
 The registration UX is now:
 
-1. `First Name`
-2. `Last Name`
-3. `Gender`
-4. `Email`
-5. `Password`
-6. `Confirm Password`
-7. Submit
-8. Verify email
-9. Sign in with email + password
+1. `Email`
+2. `First Name`
+3. `Last Name`
+4. `Gender`
+5. Submit profile step
+6. `Password`
+7. `Confirm Password`
+8. Submit password step
+9. Verify email
+10. Sign in with email + password
 
 There is no BookShare-specific post-registration `/setup` step anymore.
 
@@ -33,22 +34,25 @@ There is no BookShare-specific post-registration `/setup` step anymore.
 
 ### What The Auth Portal Shows
 
-The Auth Portal registration page renders the Kratos `password` registration section plus the profile traits:
+The Auth Portal now renders two registration steps from the same Kratos flow:
 
-- `traits.name.first`
-- `traits.name.last`
-- `traits.gender`
-- `traits.email`
-- `password`
-- client-side `Confirm Password`
+1. Profile step
+   - `traits.email`
+   - `traits.name.first`
+   - `traits.name.last`
+   - `traits.gender`
+2. Password step
+   - `password`
+   - client-side `Confirm Password`
 
 ### What Kratos Exposes
 
-With the current config, registration is password-based and verification happens afterward.
+With the current config, registration uses Kratos' default two-step browser flow and verification happens afterward.
 
 That means the product flow and Kratos configuration are aligned:
 
-1. password registration
+1. profile step
+2. password step
 2. verification by code after registration
 
 ## End-To-End Flow
@@ -57,69 +61,76 @@ That means the product flow and Kratos configuration are aligned:
 User
   -> Auth Portal /register
   -> Kratos registration browser flow
-  -> Auth Portal renders full registration form
-  -> POST /self-service/registration?flow=...
-  -> Kratos creates identity + password + session
+  -> Auth Portal renders profile step form
+  -> POST profile step to /self-service/registration?flow=...
+  -> Auth Portal renders password step form
+  -> POST password step to /self-service/registration?flow=...
+  -> Kratos creates identity + password
   -> Kratos redirects into verification UI
   -> User enters verification code
   -> Kratos marks email verified
-  -> Auth Portal /welcome
+  -> Auth Portal /login
   -> User signs in with email + password
 ```
 
 ## File By File
 
-### 1. Registration Page
+### 1. Registration Route + Loader
 
 File:
 - `apps/auth/src/app/register/page.tsx`
+- `apps/auth/src/features/auth-flows/registration/server/load-registration-page.ts`
 
 Responsibilities:
 
-1. Reads `flow` and optional `return_to`.
-2. Creates or reloads the Kratos browser registration flow.
-3. Renders one password-first form through `KratosFlowForm`.
-4. Restricts the visible fields to the registration fields we want.
+1. Keep `/register` as a thin entrypoint.
+2. Read `flow` and optional `return_to`.
+3. Create or reload the Kratos browser registration flow.
+4. Hand the page a registration-owned view model instead of generic form props.
 
 Important implementation detail:
 
-```tsx
-sectionGroups={["password"]}
-fieldAllowlist={[
-  "traits.name.first",
-  "traits.name.last",
-  "traits.gender",
-  "traits.email",
-  "password",
-]}
-enablePasswordConfirmation
-```
+Registration is no longer configured by passing `sectionGroups`, `fieldAllowlist`, and `enablePasswordConfirmation` into the shared `KratosFlowForm`.
 
-That tells the portal to prefer Kratos' `password` section, but the important behavior is in the flow partitioning code:
+The registration route now delegates to a registration-specific loader and model builder:
 
-1. Kratos trait inputs like `traits.email`, `traits.name.first`, `traits.name.last`, and `traits.gender` usually come from the `default` group.
-2. [`buildSections()`](/Users/mac/Desktop/Projects/library/apps/auth/src/components/flow/partition.ts) merges those default inputs into any non-default section it renders.
-3. [`FlowSection`](/Users/mac/Desktop/Projects/library/apps/auth/src/components/flow/section.tsx) renders one HTML `<form>` per section.
+1. `loadRegistrationPageData()` owns flow bootstrap and redirect handling.
+2. `buildRegistrationModel()` maps Kratos nodes into explicit `profile` and `password` step models.
+3. Mapping failures degrade into a recoverable error screen with `Start over`.
 
-So:
-
-1. if Kratos exposes a `password` submit group, the trait inputs are merged into that same password form and submitted together
-2. if Kratos exposes separate `profile` and `password` submit groups, the portal will render separate forms
-3. if Kratos only exposes `profile`, the portal cannot invent a password input on its own
-
-### 2. Password Confirmation
+### 2. Registration Model Builder
 
 File:
-- `apps/auth/src/components/flow/section.tsx`
+- `apps/auth/src/features/auth-flows/registration/server/build-registration-model.ts`
 
 Responsibilities:
 
-1. Adds a client-side confirm-password field when the rendered section is `password`.
-2. Prevents submission when the two passwords do not match.
+1. Detect whether the current flow is on the `profile` step or the `password` step.
+2. Build a step-specific model for that exact registration screen.
+3. Preserve hidden Kratos inputs needed to move from one step to the next.
+4. Keep the Back action on the password step separate from the main password submit.
+
+Important implementation detail:
+
+This mapping is explicit on purpose. Registration no longer depends on the shared generic flow renderer; each step is modeled and rendered independently.
+
+### 3. Registration Step Components
+
+File:
+- `apps/auth/src/features/auth-flows/registration/components/registration-form.tsx`
+- `apps/auth/src/features/auth-flows/registration/components/registration-profile-step-form.tsx`
+- `apps/auth/src/features/auth-flows/registration/components/registration-password-step-form.tsx`
+
+Responsibilities:
+
+1. Dispatch to the correct step component based on the mapped registration variant.
+2. Keep the profile step and password step in separate forms and separate files.
+3. Keep client-side confirm-password validation local to the password step only.
+4. Always expose `Start over` as a recovery path.
 
 This is UI validation only. Kratos still receives the real password field and remains the source of truth.
 
-### 3. Verification Page
+### 4. Verification Page
 
 File:
 - `apps/auth/src/app/verification/page.tsx`
@@ -140,17 +151,17 @@ selfservice:
       use: code
 ```
 
-### 4. Welcome Page
+### 5. Login Page After Verification
 
 File:
-- `apps/auth/src/app/welcome/page.tsx`
+- `apps/auth/src/app/login/page.tsx`
 
 Responsibilities:
 
-1. Gives the user a clean post-verification finish screen.
-2. Sends them to sign in with the account they just created.
+1. Receives the user after verification succeeds.
+2. Starts the normal password login flow.
 
-### 5. Legacy `/setup`
+### 6. Legacy `/setup`
 
 File:
 - `apps/auth/src/app/setup/page.tsx`
@@ -178,27 +189,41 @@ Kratos responds with a browser redirect back to the portal:
 /register?flow={registration_flow_id}
 ```
 
-### Step 2. Portal Renders The Full Registration Form
+### Step 2. Portal Renders The Profile Step
 
-Kratos returns registration UI nodes, and the portal narrows them to the fields we want.
+Kratos first returns the profile step with visible trait fields and a `profile` submit button.
 
 Mechanically, that happens like this:
 
-1. [`apps/auth/src/app/register/page.tsx`](/Users/mac/Desktop/Projects/library/apps/auth/src/app/register/page.tsx) asks for the `password` section and allowlists the trait fields plus `password`.
-2. [`apps/auth/src/components/flow/partition.ts`](/Users/mac/Desktop/Projects/library/apps/auth/src/components/flow/partition.ts) merges `default` inputs into the chosen non-default section.
-3. [`apps/auth/src/components/flow/section.tsx`](/Users/mac/Desktop/Projects/library/apps/auth/src/components/flow/section.tsx) renders the resulting section as one `<form>` posting to Kratos' `flow.ui.action`.
+1. [`apps/auth/src/features/auth-flows/registration/server/build-registration-model.ts`](../../apps/auth/src/features/auth-flows/registration/server/build-registration-model.ts) detects the profile step.
+2. [`apps/auth/src/features/auth-flows/registration/components/registration-profile-step-form.tsx`](../../apps/auth/src/features/auth-flows/registration/components/registration-profile-step-form.tsx) renders the first form.
 
 Expected visible form:
 
-1. First Name
-2. Last Name
-3. Gender
-4. Email
-5. Password
-6. Confirm Password
-7. Register button
+1. Email
+2. First Name
+3. Last Name
+4. Gender
+5. Continue button
 
-### Step 3. User Submits Password Registration
+### Step 3. Portal Renders The Password Step
+
+After the profile step is submitted, Kratos redirects back to the same `/register?flow=...` URL with the same flow id.
+
+The portal then:
+
+1. Detects the password step because Kratos now exposes the visible `password` node.
+2. Preserves the submitted profile values via hidden trait inputs.
+3. Renders a separate password form plus a separate Back form.
+
+Expected visible form:
+
+1. Password
+2. Confirm Password
+3. Create account button
+4. Back button
+
+### Step 4. User Submits Password Registration
 
 Browser posts directly to Kratos using the flow action URL.
 
@@ -206,9 +231,8 @@ Kratos then:
 
 1. Creates the identity.
 2. Stores the password hash.
-3. Creates a Kratos session.
-4. Starts email verification.
-5. Redirects to the verification UI because `show_verification_ui` is configured for password registration.
+3. Starts email verification.
+4. Redirects to the verification UI because `show_verification_ui` is configured for password registration.
 
 Relevant config:
 
@@ -219,19 +243,18 @@ selfservice:
       after:
         password:
           hooks:
-            - hook: session
             - hook: show_verification_ui
 ```
 
-### Step 4. User Verifies Email
+### Step 5. User Verifies Email
 
 The verification flow is a separate Kratos flow.
 
 The portal page at `/verification` renders the verification nodes and posts them back to Kratos. Kratos checks the code and updates the identity's verifiable address state.
 
-### Step 5. User Signs In
+### Step 6. User Signs In
 
-After verification, the user lands on `/welcome` and signs in with:
+After verification, the user lands on `/login` and signs in with:
 
 1. Email
 2. Password
@@ -281,13 +304,13 @@ If email is unverified, the user is sent to:
 
 Password registration still creates the identity before email verification completes.
 
-BookShare accepts that tradeoff and enforces verification before OAuth login is accepted.
+BookShare accepts that tradeoff, keeps registration and login separate by not creating a registration session, and still enforces verification before OAuth login is accepted.
 
 ## Files To Check When This Flow Changes
 
 1. `apps/auth/src/app/register/page.tsx`
 2. `apps/auth/src/app/verification/page.tsx`
-3. `apps/auth/src/app/welcome/page.tsx`
+3. `apps/auth/src/app/login/page.tsx`
 4. `apps/auth/src/app/settings/page.tsx`
 5. `apps/auth/src/app/oauth/login/route.ts`
 6. `apps/web/src/app/auth/register/page.tsx` (compatibility redirect to login)
