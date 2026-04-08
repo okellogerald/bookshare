@@ -123,7 +123,7 @@ The app is available at `http://localhost:3334`.
 ### Script Notes
 
 - `infra/ory/hydra/init-client.sh` is idempotent by design.
-- It waits for `http://hydra:4445/health/ready`, then uses `PUT /admin/clients/bookshare-web` to create or update the client.
+- It waits for `http://hydra:4445/health/ready`, then `POST`s `/admin/clients` on first boot and `PUT`s `/admin/clients/bookshare-web` on later boots.
 - Re-running compose does not duplicate clients; it keeps client config in sync.
 
 ## Submission Behavior (V1)
