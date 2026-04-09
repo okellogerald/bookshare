@@ -21,6 +21,12 @@ interface HydraLoginRequest {
   subject?: string;
 }
 
+function buildSettingsUrl(requestUrl: string): string {
+  const settingsUrl = new URL(buildAuthUrl("/settings", requestUrl));
+  settingsUrl.searchParams.set("section", "profile");
+  return settingsUrl.toString();
+}
+
 function buildAuthUrl(pathname: string, requestUrl: string): string {
   return new URL(pathname, requestUrl).toString();
 }
@@ -40,17 +46,50 @@ function redirectAndClearHydraChallenge(destination: string): NextResponse {
   return response;
 }
 
+function redirectWithoutHydraChallenge(
+  request: NextRequest,
+  hasSession: boolean,
+  isEmailVerified: boolean,
+  isProfileComplete: boolean
+): NextResponse {
+  // This is the auth-box fallback used after standalone login completions and
+  // when a previously stored Hydra challenge is no longer valid. The route
+  // still applies the same auth policy ordering:
+  // 1. authenticate
+  // 2. verify email
+  // 3. complete profile
+  // 4. enter the web app
+  if (!hasSession) {
+    return NextResponse.redirect(buildAuthUrl("/login", request.url));
+  }
+
+  if (!isEmailVerified) {
+    return NextResponse.redirect(buildAuthUrl("/verification", request.url));
+  }
+
+  if (!isProfileComplete) {
+    return NextResponse.redirect(buildSettingsUrl(request.url));
+  }
+
+  return NextResponse.redirect(getBookshareAppPublicUrl());
+}
+
 export async function GET(request: NextRequest) {
   const queryChallenge = request.nextUrl.searchParams.get("login_challenge")?.trim();
   const challenge = queryChallenge || (await getHydraLoginChallenge());
+  const session = await getKratosSession(request.headers.get("cookie") ?? "");
+  const identityId = session?.identity?.id;
+  const hasSession = Boolean(identityId);
+  const emailVerified = isKratosEmailVerified(session);
+  const profileComplete = isKratosProfileComplete(session);
 
   if (!challenge) {
-    const session = await getKratosSession(request.headers.get("cookie") ?? "");
-    if (session?.identity?.id) {
-      return NextResponse.redirect(getBookshareAppPublicUrl());
-    }
-
-    return NextResponse.redirect(buildAuthUrl("/login", request.url));
+    return redirectWithoutHydraChallenge(
+      request,
+      hasSession,
+      emailVerified,
+      profileComplete
+    );
   }
 
   try {
@@ -59,9 +98,6 @@ export async function GET(request: NextRequest) {
       { method: "GET" }
     );
 
-    const session = await getKratosSession(request.headers.get("cookie") ?? "");
-    const identityId = session?.identity?.id;
-
     if (!identityId) {
       return redirectWithHydraChallenge(
         buildAuthUrl("/login", request.url),
@@ -69,18 +105,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!isKratosEmailVerified(session)) {
+    if (!emailVerified) {
       return redirectWithHydraChallenge(
         buildAuthUrl("/verification", request.url),
         challenge
       );
     }
 
-    if (!isKratosProfileComplete(session)) {
-      const settingsUrl = new URL(buildAuthUrl("/settings", request.url));
-      settingsUrl.searchParams.set("section", "profile");
-
-      return redirectWithHydraChallenge(settingsUrl.toString(), challenge);
+    if (!profileComplete) {
+      return redirectWithHydraChallenge(buildSettingsUrl(request.url), challenge);
     }
 
     if (loginRequest.skip && loginRequest.subject) {
@@ -118,7 +151,16 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("OAuth login challenge handling failed", error);
     if (!queryChallenge) {
-      return redirectAndClearHydraChallenge(getBookshareAppPublicUrl());
+      const destination = redirectWithoutHydraChallenge(
+        request,
+        hasSession,
+        emailVerified,
+        profileComplete
+      ).headers.get("location");
+
+      return redirectAndClearHydraChallenge(
+        destination || getBookshareAppPublicUrl()
+      );
     }
 
     return redirectAndClearHydraChallenge(`${getAuthPortalPublicUrl()}/error`);

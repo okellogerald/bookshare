@@ -198,6 +198,8 @@ export interface RegistrationSubmitModel {
 interface RegistrationPageLinks {
   /** Link back into the sign-in flow. */
   loginHref: string;
+  /** Link into the recovery flow for existing accounts. */
+  recoveryHref: string;
   /** Link that discards the current flow and starts registration again. */
   resetHref: string;
 }
@@ -268,16 +270,63 @@ export interface RegistrationErrorPageModel extends RegistrationPageLinks {
 }
 
 /**
+ * Recoverable page model used when registration detects that the user is
+ * trying to sign up with an email address that already belongs to an account.
+ *
+ * Registration should not continue in this case. The auth box should steer the
+ * user into sign-in or password recovery instead, and the normal login flow can
+ * then decide whether verification is still required.
+ */
+export interface RegistrationExistingAccountPageModel extends RegistrationPageLinks {
+  /** Discriminator for the existing-account guidance page. */
+  variant: "existing-account";
+  /** Optional email value resolved from the current flow. */
+  email?: string;
+}
+
+/**
  * Union of all registration page states the route can render.
  */
 export type RegistrationPageModel =
   | RegistrationProfileStepModel
   | RegistrationPasswordStepModel
+  | RegistrationExistingAccountPageModel
   | RegistrationErrorPageModel;
+
+function findFieldValue(flow: KratosBrowserFlow, name: string): string {
+  const node = flow.ui.nodes.find((candidate) => candidate.attributes.name === name);
+  if (!node) {
+    return "";
+  }
+
+  return getResolvedNodeValue(flow, node).trim();
+}
+
+function collectRegistrationMessages(flow: KratosBrowserFlow): KratosUiMessage[] {
+  return [
+    ...(flow.ui.messages ?? []),
+    ...flow.ui.nodes.flatMap((node) => node.messages ?? []),
+  ];
+}
+
+function findExistingAccountHint(
+  messages: KratosUiMessage[]
+): KratosUiMessage | null {
+  const existingAccountPattern =
+    /(already exists|existing account|already have an account|sign in to your existing account)/i;
+
+  return (
+    messages.find(
+      (message) =>
+        message.type === "error" && existingAccountPattern.test(message.text)
+    ) ?? null
+  );
+}
 
 function buildProfileStepModel(
   flow: KratosBrowserFlow,
   loginHref: string,
+  recoveryHref: string,
   resetHref: string
 ): RegistrationProfileStepModel {
   const submit = findSubmitNode(
@@ -298,6 +347,7 @@ function buildProfileStepModel(
     fields: resolveCommonVisibleFields(flow),
     submit: toSubmitModel(submit),
     loginHref,
+    recoveryHref,
     resetHref,
   };
 }
@@ -305,6 +355,7 @@ function buildProfileStepModel(
 function buildPasswordStepModel(
   flow: KratosBrowserFlow,
   loginHref: string,
+  recoveryHref: string,
   resetHref: string
 ): RegistrationPasswordStepModel {
   const passwordNode = findVisibleFieldNode(
@@ -336,6 +387,7 @@ function buildPasswordStepModel(
     submit: toSubmitModel(submit),
     previousStepSubmit: previousStepSubmit ? toSubmitModel(previousStepSubmit) : null,
     loginHref,
+    recoveryHref,
     resetHref,
   };
 }
@@ -352,8 +404,24 @@ function buildPasswordStepModel(
 export function buildRegistrationModel(
   flow: KratosBrowserFlow,
   loginHref: string,
+  recoveryHref: string,
   resetHref: string
-): RegistrationProfileStepModel | RegistrationPasswordStepModel {
+) : RegistrationPageModel {
+  const existingAccountHint = findExistingAccountHint(
+    collectRegistrationMessages(flow)
+  );
+  if (existingAccountHint) {
+    const email = findFieldValue(flow, "traits.email");
+
+    return {
+      variant: "existing-account",
+      email: email || undefined,
+      loginHref,
+      recoveryHref,
+      resetHref,
+    };
+  }
+
   const passwordField = findOptionalVisibleFieldNode(
     flow,
     REGISTRATION_PASSWORD_FIELD.name,
@@ -361,8 +429,8 @@ export function buildRegistrationModel(
   );
 
   if (passwordField) {
-    return buildPasswordStepModel(flow, loginHref, resetHref);
+    return buildPasswordStepModel(flow, loginHref, recoveryHref, resetHref);
   }
 
-  return buildProfileStepModel(flow, loginHref, resetHref);
+  return buildProfileStepModel(flow, loginHref, recoveryHref, resetHref);
 }

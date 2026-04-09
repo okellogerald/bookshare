@@ -27,10 +27,11 @@ export async function loadRegistrationPageData(
   }
 
   const loginHref = "/login";
+  const recoveryHref = "/recovery";
   const resetHref = "/register/reset";
 
   try {
-    return buildRegistrationModel(flow, loginHref, resetHref);
+    return buildRegistrationModel(flow, loginHref, recoveryHref, resetHref);
   } catch (error) {
     // Registration mapping failures should degrade into a recoverable screen
     // instead of crashing the whole route, so the user can always request a
@@ -41,6 +42,7 @@ export async function loadRegistrationPageData(
       description: "This registration flow cannot continue. Start over to request a fresh flow.",
       detail: error instanceof Error ? error.message : "Unknown registration flow error.",
       loginHref,
+      recoveryHref,
       resetHref,
     };
 
