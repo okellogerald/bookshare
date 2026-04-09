@@ -10,13 +10,9 @@ export default async function SetupPage({
 }) {
   const params = await searchParams;
   const flowId = getSingleParam(params, "flow");
-  const returnTo = getSingleParam(params, "return_to");
   const redirectParams = new URLSearchParams({ section: "profile" });
   if (flowId) {
     redirectParams.set("flow", flowId);
-  }
-  if (returnTo) {
-    redirectParams.set("return_to", returnTo);
   }
 
   redirect(`/settings?${redirectParams.toString()}`);

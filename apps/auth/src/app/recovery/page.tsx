@@ -15,15 +15,14 @@ export default async function RecoveryPage({
 }) {
   const params = await searchParams;
   const flowId = getSingleParam(params, "flow");
-  const returnTo = getSingleParam(params, "return_to");
 
   if (!flowId) {
-    redirect(createBrowserFlowUrl("recovery", returnTo));
+    redirect(createBrowserFlowUrl("recovery"));
   }
 
   const flow = await getBrowserFlow("recovery", flowId);
   if (!flow) {
-    redirect(createBrowserFlowUrl("recovery", returnTo));
+    redirect(createBrowserFlowUrl("recovery"));
   }
 
   return (

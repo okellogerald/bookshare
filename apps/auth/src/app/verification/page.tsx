@@ -15,15 +15,14 @@ export default async function VerificationPage({
 }) {
   const params = await searchParams;
   const flowId = getSingleParam(params, "flow");
-  const returnTo = getSingleParam(params, "return_to");
 
   if (!flowId) {
-    redirect(createBrowserFlowUrl("verification", returnTo));
+    redirect(createBrowserFlowUrl("verification"));
   }
 
   const flow = await getBrowserFlow("verification", flowId);
   if (!flow) {
-    redirect(createBrowserFlowUrl("verification", returnTo));
+    redirect(createBrowserFlowUrl("verification"));
   }
 
   // Once verification succeeds, this flow should stop rendering the form and
@@ -34,7 +33,7 @@ export default async function VerificationPage({
     (flow.ui.messages || []).some((message) => message.type === "success");
 
   if (verificationSucceeded) {
-    redirect(returnTo || "/login");
+    redirect("/login");
   }
 
   return (

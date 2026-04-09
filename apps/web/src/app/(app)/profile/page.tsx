@@ -236,7 +236,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <Button type="button" asChild>
-                <Link href="/auth/settings?returnTo=/profile&section=profile">
+                <Link href="/auth/settings?section=profile">
                   Open Profile Settings
                 </Link>
               </Button>

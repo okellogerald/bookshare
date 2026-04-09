@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { KratosFlowForm } from "@/components/kratos-flow-form";
+import { getBookshareAppPublicUrl } from "@/lib/config";
+import { getHydraLoginChallenge } from "@/lib/hydra-login-context";
 import {
   createBrowserFlowUrl,
   getBrowserFlow,
@@ -18,41 +20,36 @@ export default async function SettingsPage({
 }) {
   const params = await searchParams;
   const flowId = getSingleParam(params, "flow");
-  const returnTo = getSingleParam(params, "return_to");
   const sectionParam = getSingleParam(params, "section");
   const requestedSection = sectionParam === "password" ? "password" : "profile";
+  const hasPendingHydraLogin = Boolean(await getHydraLoginChallenge());
+  const profileHref = new URL("/profile", getBookshareAppPublicUrl()).toString();
 
   if (!flowId) {
-    const newFlowId = await initBrowserFlow("settings", returnTo);
+    const newFlowId = await initBrowserFlow("settings");
     if (newFlowId) {
       const query = new URLSearchParams({
         flow: newFlowId,
         section: requestedSection,
       });
-      if (returnTo) {
-        query.set("return_to", returnTo);
-      }
       redirect(`/settings?${query.toString()}`);
     }
 
-    redirect(createBrowserFlowUrl("settings", returnTo));
+    redirect(createBrowserFlowUrl("settings"));
   }
 
   const flow = await getBrowserFlow("settings", flowId);
   if (!flow) {
-    const newFlowId = await initBrowserFlow("settings", returnTo);
+    const newFlowId = await initBrowserFlow("settings");
     if (newFlowId) {
       const query = new URLSearchParams({
         flow: newFlowId,
         section: requestedSection,
       });
-      if (returnTo) {
-        query.set("return_to", returnTo);
-      }
       redirect(`/settings?${query.toString()}`);
     }
 
-    redirect(createBrowserFlowUrl("settings", returnTo));
+    redirect(createBrowserFlowUrl("settings"));
   }
 
   const session = await getKratosSession();
@@ -69,8 +66,8 @@ export default async function SettingsPage({
     redirect("/login");
   }
 
-  if (!isRecoveryReset && hasSuccessMessage && returnTo) {
-    redirect(returnTo);
+  if (!isRecoveryReset && hasSuccessMessage) {
+    redirect(hasPendingHydraLogin ? "/oauth/login" : profileHref);
   }
 
   const accountEmail = (() => {
@@ -126,11 +123,8 @@ export default async function SettingsPage({
     flow: flow.id,
     section: switchSection,
   });
-  if (returnTo) {
-    switchParams.set("return_to", returnTo);
-  }
-  const backHref = returnTo || "/login";
-  const backLabel = returnTo ? "Back" : "Back to sign in";
+  const backHref = hasPendingHydraLogin ? "/login" : profileHref;
+  const backLabel = hasPendingHydraLogin ? "Back to sign in" : "Back to profile";
 
   return (
     <KratosFlowForm

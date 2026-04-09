@@ -1,8 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  buildAuthPortalSettingsUrl,
-  sanitizeReturnTo,
-} from "@/features/auth/lib/auth-portal";
+import { buildAuthPortalSettingsUrl } from "@/features/auth/lib/auth-portal";
 
 type AuthSearchParams = Record<string, string | string[] | undefined>;
 
@@ -18,14 +15,11 @@ export default async function SettingsRedirectPage({
   searchParams: Promise<AuthSearchParams>;
 }) {
   const params = await searchParams;
-  const returnTo = sanitizeReturnTo(
-    getParam(params, "returnTo") ?? getParam(params, "return_to")
-  );
   const sectionParam = getParam(params, "section");
   const section =
     sectionParam === "password" || sectionParam === "profile"
       ? sectionParam
       : undefined;
 
-  redirect(buildAuthPortalSettingsUrl(returnTo, section));
+  redirect(buildAuthPortalSettingsUrl(section));
 }

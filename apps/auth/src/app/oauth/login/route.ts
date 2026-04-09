@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthPortalPublicUrl,
+  getBookshareAppPublicUrl,
   getHydraRememberFor,
 } from "@/lib/config";
+import {
+  clearHydraLoginChallenge,
+  getHydraLoginChallenge,
+  persistHydraLoginChallenge,
+} from "@/lib/hydra-login-context";
 import { hydraAdminRequest } from "@/lib/hydra";
 import {
   getKratosSession,
@@ -15,14 +21,36 @@ interface HydraLoginRequest {
   subject?: string;
 }
 
+function buildAuthUrl(pathname: string, requestUrl: string): string {
+  return new URL(pathname, requestUrl).toString();
+}
+
+function redirectWithHydraChallenge(
+  destination: string,
+  challenge: string
+): NextResponse {
+  const response = NextResponse.redirect(destination);
+  persistHydraLoginChallenge(response, challenge);
+  return response;
+}
+
+function redirectAndClearHydraChallenge(destination: string): NextResponse {
+  const response = NextResponse.redirect(destination);
+  clearHydraLoginChallenge(response);
+  return response;
+}
+
 export async function GET(request: NextRequest) {
-  const challenge = request.nextUrl.searchParams.get("login_challenge");
+  const queryChallenge = request.nextUrl.searchParams.get("login_challenge")?.trim();
+  const challenge = queryChallenge || (await getHydraLoginChallenge());
 
   if (!challenge) {
-    return NextResponse.json(
-      { error: "missing login_challenge" },
-      { status: 400 }
-    );
+    const session = await getKratosSession(request.headers.get("cookie") ?? "");
+    if (session?.identity?.id) {
+      return NextResponse.redirect(getBookshareAppPublicUrl());
+    }
+
+    return NextResponse.redirect(buildAuthUrl("/login", request.url));
   }
 
   try {
@@ -35,34 +63,24 @@ export async function GET(request: NextRequest) {
     const identityId = session?.identity?.id;
 
     if (!identityId) {
-      const returnTo = new URL(`${getAuthPortalPublicUrl()}/oauth/login`);
-      returnTo.searchParams.set("login_challenge", challenge);
-
-      const loginUrl = new URL(`${getAuthPortalPublicUrl()}/login`);
-      loginUrl.searchParams.set("return_to", returnTo.toString());
-
-      return NextResponse.redirect(loginUrl.toString());
+      return redirectWithHydraChallenge(
+        buildAuthUrl("/login", request.url),
+        challenge
+      );
     }
 
     if (!isKratosEmailVerified(session)) {
-      const returnTo = new URL(`${getAuthPortalPublicUrl()}/oauth/login`);
-      returnTo.searchParams.set("login_challenge", challenge);
-
-      const verificationUrl = new URL(`${getAuthPortalPublicUrl()}/verification`);
-      verificationUrl.searchParams.set("return_to", returnTo.toString());
-
-      return NextResponse.redirect(verificationUrl.toString());
+      return redirectWithHydraChallenge(
+        buildAuthUrl("/verification", request.url),
+        challenge
+      );
     }
 
     if (!isKratosProfileComplete(session)) {
-      const returnTo = new URL(`${getAuthPortalPublicUrl()}/oauth/login`);
-      returnTo.searchParams.set("login_challenge", challenge);
-
-      const settingsUrl = new URL(`${getAuthPortalPublicUrl()}/settings`);
+      const settingsUrl = new URL(buildAuthUrl("/settings", request.url));
       settingsUrl.searchParams.set("section", "profile");
-      settingsUrl.searchParams.set("return_to", returnTo.toString());
 
-      return NextResponse.redirect(settingsUrl.toString());
+      return redirectWithHydraChallenge(settingsUrl.toString(), challenge);
     }
 
     if (loginRequest.skip && loginRequest.subject) {
@@ -78,7 +96,7 @@ export async function GET(request: NextRequest) {
         }
       );
 
-      return NextResponse.redirect(accepted.redirect_to);
+      return redirectAndClearHydraChallenge(accepted.redirect_to);
     }
 
     const accepted = await hydraAdminRequest<{ redirect_to: string }>(
@@ -96,9 +114,13 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    return NextResponse.redirect(accepted.redirect_to);
+    return redirectAndClearHydraChallenge(accepted.redirect_to);
   } catch (error) {
     console.error("OAuth login challenge handling failed", error);
-    return NextResponse.redirect(`${getAuthPortalPublicUrl()}/error`);
+    if (!queryChallenge) {
+      return redirectAndClearHydraChallenge(getBookshareAppPublicUrl());
+    }
+
+    return redirectAndClearHydraChallenge(`${getAuthPortalPublicUrl()}/error`);
   }
 }

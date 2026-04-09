@@ -16,23 +16,18 @@ export async function loadRegistrationPageData(
   searchParams: AuthSearchParams
 ): Promise<RegistrationPageModel> {
   const flowId = getSingleParam(searchParams, "flow");
-  const returnTo = getSingleParam(searchParams, "return_to");
 
   if (!flowId) {
-    redirect(createBrowserFlowUrl("registration", returnTo));
+    redirect(createBrowserFlowUrl("registration"));
   }
 
   const flow = await getBrowserFlow("registration", flowId);
   if (!flow) {
-    redirect(createBrowserFlowUrl("registration", returnTo));
+    redirect(createBrowserFlowUrl("registration"));
   }
 
-  const loginHref = flow.return_to
-    ? `/login?return_to=${encodeURIComponent(flow.return_to)}`
-    : "/login";
-  const resetHref = flow.return_to
-    ? `/register/reset?return_to=${encodeURIComponent(flow.return_to)}`
-    : "/register/reset";
+  const loginHref = "/login";
+  const resetHref = "/register/reset";
 
   try {
     return buildRegistrationModel(flow, loginHref, resetHref);

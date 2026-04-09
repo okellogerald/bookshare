@@ -175,11 +175,7 @@ export function AppShellClient({
                 </>
               ) : (
                 <Button variant="outline" size="sm" asChild>
-                  <Link
-                    href={`/auth/verification?returnTo=${encodeURIComponent(
-                      pathname || "/browse"
-                    )}`}
-                  >
+                  <Link href="/auth/verification">
                     Verify Email
                   </Link>
                 </Button>
@@ -227,12 +223,7 @@ export function AppShellClient({
                   </DropdownMenuItem>
                   {!isEmailVerified ? (
                     <DropdownMenuItem asChild>
-                      <Link
-                        className="flex items-center gap-2"
-                        href={`/auth/verification?returnTo=${encodeURIComponent(
-                          pathname || "/browse"
-                        )}`}
-                      >
+                      <Link className="flex items-center gap-2" href="/auth/verification">
                         <Mail className="h-4 w-4" />
                         Verify Email
                       </Link>

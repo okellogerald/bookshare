@@ -45,6 +45,8 @@ selfservice:
     settings:
       ui_url: http://localhost:3337/settings
       privileged_session_max_age: 15m
+      after:
+        default_browser_return_url: http://localhost:3337/settings/complete
 
     recovery:
       enabled: true
@@ -65,6 +67,8 @@ selfservice:
     login:
       ui_url: http://localhost:3337/login
       lifespan: 10m
+      after:
+        default_browser_return_url: http://localhost:3337/oauth/login
 
     registration:
       # Keep enough time for users to complete the registration form.

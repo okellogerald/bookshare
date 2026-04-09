@@ -56,12 +56,15 @@ STEP 1  Auth Portal login page ──→ STEP 2  Auth Portal recovery page
 
 **Who comes here:** User who can't remember their password and is on the login page.
 
-**What it does:** Renders a "Forgot password?" link that navigates to `/recovery`. No special parameters needed.
+**What it does:** Renders a dedicated login form that includes a "Forgot password?" footer link to `/recovery`.
 
 ```tsx
-links={[
-  { href: "/recovery", label: "Forgot password?" },
-]}
+<FlowFooterLinks
+  links={[
+    { href: model.registerHref, label: "Register" },
+    { href: model.recoveryHref, label: "Forgot password?" },
+  ]}
+/>
 ```
 
 **Where they go next:** Navigation to `/recovery` → Step 2.
@@ -271,7 +274,7 @@ The recovery page is the simplest Auth Portal page — no `sectionGroups` filter
 - A "Back to sign in" link
 
 > **💡 Tip: No `sectionGroups` prop means "render all sections"**
-> When `sectionGroups` is not passed to `KratosFlowForm`, the `buildSections()` function in `partition.ts` includes all non-default groups. For recovery, there's only one group (`code`), so it renders a single section. The login page still explicitly passes `sectionGroups={["password"]}`, and the config now also disables passwordless code login underneath.
+> When `sectionGroups` is not passed to `KratosFlowForm`, the `buildSections()` function in `partition.ts` includes all non-default groups. For recovery, there's only one group (`code`), so it renders a single section. The login flow now has its own dedicated email-and-password form, and the config still disables passwordless code login underneath.
 
 ---
 

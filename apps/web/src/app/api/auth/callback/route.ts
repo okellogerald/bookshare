@@ -92,10 +92,7 @@ export async function GET(request: NextRequest) {
     const returnTo = sanitizeReturnTo(returnToRaw);
 
     if (!emailVerified) {
-      const verificationUrl = new URL("/auth/verification", request.url);
-      verificationUrl.searchParams.set("returnTo", returnTo);
-
-      const response = NextResponse.redirect(verificationUrl);
+      const response = NextResponse.redirect(new URL("/auth/verification", request.url));
       response.cookies.delete("bookshare_session");
       response.cookies.delete("bookshare_token");
       response.cookies.delete("oidc_code_verifier");

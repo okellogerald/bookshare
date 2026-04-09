@@ -27,23 +27,18 @@ export function buildAppLoginUrl(returnTo: string): string {
   return url.toString();
 }
 
-export function buildAuthPortalVerificationUrl(returnTo: string): string {
-  const appLoginUrl = buildAppLoginUrl(returnTo);
+export function buildAuthPortalVerificationUrl(): string {
   const url = new URL("/verification", getAuthPortalBaseUrl());
-  url.searchParams.set("return_to", appLoginUrl);
   return url.toString();
 }
 
 export function buildAuthPortalSettingsUrl(
-  returnTo: string,
   section?: "profile" | "password"
 ): string {
-  const appReturnUrl = new URL(sanitizeReturnTo(returnTo), getAppBaseUrl());
   const url = new URL("/settings", getAuthPortalBaseUrl());
   if (section) {
     url.searchParams.set("section", section);
   }
-  url.searchParams.set("return_to", appReturnUrl.toString());
   return url.toString();
 }
 

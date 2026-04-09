@@ -167,16 +167,17 @@ The portal does not add custom verification business logic. It simply renders th
 
 ## Login Flow Mapping
 
-File:
+Files:
 - `apps/auth/src/app/login/page.tsx`
+- `apps/auth/src/features/auth-flows/login/server/load-login-page.ts`
+- `apps/auth/src/features/auth-flows/login/server/build-login-model.ts`
+- `apps/auth/src/features/auth-flows/login/components/login-form.tsx`
 
-The portal selects:
+The portal now maps the raw Kratos login flow into a login-owned model and
+renders a dedicated email-and-password form instead of filtering the generic
+flow renderer.
 
-```tsx
-sectionGroups={["password"]}
-```
-
-Because `buildSections()` merges default inputs into non-default groups, the rendered password section includes:
+The rendered login form includes:
 
 1. `identifier`
 2. `password`

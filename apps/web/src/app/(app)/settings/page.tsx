@@ -121,7 +121,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Button type="button" variant="outline" asChild>
-                    <Link href="/auth/settings?returnTo=/settings&section=profile">
+                    <Link href="/auth/settings?section=profile">
                       <Mail className="mr-2 h-4 w-4" />
                       Open Profile Settings
                     </Link>
@@ -136,7 +136,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Button type="button" variant="outline" asChild>
-                    <Link href="/auth/settings?returnTo=/settings&section=password">
+                    <Link href="/auth/settings?section=password">
                       <Key className="mr-2 h-4 w-4" />
                       Open Password Settings
                     </Link>

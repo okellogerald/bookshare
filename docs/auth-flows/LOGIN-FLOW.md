@@ -54,14 +54,20 @@ That means the chosen BookShare login flow and raw Kratos login behavior are ali
 
 File:
 - `apps/auth/src/app/login/page.tsx`
+- `apps/auth/src/features/auth-flows/login/server/load-login-page.ts`
+- `apps/auth/src/features/auth-flows/login/server/build-login-model.ts`
+- `apps/auth/src/features/auth-flows/login/components/login-form.tsx`
 
-The portal renders the Kratos password section:
+The portal no longer renders login through the generic `KratosFlowForm`.
 
-```tsx
-sectionGroups={["password"]}
-```
+Instead:
 
-Because Kratos merges the default `identifier` input with the password group, the visible form is:
+1. the route stays thin
+2. the login loader owns flow bootstrap and fallback handling
+3. the login mapper requires the explicit BookShare login shape
+4. the login form renders the two supported fields directly
+
+The visible form is:
 
 1. Email
 2. Password
@@ -101,6 +107,9 @@ That is now consistent across:
 
 1. `apps/web/src/app/api/auth/login/route.ts`
 2. `apps/auth/src/app/login/page.tsx`
-3. `apps/auth/src/app/oauth/login/route.ts`
-4. `apps/web/src/app/auth/register/page.tsx`
-5. `infra/ory/kratos/kratos.yml`
+3. `apps/auth/src/features/auth-flows/login/server/load-login-page.ts`
+4. `apps/auth/src/features/auth-flows/login/server/build-login-model.ts`
+5. `apps/auth/src/features/auth-flows/login/components/login-form.tsx`
+6. `apps/auth/src/app/oauth/login/route.ts`
+7. `apps/web/src/app/auth/register/page.tsx`
+8. `infra/ory/kratos/kratos.yml`
