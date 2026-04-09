@@ -28,7 +28,7 @@ A closed-access platform where approved community members list books they're wil
 │   ├── db/           # Drizzle schema, migrations
 │   └── shared/       # Shared types, enums, constants
 ├── infra/
-│   ├── postgres/     # init.sql, post-migration.sql (RLS, views)
+│   ├── postgres/     # init.sql + manual PostgREST recovery wrapper
 │   ├── ory/          # Ory Hydra/Kratos config (default dev)
 │   ├── minio/        # Object storage init
 │   └── nginx/        # Production reverse proxy
@@ -96,10 +96,8 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    make -f Makefile.dev db-migrate
    ```
 
-8. **Apply RLS policies and views**
-   ```sh
-   make -f Makefile.dev db-post-migrate
-   ```
+   This now applies schema changes and the PostgREST read API setup
+   (RLS policies, views, grants, and schema-cache reload).
 
 The app is available at `http://localhost:3334`.
 
@@ -145,11 +143,11 @@ Run with `make -f Makefile.dev <target>`:
 | `logs` | Tail all logs |
 | `logs-<svc>` | Tail logs for a service (e.g. `logs-api`) |
 | `db-generate` | Generate Drizzle migrations from schema |
-| `db-migrate` | Run pending migrations |
+| `db-migrate` | Run pending migrations (schema + PostgREST read API) |
 | `db-post-migrate` | Apply RLS, views, grants |
 | `db-studio` | Open Drizzle Studio |
 | `db-psql` | Open psql shell |
-| `db-reset` | Destroy volumes and restart |
+| `db-reset` | Destroy volumes and reapply all DB migrations |
 | `clean` | Remove all containers and volumes |
 
 Production uses `Makefile.prod` with `docker-compose.prod.yml`.

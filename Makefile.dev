@@ -51,7 +51,7 @@ db-generate: ## Generate Drizzle migrations from schema
 	DATABASE_URL=$(DB_URL) bun run --cwd packages/db generate
 
 .PHONY: db-migrate
-db-migrate: ## Run pending Drizzle migrations
+db-migrate: ## Run pending database migrations (schema + PostgREST read API)
 	DATABASE_URL=$(DB_URL) bun run --cwd packages/db migrate
 
 .PHONY: db-push
@@ -63,8 +63,8 @@ db-studio: ## Open Drizzle Studio GUI
 	DATABASE_URL=$(DB_URL) bun run --cwd packages/db studio
 
 .PHONY: db-post-migrate
-db-post-migrate: ## Apply RLS policies, views, and grants (post-migration.sql)
-	psql "$(DB_URL)" -f infra/postgres/post-migration.sql
+db-post-migrate: ## Reapply PostgREST RLS, views, grants, and cache reload
+	psql "$(DB_URL)" -f packages/db/src/migrations/0002_postgrest_read_api.sql
 
 .PHONY: db-reset-user-data
 db-reset-user-data: ## Reset app state, keep catalog tables + member profiles
@@ -80,12 +80,11 @@ db-psql: ## Open an interactive psql shell
 	psql "$(DB_URL)"
 
 .PHONY: db-reset
-db-reset: ## Reset database volume and reapply baseline migration + post-migration SQL
+db-reset: ## Reset database volume and reapply all database migrations
 	$(COMPOSE) down -v
 	$(COMPOSE) up -d postgres
 	@until psql "$(DB_URL)" -c 'select 1' >/dev/null 2>&1; do sleep 1; done
 	$(MAKE) db-migrate
-	$(MAKE) db-post-migrate
 	$(COMPOSE) up -d --remove-orphans
 
 .PHONY: reset

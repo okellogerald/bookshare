@@ -1,10 +1,6 @@
-import { redirect } from "next/navigation";
-import { KratosFlowForm } from "@/components/kratos-flow-form";
-import {
-  createBrowserFlowUrl,
-  getBrowserFlow,
-} from "@/lib/kratos";
-import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
+import { VerificationForm } from "@/features/auth-flows/verification/components/verification-form";
+import { loadVerificationPageData } from "@/features/auth-flows/verification/server/load-verification-page";
+import { type AuthSearchParams } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
@@ -13,35 +9,7 @@ export default async function VerificationPage({
 }: {
   searchParams: Promise<AuthSearchParams>;
 }) {
-  const params = await searchParams;
-  const flowId = getSingleParam(params, "flow");
+  const model = await loadVerificationPageData(await searchParams);
 
-  if (!flowId) {
-    redirect(createBrowserFlowUrl("verification"));
-  }
-
-  const flow = await getBrowserFlow("verification", flowId);
-  if (!flow) {
-    redirect(createBrowserFlowUrl("verification"));
-  }
-
-  // Once verification succeeds, this flow should stop rendering the form and
-  // hand control back to the next auth step. Registration now defaults that
-  // next step to /login because verification no longer creates a session.
-  const verificationSucceeded =
-    flow.state === "passed_challenge" ||
-    (flow.ui.messages || []).some((message) => message.type === "success");
-
-  if (verificationSucceeded) {
-    redirect("/login");
-  }
-
-  return (
-    <KratosFlowForm
-      flow={flow}
-      title="Verify email"
-      description="Enter the code sent to your email."
-      links={[{ href: "/login", label: "Sign in" }]}
-    />
-  );
+  return <VerificationForm model={model} />;
 }

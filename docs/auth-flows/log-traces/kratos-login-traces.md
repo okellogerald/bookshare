@@ -1,200 +1,46 @@
 # Kratos Login Traces
 
-This document captures a live local login trace for the current BookShare sign-in flow from `bookshare-web` all the way back to an authenticated `/browse` page.
+This document captures the current live login behavior for BookShare's boxed auth flow, including both the Hydra-backed successful path and the unverified-account branch.
 
 Capture date:
-- 2026-03-20
+- 2026-04-09
 
 Environment:
 - Web app: `http://localhost:3334`
 - Auth Portal: `http://localhost:3337`
 - Hydra public/admin: `http://localhost:4444` / `http://localhost:4445`
 - Kratos public/admin: `http://localhost:4433` / `http://localhost:4434`
-- Mail sink: `http://localhost:4436`
+- Kratos version: `v26.2.0`
 
-Trace account:
-- email: `william@bookshare.local`
-- identity id: `82f166e5-e2da-4e5b-a8cc-8d03c6ed20e6`
-- email verified: yes
-- profile complete: yes
-- password used during capture: `TracePassw0rd!2026`
+Raw artifacts from this capture:
+- `/tmp/bookshare-auth-traces-1775718679/login-hydra`
+- `/tmp/bookshare-auth-traces-1775718679/login-unverified`
 
-Preparation note:
-- Immediately before the login capture, the password for `william@bookshare.local` was reset through the recovery flow so the credential was known and the account state was controlled.
-- That recovery prep is not part of the primary login chain below.
+Trace identity:
+- email: `trace.1775718679@example.com`
+- login flow id: `3c222fe2-93de-4562-ad58-293f09c9673a`
 
-## Current Login Shape
+## What This Trace Proves
 
-The live login flow exposed only the password path:
+1. The web app starts with Hydra, not with Auth Portal pages directly.
+2. Hydra sends the browser to Auth Portal `/oauth/login`.
+3. Auth Portal stores the Hydra login challenge as auth-owned state and sends the user to `/login`.
+4. Kratos only exposes the current password login path: `identifier`, `password`, and `method=password`.
+5. After login, Auth Portal decides the next branch:
+   - verified and complete user: resume Hydra
+   - unverified user: go to `/verification`
+
+## Current Login Flow Shape
+
+Relevant fields from `/login-hydra/06-login-flow.json`:
 
 ```json
 {
-  "id": "38df5371-4bfe-4aaa-bc83-79bb1174796c",
+  "id": "3c222fe2-93de-4562-ad58-293f09c9673a",
   "state": "choose_method",
   "ui": {
-    "action": "http://localhost:4433/self-service/login?flow=38df5371-4bfe-4aaa-bc83-79bb1174796c",
-    "nodes": [
-      { "group": "default",  "name": "csrf_token", "type": "hidden" },
-      { "group": "default",  "name": "identifier", "type": "text", "required": true },
-      { "group": "password", "name": "password",   "type": "password", "required": true },
-      { "group": "password", "name": "method",     "type": "submit",   "value": "password" }
-    ]
-  }
-}
-```
-
-This confirms the current login UX is:
-
-1. email
-2. password
-3. no passwordless code login branch
-
-## End-To-End Redirect Chain
-
-```text
-GET  /api/auth/login?returnTo=/browse
-  -> 307 http://localhost:4444/oauth2/auth?...prompt=login&max_age=0
-  -> 302 http://localhost:3337/oauth/login?login_challenge=...
-  -> 307 http://localhost:3337/login?return_to=http://localhost:3337/oauth/login?login_challenge=...
-  -> 307 http://localhost:4433/self-service/login/browser?return_to=http://localhost:3337/oauth/login?login_challenge=...
-  -> 303 http://localhost:3337/login?flow=38df5371-4bfe-4aaa-bc83-79bb1174796c
-POST http://localhost:4433/self-service/login?flow=38df5371-4bfe-4aaa-bc83-79bb1174796c
-  -> 303 http://localhost:3337/oauth/login?login_challenge=...
-  -> 307 http://localhost:4444/oauth2/auth?...login_verifier=...
-  -> 302 http://localhost:3337/oauth/consent?consent_challenge=...
-  -> 307 http://localhost:4444/oauth2/auth?...consent_verifier=...
-  -> 303 http://localhost:3334/api/auth/callback?code=...&state=...
-  -> 307 http://localhost:3334/browse
-  -> 200 /browse
-```
-
-## Flow Trace
-
-### Stage 1: Web App Starts OIDC Login
-
-Request:
-
-```http
-GET /api/auth/login?returnTo=/browse
-```
-
-Response:
-
-```http
-HTTP/1.1 307 Temporary Redirect
-Location: http://localhost:4444/oauth2/auth?redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&scope=openid+profile+email+offline_access&code_challenge=...&code_challenge_method=S256&state=...&prompt=login&max_age=0&client_id=bookshare-web&response_type=code
-Set-Cookie: oidc_code_verifier=...
-Set-Cookie: oidc_state=...
-Set-Cookie: oidc_return_to=...
-Set-Cookie: bookshare_logged_out=; Expires=Thu, 01 Jan 1970 00:00:00 GMT
-```
-
-Meaning:
-
-1. the web app generated PKCE state and code verifier
-2. it persisted those values in encrypted cookies
-3. it redirected the browser to Hydra's authorization endpoint
-
-### Stage 2: Hydra Creates The Login Challenge
-
-Request:
-
-```http
-GET /oauth2/auth?redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&scope=openid+profile+email+offline_access&code_challenge=...&code_challenge_method=S256&state=...&prompt=login&max_age=0&client_id=bookshare-web&response_type=code
-```
-
-Response:
-
-```http
-HTTP/1.1 302 Found
-Location: http://localhost:3337/oauth/login?login_challenge=...
-Set-Cookie: ory_hydra_login_csrf_dev_...=...
-```
-
-Hydra admin login-request snapshot for that challenge:
-
-```json
-{
-  "skip": false,
-  "subject": "",
-  "requested_scope": ["openid", "profile", "email", "offline_access"],
-  "requested_access_token_audience": [],
-  "client": {
-    "client_id": "bookshare-web",
-    "redirect_uris": ["http://localhost:3334/api/auth/callback"],
-    "grant_types": ["authorization_code", "refresh_token"],
-    "response_types": ["code", "id_token"],
-    "scope": "openid profile email offline_access",
-    "skip_consent": false
-  }
-}
-```
-
-Important details:
-
-1. `skip: false` means Hydra needs an interactive login decision
-2. the requested scopes are exactly the BookShare OIDC scopes
-3. Hydra knows nothing about the user's password here
-
-### Stage 3: Auth Portal Sees No Kratos Session
-
-Request:
-
-```http
-GET /oauth/login?login_challenge=...
-```
-
-Response:
-
-```http
-HTTP/1.1 307 Temporary Redirect
-Location: http://localhost:3337/login?return_to=http%3A%2F%2Flocalhost%3A3337%2Foauth%2Flogin%3Flogin_challenge%3D...
-```
-
-Then:
-
-```http
-GET /login?return_to=http://localhost:3337/oauth/login?login_challenge=...
-```
-
-Response:
-
-```http
-HTTP/1.1 307 Temporary Redirect
-Location: http://localhost:4433/self-service/login/browser?return_to=http%3A%2F%2Flocalhost%3A3337%2Foauth%2Flogin%3Flogin_challenge%3D...
-```
-
-Meaning:
-
-1. the Auth Portal checked Kratos for a session
-2. none existed yet
-3. the browser was bounced into a Kratos browser login flow, with Hydra's challenge parked in `return_to`
-
-### Stage 4: Kratos Initializes The Browser Login Flow
-
-Request:
-
-```http
-GET /self-service/login/browser?return_to=http://localhost:3337/oauth/login?login_challenge=...
-```
-
-Response:
-
-```http
-HTTP/1.1 303 See Other
-Location: http://localhost:3337/login?flow=38df5371-4bfe-4aaa-bc83-79bb1174796c
-Set-Cookie: csrf_token_...=...
-```
-
-Fetching the flow returned:
-
-```json
-{
-  "id": "38df5371-4bfe-4aaa-bc83-79bb1174796c",
-  "state": "choose_method",
-  "return_to": "http://localhost:3337/oauth/login?login_challenge=...",
-  "ui": {
-    "action": "http://localhost:4433/self-service/login?flow=38df5371-4bfe-4aaa-bc83-79bb1174796c",
+    "action": "http://localhost:4433/self-service/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a",
+    "method": "POST",
     "nodes": [
       { "group": "default", "name": "csrf_token", "type": "hidden" },
       { "group": "default", "name": "identifier", "type": "text", "required": true },
@@ -205,252 +51,168 @@ Fetching the flow returned:
 }
 ```
 
-The rendered Auth Portal HTML page showed:
+Why BookShare still converts this into a login-specific model:
 
-1. heading `Sign in`
-2. form `action="http://localhost:4433/self-service/login?flow=..."`
-3. footer links `Register` and `Forgot password?`
+1. The Auth Portal wants a stable login contract with only the supported fields.
+2. The footer links and page copy are product-owned, not Kratos-owned.
+3. The login feature should fail loudly if Kratos ever stops returning the expected password shape.
 
-### Stage 5: User Submits Email And Password To Kratos
+## Successful Hydra-Backed Login
 
-Request:
+### Stage 1: Web App Starts OIDC Login
 
-```http
-POST /self-service/login?flow=38df5371-4bfe-4aaa-bc83-79bb1174796c
-Content-Type: application/x-www-form-urlencoded
-
-csrf_token=Eke9cCCAImFdzmN5Tgs5dm6AMhsPJbslkW1S%2BgPr99NzLNsEfNp4TUAY6CpwFr6ofT%2BzMdTGGclkCZIS89SVtQ%3D%3D
-identifier=william%40bookshare.local
-password=TracePassw0rd%212026
-method=password
-```
-
-Response:
-
-```http
-HTTP/1.1 303 See Other
-Location: http://localhost:3337/oauth/login?login_challenge=...
-Set-Cookie: ory_kratos_session=...; HttpOnly; SameSite=Lax
-```
-
-Immediately after that, `GET /sessions/whoami` returned:
-
-```json
-{
-  "id": "9220c826-5150-43ff-9081-a27105f4144a",
-  "active": true,
-  "authentication_methods": [
-    {
-      "method": "password",
-      "aal": "aal1",
-      "completed_at": "2026-03-20T05:22:34.697748881Z"
-    }
-  ],
-  "identity": {
-    "id": "82f166e5-e2da-4e5b-a8cc-8d03c6ed20e6",
-    "traits": {
-      "email": "william@bookshare.local",
-      "gender": "male",
-      "name": {
-        "first": "William",
-        "last": "Gerald"
-      }
-    },
-    "verifiable_addresses": [
-      {
-        "value": "william@bookshare.local",
-        "verified": true,
-        "status": "completed"
-      }
-    ]
-  }
-}
-```
-
-Meaning:
-
-1. Kratos validated the password
-2. Kratos created the browser session
-3. the identity is verified and profile-complete, so the Auth Portal can safely resume Hydra login
-
-### Stage 6: Auth Portal Accepts Hydra's Login Challenge
-
-Request:
-
-```http
-GET /oauth/login?login_challenge=...
-Cookie: ory_kratos_session=...
-```
-
-Response:
+`/login-hydra/01-web-login.http`:
 
 ```http
 HTTP/1.1 307 Temporary Redirect
-Location: http://localhost:4444/oauth2/auth?...&login_verifier=...
+Location: http://localhost:4444/oauth2/auth?redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&scope=openid+profile+email+offline_access&code_challenge=...&code_challenge_method=S256&state=...&prompt=login&max_age=0&client_id=bookshare-web&response_type=code
 ```
 
-This is the Auth Portal's decision point:
+The web app only starts Hydra. It does not know about registration, verification, or recovery.
 
-1. session exists
-2. email is verified
-3. profile is complete
+### Stage 2: Hydra Creates The Login Challenge
 
-So instead of redirecting to `/login`, `/verification`, or `/settings?section=profile`, it accepts Hydra's login request.
-
-### Stage 7: Hydra Produces A Consent Challenge
-
-Request:
-
-```http
-GET /oauth2/auth?...&login_verifier=...
-```
-
-Response:
+`/login-hydra/02-hydra-auth.http`:
 
 ```http
 HTTP/1.1 302 Found
-Location: http://localhost:3337/oauth/consent?consent_challenge=...
-Set-Cookie: ory_hydra_session_dev=...
-Set-Cookie: ory_hydra_consent_csrf_dev_...=...
+Location: http://localhost:3337/oauth/login?login_challenge=...
+Set-Cookie: ory_hydra_login_csrf_dev_...=...
 ```
 
-Hydra admin consent-request snapshot:
+Hydra is asking the auth box to prove the user.
 
-```json
-{
-  "subject": "82f166e5-e2da-4e5b-a8cc-8d03c6ed20e6",
-  "requested_scope": ["openid", "profile", "email", "offline_access"],
-  "requested_access_token_audience": [],
-  "context": {
-    "traits": {
-      "email": "william@bookshare.local",
-      "gender": "male",
-      "name": {
-        "first": "William",
-        "last": "Gerald"
-      }
-    }
-  }
-}
-```
+### Stage 3: Auth Portal Internalizes The Hydra State
 
-Important detail:
-
-1. the Auth Portal passed Kratos traits into Hydra's login acceptance context
-2. Hydra then made those traits available on the consent request
-
-### Stage 8: Auth Portal Auto-Accepts Consent
-
-Request:
+`/login-hydra/03-auth-oauth-login.http`:
 
 ```http
-GET /oauth/consent?consent_challenge=...
+HTTP/1.1 307 Temporary Redirect
+Set-Cookie: bookshare_hydra_login_challenge=...; HttpOnly; SameSite=lax
+Location: http://localhost:3337/login
 ```
 
-Response:
+This is the boxed-auth design in one response:
+
+1. the Hydra challenge is stored by Auth Portal
+2. the browser is sent to `/login`
+3. there is no generic page-level `return_to` threading anymore
+
+### Stage 4: Auth Portal Boots The Kratos Login Flow
+
+`/login-hydra/05-kratos-browser.http` created the browser flow and redirected to:
+
+```http
+HTTP/1.1 303 See Other
+Location: http://localhost:3337/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a
+Set-Cookie: csrf_token_...=...
+```
+
+Then `/login-hydra/06-login-flow.json` returned the password login shape shown earlier.
+
+### Stage 5: User Submits Email And Password To Kratos
+
+Submitted form data:
+
+```http
+POST /self-service/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+identifier=trace.1775718679%40example.com
+password=ResetPassw0rd2026
+method=password
+```
+
+Response from `/login-hydra/07-submit-login.http`:
+
+```http
+HTTP/1.1 303 See Other
+Location: http://localhost:3337/oauth/login
+Set-Cookie: ory_kratos_session=...; HttpOnly; SameSite=Lax
+```
+
+At this point Kratos has done its job:
+
+1. credential validation is complete
+2. a browser session exists
+3. control returns to Auth Portal
+
+### Stage 6: Auth Portal Resumes Hydra
+
+Auth Portal now sees:
+
+1. a valid Kratos session
+2. a verified email
+3. a complete profile
+
+So it accepts Hydra's login request and continues the OAuth chain.
+
+`/login-hydra/10-auth-consent.http` shows the consent continuation:
 
 ```http
 HTTP/1.1 307 Temporary Redirect
 Location: http://localhost:4444/oauth2/auth?...&consent_verifier=...
 ```
 
-Then:
+### Stage 7: Web Callback Creates The App Session
 
-```http
-GET /oauth2/auth?...&consent_verifier=...
-```
-
-Response:
-
-```http
-HTTP/1.1 303 See Other
-Location: http://localhost:3334/api/auth/callback?code=ory_ac_...&scope=openid+profile+email+offline_access&state=...
-```
-
-Meaning:
-
-1. the Auth Portal granted the requested scopes
-2. Hydra converted that into a normal authorization code redirect to the web app callback
-
-### Stage 9: Web Callback Exchanges The Authorization Code
-
-Request:
-
-```http
-GET /api/auth/callback?code=ory_ac_...&scope=openid+profile+email+offline_access&state=...
-```
-
-Response:
+`/login-hydra/12-web-callback.http`:
 
 ```http
 HTTP/1.1 307 Temporary Redirect
 Location: http://localhost:3334/browse
-Set-Cookie: oidc_code_verifier=; Expires=Thu, 01 Jan 1970 00:00:00 GMT
-Set-Cookie: oidc_state=; Expires=Thu, 01 Jan 1970 00:00:00 GMT
-Set-Cookie: oidc_return_to=; Expires=Thu, 01 Jan 1970 00:00:00 GMT
-Set-Cookie: bookshare_session=...; HttpOnly; SameSite=Lax
-Set-Cookie: bookshare_token=...; HttpOnly; SameSite=Lax
+Set-Cookie: bookshare_token=...; HttpOnly; SameSite=lax
 ```
 
-Meaning:
+This is the final handoff:
 
-1. the web app completed the authorization-code + PKCE token exchange
-2. it created BookShare's own session cookies
-3. it cleared the temporary OIDC bootstrap cookies
-4. it redirected to the original requested route `/browse`
+1. Hydra returns to the web app callback
+2. the web app exchanges the authorization code
+3. the web app creates its own session
+4. the browser lands on the requested web route
 
-### Stage 10: Final Authenticated Web Page
+## Unverified Login Branch
 
-Request:
+The unverified-account branch is a separate auth-box outcome.
 
-```http
-GET /browse
-Cookie: bookshare_session=...
-```
-
-Response:
-
-```http
-HTTP/1.1 200 OK
-Content-Type: text/html; charset=utf-8
-```
-
-The resulting HTML contained the authenticated app shell and serialized user state:
+Initial login flow from `/login-unverified/02-login-flow.json`:
 
 ```json
 {
-  "id": "82f166e5-e2da-4e5b-a8cc-8d03c6ed20e6",
-  "email": "william@bookshare.local",
-  "name": "William Gerald",
-  "username": "william",
-  "emailVerified": true
+  "id": "6f6d9944-bfe3-4f99-a27d-e0d2718efbe7",
+  "state": "choose_method",
+  "ui": {
+    "nodes": [
+      { "group": "default", "name": "identifier", "type": "text", "required": true },
+      { "group": "password", "name": "password", "type": "password", "required": true },
+      { "group": "password", "name": "method", "type": "submit", "value": "password" }
+    ]
+  }
 }
 ```
 
-This proves the end result is not just a successful OAuth redirect. The final web page is already rendering with the authenticated BookShare session.
+Submitting the same password form returned `/login-unverified/03-submit-login.http`:
 
-## Cookie State At The End
+```http
+HTTP/1.1 303 See Other
+Location: http://localhost:3337/oauth/login
+Set-Cookie: ory_kratos_session=...; HttpOnly; SameSite=Lax
+```
 
-After the final `/browse` load, the browser cookie jar still contained:
+So Kratos still authenticated the user and created a session. The difference happens at the Auth Portal gate.
 
-1. `ory_kratos_session`
-2. `ory_hydra_login_csrf_dev_...`
-3. `ory_hydra_consent_csrf_dev_...`
-4. `ory_hydra_session_dev`
-5. `bookshare_session`
-6. `bookshare_token`
-7. `csrf_token_...`
+`/login-unverified/04-oauth-login.http` then returned:
 
-And it no longer contained:
+```http
+HTTP/1.1 307 Temporary Redirect
+Location: http://localhost:3337/verification
+```
 
-1. `oidc_code_verifier`
-2. `oidc_state`
-3. `oidc_return_to`
+That is the boxed-auth rule:
 
-## What This Trace Proves
+1. login succeeded
+2. the user is still not allowed to leave auth
+3. auth sends the user into verification instead of resuming Hydra
 
-1. The web app never sees the user's password.
-2. Kratos owns credential validation and the primary browser identity session.
-3. The Auth Portal is the bridge between Hydra challenges and Kratos session state.
-4. Hydra owns the OAuth2/OIDC login challenge, consent challenge, and authorization code.
-5. The web callback owns the final BookShare app session cookies and return-to redirect.
+This is why login, verification, and Hydra continuation must stay in one auth-owned decision point rather than being left to page-level links.

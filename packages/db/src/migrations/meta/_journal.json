@@ -15,6 +15,13 @@
       "when": 1773502800000,
       "tag": "0001_repair_wish_closure_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775716200000,
+      "tag": "0002_postgrest_read_api",
+      "breakpoints": true
     }
   ]
 }

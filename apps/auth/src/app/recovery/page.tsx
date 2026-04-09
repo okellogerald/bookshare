@@ -1,10 +1,6 @@
-import { redirect } from "next/navigation";
-import { KratosFlowForm } from "@/components/kratos-flow-form";
-import {
-  createBrowserFlowUrl,
-  getBrowserFlow,
-} from "@/lib/kratos";
-import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
+import { RecoveryForm } from "@/features/auth-flows/recovery/components/recovery-form";
+import { loadRecoveryPageData } from "@/features/auth-flows/recovery/server/load-recovery-page";
+import { type AuthSearchParams } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
@@ -13,24 +9,7 @@ export default async function RecoveryPage({
 }: {
   searchParams: Promise<AuthSearchParams>;
 }) {
-  const params = await searchParams;
-  const flowId = getSingleParam(params, "flow");
+  const model = await loadRecoveryPageData(await searchParams);
 
-  if (!flowId) {
-    redirect(createBrowserFlowUrl("recovery"));
-  }
-
-  const flow = await getBrowserFlow("recovery", flowId);
-  if (!flow) {
-    redirect(createBrowserFlowUrl("recovery"));
-  }
-
-  return (
-    <KratosFlowForm
-      flow={flow}
-      title="Recover account"
-      description="Reset your password via email code."
-      links={[{ href: "/login", label: "Back to sign in" }]}
-    />
-  );
+  return <RecoveryForm model={model} />;
 }
