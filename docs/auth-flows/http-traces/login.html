@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookShare Login Flow Trace</title>
+    <link rel="stylesheet" href="./trace.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero" id="top">
+        <div class="eyebrow">Login Flow · HTTP Trace</div>
+        <h1>BookShare Login</h1>
+        <div class="subtitle">
+          Requests, responses, redirects, cookies, and visible outcomes across
+          Web App, Hydra, Auth Portal, and Kratos.
+        </div>
+
+        <div class="toolbar">
+          <a href="#timeline">Jump To Timeline</a>
+          <a href="#unverified-branch">Jump To Unverified Branch</a>
+        </div>
+
+        <div class="top-grid">
+          <div class="card">
+            <h2>Environment</h2>
+            <div class="meta-list">
+              <div class="meta-row">
+                <div class="meta-key">Capture Date</div>
+                <div>2026-04-09</div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Web App</div>
+                <div><code>http://localhost:3334</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Auth Portal</div>
+                <div><code>http://localhost:3337</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Hydra</div>
+                <div><code>http://localhost:4444</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Kratos</div>
+                <div><code>http://localhost:4433</code> · <code>v26.2.0</code></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Flow Layout</h2>
+            <div class="actor-row">
+              <div class="actor browser">Browser / User</div>
+              <div class="actor web">Web App</div>
+              <div class="actor hydra">Hydra</div>
+              <div class="actor auth">Auth Portal</div>
+              <div class="actor kratos">Kratos</div>
+            </div>
+            <div class="outcome">
+              <code>/api/auth/login</code> → Hydra → Auth Portal →
+              <code>/browse</code>
+            </div>
+            <div class="mini-list">
+              <div>Hydra issues the login challenge</div>
+              <div>Auth Portal stores Hydra continuation state</div>
+              <div>Kratos validates credentials and creates <code>ory_kratos_session</code></div>
+              <div>Web App creates <code>bookshare_token</code> after Hydra callback</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block" id="timeline">
+        <div class="block-head">
+          <div>
+            <div class="label">Main Path</div>
+            <h2>Hydra-backed successful login</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-0">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">0</div>
+            <div class="stage-title-text">
+              <div class="label">Web App</div>
+              <h2>Web App starts OIDC login with Hydra</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Web App → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /api/auth/login HTTP/1.1</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+set-cookie: bookshare_logged_out=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+Location: http://localhost:4444/oauth2/auth?redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&amp;scope=openid+profile+email+offline_access&amp;code_challenge=...&amp;code_challenge_method=S256&amp;state=...&amp;prompt=login&amp;max_age=0&amp;client_id=bookshare-web&amp;response_type=code
+Date: Thu, 09 Apr 2026 07:11:21 GMT
+Content-Length: 0</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>http://localhost:4444/oauth2/auth?...prompt=login...</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">System</div>
+                <div class="result-value">Hydra now owns the login transaction</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">App session</div>
+                <div class="result-value"><code>bookshare_logged_out</code> cleared</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-1">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">1</div>
+            <div class="stage-title-text">
+              <div class="label">Hydra</div>
+              <h2>Hydra creates the login challenge</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Hydra → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /oauth2/auth?... HTTP/1.1</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 302 Found
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+Location: http://localhost:3337/oauth/login?login_challenge=...
+Set-Cookie: ory_hydra_login_csrf_dev_3709242966=...; Path=/; Expires=Thu, 09 Apr 2026 07:41:21 GMT; Max-Age=1800; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:21 GMT
+Content-Length: 1353
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/oauth/login?login_challenge=...</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Hydra cookie</div>
+                <div class="result-value"><code>ory_hydra_login_csrf_dev_3709242966</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Meaning</div>
+                <div class="result-value">Hydra asks Auth Portal to prove the user</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-2">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">2</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Portal</div>
+              <h2>Auth Portal stores Hydra state and redirects to <code>/login</code></h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /oauth/login?login_challenge=... HTTP/1.1</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+set-cookie: bookshare_hydra_login_challenge=...; Path=/; Expires=Thu, 09 Apr 2026 07:26:21 GMT; Max-Age=900; HttpOnly; SameSite=lax
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+Location: http://localhost:3337/login
+Date: Thu, 09 Apr 2026 07:11:21 GMT
+Content-Length: 0</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/login</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Cookie</div>
+                <div class="result-value"><code>bookshare_hydra_login_challenge</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Continuation</div>
+                <div class="result-value">Hydra challenge is now internalized inside auth</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-3">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">3</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Route</div>
+              <h2><code>/login</code> bootstraps the Kratos browser login flow</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /login HTTP/1.1</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+Location: http://localhost:4433/self-service/login/browser
+Cache-Control: no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+X-Powered-By: Next.js
+Date: Thu, 09 Apr 2026 07:11:21 GMT</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/self-service/login/browser</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Auth state</div>
+                <div class="result-value">Hydra challenge cookie remains present</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Next</div>
+                <div class="result-value">Kratos creates a login flow id</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-4">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">4</div>
+            <div class="stage-title-text">
+              <div class="label">Kratos + Auth Output</div>
+              <h2>Kratos returns the login flow and Auth renders the sign-in screen</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Flow Creation Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+Location: http://localhost:3337/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a
+Set-Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=/LEJ4quQGplr4SQ0Fa1cRzkhO19HAu960ORzqeYyQpo=; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:22 GMT
+Content-Length: 96</pre>
+
+            <pre class="http">GET /self-service/login/flows?id=3c222fe2-93de-4562-ad58-293f09c9673a HTTP/1.1
+Accept: application/json
+Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Flow Response</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: application/json; charset=utf-8
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:22 GMT
+Content-Length: 1537
+Connection: close</pre>
+
+            <pre class="http">{
+  "id": "3c222fe2-93de-4562-ad58-293f09c9673a",
+  "state": "choose_method",
+  "ui": {
+    "action": "http://localhost:4433/self-service/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a",
+    "method": "POST",
+    "nodes": [
+      { "group": "default", "name": "csrf_token", "type": "hidden" },
+      { "group": "default", "name": "identifier", "type": "text", "required": true },
+      { "group": "password", "name": "password", "type": "password", "required": true },
+      { "group": "password", "name": "method", "type": "submit", "value": "password" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Screen</div>
+                <div class="result-value">Login · Password</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Inputs</div>
+                <div class="result-value">
+                  <div class="chip-list">
+                    <span class="chip">Identifier</span>
+                    <span class="chip">Password</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Submit</div>
+                <div class="result-value"><code>method=password</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-5">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">5</div>
+            <div class="stage-title-text">
+              <div class="label">Captured</div>
+              <h2>Browser submits the password login form</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">POST /self-service/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+identifier=trace.1775718679%40example.com
+password=ResetPassw0rd2026
+method=password</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/oauth/login
+Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:21 GMT; Max-Age=86399; HttpOnly; SameSite=Lax
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:22 GMT
+Content-Length: 0
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/oauth/login</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Cookie</div>
+                <div class="result-value"><code>ory_kratos_session</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Credential check</div>
+                <div class="result-value">complete</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-6">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">6</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Gate</div>
+              <h2>Auth Portal resumes Hydra after checking the authenticated user</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Hydra</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Auth Portal Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+set-cookie: bookshare_hydra_login_challenge=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+Location: http://localhost:4444/oauth2/auth?client_id=bookshare-web&amp;code_challenge=...&amp;code_challenge_method=S256&amp;login_verifier=...&amp;max_age=0&amp;prompt=login&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&amp;response_type=code&amp;scope=openid+profile+email+offline_access&amp;state=...
+Date: Thu, 09 Apr 2026 07:11:22 GMT
+Content-Length: 0</pre>
+          </div>
+
+          <div class="card">
+            <h3>Hydra Continuation</h3>
+            <pre class="http">HTTP/1.1 302 Found
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+Location: http://localhost:3337/oauth/consent?consent_challenge=...
+Set-Cookie: ory_hydra_consent_csrf_dev_3709242966=...; Path=/; Expires=Thu, 09 Apr 2026 07:41:22 GMT; Max-Age=1800; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:22 GMT
+Content-Length: 1595
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Auth cookie</div>
+                <div class="result-value">cleared</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Next route</div>
+                <div class="result-value"><code>/oauth/consent?consent_challenge=...</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Gate result</div>
+                <div class="result-value">verified and complete user can leave auth</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-7">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">7</div>
+            <div class="stage-title-text">
+              <div class="label">Consent</div>
+              <h2>Consent completes and Hydra returns an authorization code</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal / Hydra → Web App</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Auth Portal Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+Location: http://localhost:4444/oauth2/auth?client_id=bookshare-web&amp;code_challenge=...&amp;code_challenge_method=S256&amp;consent_verifier=...&amp;max_age=0&amp;prompt=login&amp;redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&amp;response_type=code&amp;scope=openid+profile+email+offline_access&amp;state=...
+Date: Thu, 09 Apr 2026 07:11:22 GMT
+Content-Length: 0</pre>
+          </div>
+
+          <div class="card">
+            <h3>Hydra Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Cache-Control: no-store
+Location: http://localhost:3334/api/auth/callback?code=ory_ac_...&amp;scope=openid+profile+email+offline_access&amp;state=...
+Pragma: no-cache
+Date: Thu, 09 Apr 2026 07:11:23 GMT
+Content-Length: 0
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/api/auth/callback?code=...</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Hydra</div>
+                <div class="result-value">login and consent transaction complete</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Next</div>
+                <div class="result-value">Web App exchanges the authorization code</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-8">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">8</div>
+            <div class="stage-title-text">
+              <div class="label">Web App</div>
+              <h2>Web callback creates the application session</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Web App → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Callback Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+set-cookie: bookshare_token=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:23 GMT; Max-Age=86400; HttpOnly; SameSite=lax
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+Location: http://localhost:3334/browse
+Date: Thu, 09 Apr 2026 07:11:23 GMT
+Content-Length: 0</pre>
+          </div>
+
+          <div class="card">
+            <h3>Final Page Response</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+Cache-Control: no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+X-Powered-By: Next.js
+Date: Thu, 09 Apr 2026 07:11:23 GMT</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/browse</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Cookie</div>
+                <div class="result-value"><code>bookshare_token</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">User state</div>
+                <div class="result-value">inside the web app</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="branch" id="unverified-branch">
+        <div class="branch-head">
+          <div>
+            <div class="label">Alternate Branch</div>
+            <h2>Unverified Login</h2>
+          </div>
+          <div class="tag error">Captured Error Path</div>
+        </div>
+
+        <div class="branch-grid">
+          <div class="card">
+            <h3>Login Flow</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/login?flow=6f6d9944-bfe3-4f99-a27d-e0d2718efbe7
+Set-Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=...; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:20 GMT</pre>
+
+            <pre class="http">{
+  "id": "6f6d9944-bfe3-4f99-a27d-e0d2718efbe7",
+  "ui": {
+    "nodes": [
+      { "name": "identifier", "type": "text" },
+      { "name": "password", "type": "password" },
+      { "name": "method", "type": "submit", "value": "password" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Credential Submit</h3>
+            <pre class="http">POST /self-service/login?flow=6f6d9944-bfe3-4f99-a27d-e0d2718efbe7 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+identifier=...
+password=...
+method=password</pre>
+
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/oauth/login
+Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:20 GMT; Max-Age=86399; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:21 GMT</pre>
+          </div>
+
+          <div class="card">
+            <h3>Auth Gate Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+Location: http://localhost:3337/verification
+Date: Thu, 09 Apr 2026 07:11:20 GMT
+Content-Length: 0</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Credential check</div>
+                <div class="result-value">succeeded</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Session</div>
+                <div class="result-value"><code>ory_kratos_session</code> exists</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Next route</div>
+                <div class="result-value"><code>/verification</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

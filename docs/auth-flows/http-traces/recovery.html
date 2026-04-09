@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookShare Recovery Flow Trace</title>
+    <link rel="stylesheet" href="./trace.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero" id="top">
+        <div class="eyebrow">Recovery Flow · HTTP Trace</div>
+        <h1>BookShare Recovery</h1>
+        <div class="subtitle">
+          Requests, responses, redirects, email delivery, privileged session
+          creation, and password reset completion.
+        </div>
+
+        <div class="toolbar">
+          <a href="#timeline">Jump To Timeline</a>
+        </div>
+
+        <div class="top-grid">
+          <div class="card">
+            <h2>Environment</h2>
+            <div class="meta-list">
+              <div class="meta-row">
+                <div class="meta-key">Capture Date</div>
+                <div>2026-04-09</div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Auth Portal</div>
+                <div><code>http://localhost:3337</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Kratos Public</div>
+                <div><code>http://localhost:4433</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Mailpit</div>
+                <div><code>http://localhost:4436</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Kratos</div>
+                <div><code>v26.2.0</code></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Flow Layout</h2>
+            <div class="actor-row">
+              <div class="actor browser">Browser / User</div>
+              <div class="actor auth">Auth Portal</div>
+              <div class="actor kratos">Kratos</div>
+              <div class="actor mail">Mailpit</div>
+            </div>
+            <div class="outcome">
+              <code>/recovery</code> → code → <code>/settings</code> →
+              <code>/login</code>
+            </div>
+            <div class="mini-list">
+              <div>Recovery uses Kratos <code>code</code> strategy</div>
+              <div>A correct code creates a privileged <code>ory_kratos_session</code></div>
+              <div>New password is saved through the settings flow</div>
+              <div>Recovery ends at login, not inside the web app</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block" id="timeline">
+        <div class="block-head">
+          <div>
+            <div class="label">Main Path</div>
+            <h2>Recovery and password reset</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-0">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">0</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Route</div>
+              <h2><code>/recovery</code> bootstraps the Kratos recovery browser flow</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /recovery HTTP/1.1</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Location: http://localhost:4433/self-service/recovery/browser</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/recovery</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Flow</div>
+                <div class="result-value">not started</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Next</div>
+                <div class="result-value"><code>/self-service/recovery/browser</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-1">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">1</div>
+            <div class="stage-title-text">
+              <div class="label">Captured + Auth Output</div>
+              <h2>Kratos creates the recovery flow and Auth renders the email step</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Creation Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+Location: http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170
+Set-Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=o19amlB7ngYS3aqgtxoomWwy5yjUJ/TJAnKtvyFOpus=; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:23 GMT</pre>
+
+            <pre class="http">GET /self-service/recovery/flows?id=74124c0b-886e-4041-8386-ab63939c8170 HTTP/1.1
+Accept: application/json
+Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Flow Response</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: application/json; charset=utf-8
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:23 GMT
+Content-Length: 1068
+Connection: close</pre>
+
+            <pre class="http">{
+  "id": "74124c0b-886e-4041-8386-ab63939c8170",
+  "state": "choose_method",
+  "active": "code",
+  "ui": {
+    "action": "http://localhost:4433/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170",
+    "method": "POST",
+    "nodes": [
+      { "group": "default", "name": "csrf_token", "type": "hidden" },
+      { "group": "code", "name": "email", "type": "email", "required": true },
+      { "group": "code", "name": "method", "type": "submit", "value": "code" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Screen</div>
+                <div class="result-value">Recovery · Email entry</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Inputs</div>
+                <div class="result-value">
+                  <div class="chip-list">
+                    <span class="chip">Email</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Submit</div>
+                <div class="result-value"><code>method=code</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-2">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">2</div>
+            <div class="stage-title-text">
+              <div class="label">Captured</div>
+              <h2>Browser submits the recovery email</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">POST /self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+email=trace.1775718679%40example.com
+method=code</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:24 GMT
+Content-Length: 0
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Flow</div>
+                <div class="result-value">unchanged</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Next screen</div>
+                <div class="result-value">Recovery · Code entry</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-3">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">3</div>
+            <div class="stage-title-text">
+              <div class="label">Captured + Mail</div>
+              <h2>Kratos returns the code step and sends the recovery email</h2>
+            </div>
+          </div>
+          <div class="direction">Auth Portal → Kratos / Mailpit → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Flow Response</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: application/json; charset=utf-8
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:24 GMT
+Content-Length: 1753
+Connection: close</pre>
+
+            <pre class="http">{
+  "id": "74124c0b-886e-4041-8386-ab63939c8170",
+  "state": "sent_email",
+  "active": "code",
+  "ui": {
+    "nodes": [
+      { "group": "default", "name": "csrf_token", "type": "hidden" },
+      { "group": "code", "name": "code", "type": "text", "required": true, "maxlength": 6 },
+      { "group": "code", "name": "method", "type": "hidden", "value": "code" },
+      { "group": "code", "name": "method", "type": "submit", "value": "code" },
+      { "group": "code", "name": "email", "type": "submit", "value": "trace.1775718679@example.com" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Mail Output</h3>
+            <pre class="http">{
+  "Subject": "Use code 276808 to recover access to your account",
+  "Created": "2026-04-09T07:11:24.345Z",
+  "Snippet": "Recover access to your account by entering the following code: 276808 ..."
+}</pre>
+
+            <pre class="http">276808</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Screen</div>
+                <div class="result-value">Recovery · Code entry</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Inputs</div>
+                <div class="result-value">
+                  <div class="chip-list">
+                    <span class="chip">Recovery code</span>
+                    <span class="chip">Resend code</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Code</div>
+                <div class="result-value"><code>276808</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-4">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">4</div>
+            <div class="stage-title-text">
+              <div class="label">Captured</div>
+              <h2>Browser submits the recovery code</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">POST /self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+method=code
+code=276808</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3
+Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:24 GMT; Max-Age=86399; HttpOnly; SameSite=Lax
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:25 GMT
+Content-Length: 0
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Cookie</div>
+                <div class="result-value"><code>ory_kratos_session</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Meaning</div>
+                <div class="result-value">privileged session created; password not yet changed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-5">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">5</div>
+            <div class="stage-title-text">
+              <div class="label">Captured + Auth Output</div>
+              <h2>Recovery enters a password-only view of the settings flow</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Privileged Session Check</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: application/json; charset=utf-8
+Vary: Cookie
+X-Kratos-Authenticated-Identity-Id: dfc0f507-4e36-4d69-9d8a-dd02b08b825d
+Date: Thu, 09 Apr 2026 07:11:25 GMT
+Content-Length: 1451
+Connection: close</pre>
+
+            <pre class="http">{
+  "authentication_methods": [
+    {
+      "method": "code_recovery",
+      "aal": "aal1",
+      "completed_at": "2026-04-09T07:11:25.110634426Z"
+    }
+  ]
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Settings Flow Response</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: application/json; charset=utf-8
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:25 GMT
+Transfer-Encoding: chunked
+Connection: close</pre>
+
+            <pre class="http">{
+  "id": "b871d432-8db2-4743-b686-e649e7f931c3",
+  "request_url": "http://localhost:4433/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170",
+  "ui": {
+    "action": "http://localhost:4433/self-service/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3",
+    "nodes": [
+      { "group": "profile", "name": "traits.email", "type": "email" },
+      { "group": "profile", "name": "method", "type": "submit", "value": "profile" },
+      { "group": "password", "name": "password", "type": "password", "required": true },
+      { "group": "password", "name": "method", "type": "submit", "value": "password" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Screen</div>
+                <div class="result-value">Recovery reset · Password only</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Visible input</div>
+                <div class="result-value">
+                  <div class="chip-list">
+                    <span class="chip">New password</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Hidden reality</div>
+                <div class="result-value">Kratos still returned profile and password groups together</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-6">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">6</div>
+            <div class="stage-title-text">
+              <div class="label">Captured</div>
+              <h2>Browser submits the new password</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">POST /self-service/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+password=ResetPassw0rd2026
+method=password</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/settings/complete
+Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:24 GMT; Max-Age=86399; HttpOnly; SameSite=Lax
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:25 GMT
+Content-Length: 0
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/settings/complete</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Password</div>
+                <div class="result-value">persisted by Kratos</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Session</div>
+                <div class="result-value"><code>ory_kratos_session</code> remains present</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-7">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">7</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Route</div>
+              <h2>Recovery completion exits to login</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /settings/complete HTTP/1.1
+Cookie: ory_kratos_session=...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Location: http://localhost:3337/login</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Final route</div>
+                <div class="result-value"><code>/login</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Recovery</div>
+                <div class="result-value">complete</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Requirement</div>
+                <div class="result-value">user must sign in again with the new password</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

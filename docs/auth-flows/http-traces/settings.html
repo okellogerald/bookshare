@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookShare Settings Flow Trace</title>
+    <link rel="stylesheet" href="./trace.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero" id="top">
+        <div class="eyebrow">Settings Flow · HTTP Trace</div>
+        <h1>BookShare Settings</h1>
+        <div class="subtitle">
+          Requests, responses, redirects, and the split between profile and
+          password settings screens.
+        </div>
+
+        <div class="toolbar">
+          <a href="#profile-path">Jump To Profile Path</a>
+          <a href="#password-path">Jump To Password Path</a>
+        </div>
+
+        <div class="top-grid">
+          <div class="card">
+            <h2>Environment</h2>
+            <div class="meta-list">
+              <div class="meta-row">
+                <div class="meta-key">Capture Date</div>
+                <div>2026-04-09</div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Web App</div>
+                <div><code>http://localhost:3334</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Auth Portal</div>
+                <div><code>http://localhost:3337</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Kratos Public</div>
+                <div><code>http://localhost:4433</code></div>
+              </div>
+              <div class="meta-row">
+                <div class="meta-key">Kratos</div>
+                <div><code>v26.2.0</code></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Flow Layout</h2>
+            <div class="actor-row">
+              <div class="actor browser">Browser / User</div>
+              <div class="actor auth">Auth Portal</div>
+              <div class="actor kratos">Kratos</div>
+              <div class="actor web">Web App</div>
+            </div>
+            <div class="outcome">
+              <code>/settings</code> → <code>/settings/complete</code> →
+              <code>http://localhost:3334/profile</code>
+            </div>
+            <div class="mini-list">
+              <div>Auth Portal bootstraps the settings browser flow</div>
+              <div>Kratos returns one combined flow containing profile and password groups</div>
+              <div>Auth Portal renders a section-specific screen</div>
+              <div>Normal settings completion always returns to web <code>/profile</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block" id="profile-path">
+        <div class="block-head">
+          <div>
+            <div class="label">Main Path</div>
+            <h2>Profile settings</h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-0">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">0</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Route</div>
+              <h2><code>/settings?section=profile</code> normalizes to a flow-specific URL</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /settings?section=profile HTTP/1.1</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+Location: /settings?section=profile&amp;flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911
+Cache-Control: no-store, must-revalidate
+Content-Type: text/html; charset=utf-8
+X-Powered-By: Next.js
+Date: Thu, 09 Apr 2026 07:11:26 GMT</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/settings?section=profile&amp;flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Section</div>
+                <div class="result-value">profile</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Flow</div>
+                <div class="result-value"><code>ee5c82d9-5b77-4f28-a6e3-f63d4f138911</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-1">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">1</div>
+            <div class="stage-title-text">
+              <div class="label">Captured + Auth Output</div>
+              <h2>Kratos returns the combined settings flow and Auth renders the profile screen</h2>
+            </div>
+          </div>
+          <div class="direction">Auth Portal → Kratos → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /self-service/settings/flows?id=ee5c82d9-5b77-4f28-a6e3-f63d4f138911 HTTP/1.1
+Accept: application/json
+Cookie: ory_kratos_session=...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Cache-Control: private, no-cache, no-store, must-revalidate
+Content-Type: application/json; charset=utf-8
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:27 GMT
+Transfer-Encoding: chunked
+Connection: close</pre>
+
+            <pre class="http">{
+  "id": "ee5c82d9-5b77-4f28-a6e3-f63d4f138911",
+  "state": "show_form",
+  "ui": {
+    "action": "http://localhost:4433/self-service/settings?flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911",
+    "nodes": [
+      { "group": "profile", "name": "traits.email", "type": "email", "value": "trace.1775718679@example.com" },
+      { "group": "profile", "name": "traits.name.first", "type": "text", "value": "Trace" },
+      { "group": "profile", "name": "traits.name.last", "type": "text", "value": "Runner" },
+      { "group": "profile", "name": "traits.gender", "type": "text", "value": "prefer_not_to_say" },
+      { "group": "profile", "name": "method", "type": "submit", "value": "profile" },
+      { "group": "password", "name": "password", "type": "password", "required": true },
+      { "group": "password", "name": "method", "type": "submit", "value": "password" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/settings?section=profile&amp;flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Screen</div>
+                <div class="result-value">Settings · Profile</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Visible inputs</div>
+                <div class="result-value">
+                  <div class="chip-list">
+                    <span class="chip">Email</span>
+                    <span class="chip">First name</span>
+                    <span class="chip">Last name</span>
+                    <span class="chip">Gender</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Hidden branch</div>
+                <div class="result-value">Kratos also returned password nodes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-2">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">2</div>
+            <div class="stage-title-text">
+              <div class="label">Captured</div>
+              <h2>Browser submits the profile changes</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Kratos → Browser</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">POST /self-service/settings?flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+traits.email=trace.1775718679%40example.com
+traits.name.first=TraceUpdated
+traits.name.last=Runner
+traits.gender=prefer_not_to_say
+method=profile</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/settings/complete
+Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:25 GMT; Max-Age=86398; HttpOnly; SameSite=Lax
+Vary: Cookie
+Date: Thu, 09 Apr 2026 07:11:27 GMT
+Content-Length: 0
+Connection: close</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Route</div>
+                <div class="result-value"><code>/settings/complete</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Saved field</div>
+                <div class="result-value"><code>traits.name.first=TraceUpdated</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Session</div>
+                <div class="result-value"><code>ory_kratos_session</code> refreshed</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage-3">
+        <div class="stage-head">
+          <div class="stage-title">
+            <div class="stage-id">3</div>
+            <div class="stage-title-text">
+              <div class="label">Auth Route</div>
+              <h2>Normal settings completion returns to the web app profile page</h2>
+            </div>
+          </div>
+          <div class="direction">Browser → Auth Portal → Web App</div>
+        </div>
+
+        <div class="stage-grid">
+          <div class="card">
+            <h3>Request</h3>
+            <pre class="http">GET /settings/complete HTTP/1.1
+Cookie: ory_kratos_session=...</pre>
+          </div>
+
+          <div class="card">
+            <h3>Response</h3>
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Location: http://localhost:3334/profile</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Final route</div>
+                <div class="result-value"><code>http://localhost:3334/profile</code></div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Flow</div>
+                <div class="result-value">complete</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">App boundary</div>
+                <div class="result-value">browser leaves auth and re-enters the web app</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="branch" id="password-path">
+        <div class="branch-head">
+          <div>
+            <div class="label">Alternate Path</div>
+            <h2>Password settings</h2>
+          </div>
+          <div class="tag captured">Captured Alternate Path</div>
+        </div>
+
+        <div class="branch-grid">
+          <div class="card">
+            <h3>Section Start</h3>
+            <pre class="http">GET /settings?section=password HTTP/1.1</pre>
+
+            <pre class="http">HTTP/1.1 307 Temporary Redirect
+Location: /settings?section=password&amp;flow=bbac41c0-c2bc-4091-a7f8-9161622b0552
+Cache-Control: no-store, must-revalidate
+Date: Thu, 09 Apr 2026 07:11:26 GMT</pre>
+          </div>
+
+          <div class="card">
+            <h3>Combined Flow</h3>
+            <pre class="http">HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked</pre>
+
+            <pre class="http">{
+  "id": "bbac41c0-c2bc-4091-a7f8-9161622b0552",
+  "ui": {
+    "nodes": [
+      { "group": "profile", "name": "traits.email", "type": "email" },
+      { "group": "profile", "name": "traits.name.first", "type": "text", "value": "TraceUpdated" },
+      { "group": "profile", "name": "method", "type": "submit", "value": "profile" },
+      { "group": "password", "name": "password", "type": "password", "required": true },
+      { "group": "password", "name": "method", "type": "submit", "value": "password" }
+    ]
+  }
+}</pre>
+          </div>
+
+          <div class="card">
+            <h3>Password Submit</h3>
+            <pre class="http">POST /self-service/settings?flow=bbac41c0-c2bc-4091-a7f8-9161622b0552 HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+
+csrf_token=...
+password=ResetPassw0rd2026
+method=password</pre>
+
+            <pre class="http">HTTP/1.1 303 See Other
+Location: http://localhost:3337/settings/complete
+Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:24 GMT; Max-Age=86397; HttpOnly; SameSite=Lax
+Date: Thu, 09 Apr 2026 07:11:27 GMT</pre>
+          </div>
+
+          <div class="card">
+            <h3>Result</h3>
+            <div class="result-grid">
+              <div class="result-row">
+                <div class="result-key">Screen</div>
+                <div class="result-value">Settings · Password</div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Visible input</div>
+                <div class="result-value">
+                  <div class="chip-list">
+                    <span class="chip">Password</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-row">
+                <div class="result-key">Exit</div>
+                <div class="result-value"><code>http://localhost:3334/profile</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
