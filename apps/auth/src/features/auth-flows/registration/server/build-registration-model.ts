@@ -3,24 +3,52 @@ import type {
   KratosUiMessage,
   KratosUiNode,
 } from "@/lib/kratos";
+import {
+  findOptionalSubmitNode,
+  findOptionalVisibleFieldNode,
+  findSubmitNode,
+  findVisibleFieldNode,
+  getResolvedNodeValue,
+  normalizeGroup,
+  resolveHiddenFields,
+} from "@/lib/kratos-ui";
 
 // Registration is modeled as explicit product-owned steps instead of a generic
 // "render whatever Kratos returned" approach. This keeps each step isolated and
 // makes step-specific maintenance straightforward.
+/**
+ * Registration fields that are shared across both steps of the BookShare
+ * registration flow.
+ */
 type RegistrationCommonFieldKey =
   | "firstName"
   | "lastName"
   | "gender"
   | "email";
 
+/**
+ * All field keys that can appear in the registration UI, including the
+ * password-only step.
+ */
 type RegistrationFieldKey = RegistrationCommonFieldKey | "password";
 
+/**
+ * Supported input kinds for the registration-owned view model.
+ */
 type RegistrationFieldType = "text" | "email" | "password" | "select";
 
+/**
+ * Static metadata that maps a BookShare registration field to the Kratos node
+ * name that should supply its value.
+ */
 interface RegistrationFieldDefinition<TKey extends RegistrationFieldKey = RegistrationFieldKey> {
+  /** Stable UI key used by the registration feature. */
   key: TKey;
+  /** Kratos node name that supplies this field's value. */
   name: string;
+  /** Product label shown for this field in the registration UI. */
   label: string;
+  /** Input type the registration form should render for this field. */
   type: RegistrationFieldType;
 }
 
@@ -58,193 +86,6 @@ const REGISTRATION_PASSWORD_FIELD: RegistrationFieldDefinition<"password"> = {
   type: "password",
 };
 
-function normalizeGroup(group?: string): string {
-  return group?.trim() || "default";
-}
-
-function isHiddenNode(node: KratosUiNode): boolean {
-  return node.type === "input" && node.attributes.type === "hidden";
-}
-
-function isSubmitNode(node: KratosUiNode): boolean {
-  return (
-    node.type === "input" &&
-    (node.attributes.type === "submit" || node.attributes.type === "button")
-  );
-}
-
-function isFieldNode(node: KratosUiNode, fieldName: string): boolean {
-  return node.type === "input" && node.attributes.name === fieldName && !isSubmitNode(node);
-}
-
-function isVisibleFieldNode(node: KratosUiNode, fieldName: string): boolean {
-  return isFieldNode(node, fieldName) && !isHiddenNode(node);
-}
-
-function getTraitValue(
-  flow: KratosBrowserFlow,
-  fieldName: string
-): string | undefined {
-  if (!fieldName.startsWith("traits.")) {
-    return undefined;
-  }
-
-  const traitPath = fieldName.slice("traits.".length);
-  if (!traitPath) {
-    return undefined;
-  }
-
-  let current: unknown = flow.identity?.traits;
-
-  for (const segment of traitPath.split(".").filter(Boolean)) {
-    if (!current || typeof current !== "object") {
-      return undefined;
-    }
-
-    current = (current as Record<string, unknown>)[segment];
-  }
-
-  if (typeof current === "string") {
-    return current;
-  }
-
-  if (typeof current === "number" || typeof current === "boolean") {
-    return String(current);
-  }
-
-  return undefined;
-}
-
-function getResolvedNodeValue(flow: KratosBrowserFlow, node: KratosUiNode): string {
-  if (typeof node.attributes.value === "string") {
-    return node.attributes.value;
-  }
-
-  return getTraitValue(flow, node.attributes.name ?? "") ?? "";
-}
-
-function getSingleNode(
-  flow: KratosBrowserFlow,
-  predicate: (node: KratosUiNode) => boolean,
-  errorMessage: string
-): KratosUiNode {
-  const matches = flow.ui.nodes.filter(predicate);
-
-  if (matches.length !== 1) {
-    throw new Error(`${errorMessage} Received ${matches.length}.`);
-  }
-
-  return matches[0];
-}
-
-function getOptionalSingleNode(
-  flow: KratosBrowserFlow,
-  predicate: (node: KratosUiNode) => boolean,
-  errorMessage: string
-): KratosUiNode | null {
-  const matches = flow.ui.nodes.filter(predicate);
-
-  if (matches.length === 0) {
-    return null;
-  }
-
-  if (matches.length > 1) {
-    throw new Error(`${errorMessage} Received ${matches.length}.`);
-  }
-
-  return matches[0];
-}
-
-function findVisibleFieldNode(
-  flow: KratosBrowserFlow,
-  definition: RegistrationFieldDefinition
-): KratosUiNode {
-  return getSingleNode(
-    flow,
-    (node) => isVisibleFieldNode(node, definition.name),
-    `Registration step expected exactly one visible '${definition.name}' node.`
-  );
-}
-
-function findOptionalVisibleFieldNode(
-  flow: KratosBrowserFlow,
-  definition: RegistrationFieldDefinition
-): KratosUiNode | null {
-  return getOptionalSingleNode(
-    flow,
-    (node) => isVisibleFieldNode(node, definition.name),
-    `Registration step expected at most one visible '${definition.name}' node.`
-  );
-}
-
-function findSubmitNode(
-  flow: KratosBrowserFlow,
-  options: {
-    group?: string;
-    name?: string;
-    value?: string;
-  },
-  errorMessage: string
-): KratosUiNode {
-  return getSingleNode(
-    flow,
-    (node) => {
-      if (!isSubmitNode(node)) return false;
-      if (options.group && normalizeGroup(node.group) !== options.group) return false;
-      if (options.name && node.attributes.name !== options.name) return false;
-      if (options.value && node.attributes.value !== options.value) return false;
-      return true;
-    },
-    errorMessage
-  );
-}
-
-function findOptionalSubmitNode(
-  flow: KratosBrowserFlow,
-  options: {
-    group?: string;
-    name?: string;
-    value?: string;
-  },
-  errorMessage: string
-): KratosUiNode | null {
-  return getOptionalSingleNode(
-    flow,
-    (node) => {
-      if (!isSubmitNode(node)) return false;
-      if (options.group && normalizeGroup(node.group) !== options.group) return false;
-      if (options.name && node.attributes.name !== options.name) return false;
-      if (options.value && node.attributes.value !== options.value) return false;
-      return true;
-    },
-    errorMessage
-  );
-}
-
-function dedupeHiddenNodes(nodes: KratosUiNode[]): KratosUiNode[] {
-  const seen = new Set<string>();
-
-  return nodes.filter((node) => {
-    const key = `${node.attributes.name ?? ""}:${node.attributes.value ?? ""}`;
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-// Hidden fields carry Kratos flow state across steps. The UI must preserve them
-// exactly or the next step submission will fail.
-function resolveHiddenFields(flow: KratosBrowserFlow): RegistrationHiddenField[] {
-  return dedupeHiddenNodes(flow.ui.nodes.filter(isHiddenNode)).map((node) => ({
-    name: node.attributes.name ?? "",
-    value: getResolvedNodeValue(flow, node),
-    group: normalizeGroup(node.group),
-  }));
-}
-
 function toSubmitModel(node: KratosUiNode): RegistrationSubmitModel {
   return {
     name: node.attributes.name,
@@ -279,7 +120,15 @@ function resolveVisibleField(
   flow: KratosBrowserFlow,
   definition: RegistrationFieldDefinition
 ): RegistrationFieldModel {
-  return toFieldModel(flow, findVisibleFieldNode(flow, definition), definition);
+  return toFieldModel(
+    flow,
+    findVisibleFieldNode(
+      flow,
+      definition.name,
+      `Registration step expected exactly one visible '${definition.name}' node.`
+    ),
+    definition
+  );
 }
 
 function resolveCommonVisibleFields(
@@ -294,67 +143,133 @@ function resolveCommonVisibleFields(
 }
 
 export interface RegistrationHiddenField {
+  /** Hidden input name that must be posted back to Kratos unchanged. */
   name: string;
+  /** Hidden input value resolved from the Kratos node or identity trait. */
   value: string;
+  /** Kratos group that originally owned this hidden field. */
   group: string;
 }
 
+/**
+ * Normalized field data for a single registration input.
+ *
+ * The mapper converts raw Kratos nodes into this shape so the registration UI
+ * can render explicit form controls without depending on generic node parsing.
+ */
 export interface RegistrationFieldModel {
+  /** Stable field identifier used by the registration feature. */
   key: RegistrationFieldKey;
+  /** Kratos field name submitted with the form. */
   name: string;
+  /** User-facing label shown next to the input. */
   label: string;
+  /** Input widget type the UI should render. */
   type: RegistrationFieldType;
+  /** Current field value resolved from the flow. */
   value: string;
+  /** Whether Kratos marks this field as required. */
   required: boolean;
+  /** Whether Kratos marks this field as non-editable. */
   disabled: boolean;
+  /** Kratos group the node belongs to in the raw flow. */
   group: string;
+  /** Field-specific validation or informational messages from Kratos. */
   messages: KratosUiMessage[];
 }
 
+/**
+ * Normalized submit control metadata for a registration step action.
+ */
 export interface RegistrationSubmitModel {
+  /** Submit field name Kratos expects on form submission. */
   name?: string;
+  /** Submit field value Kratos expects on form submission. */
   value?: string;
+  /** Button label rendered in the BookShare UI. */
   label: string;
+  /** Kratos group the submit node belongs to. */
   group: string;
 }
 
+/**
+ * Links that are shared by every registration page variant.
+ */
 interface RegistrationPageLinks {
+  /** Link back into the sign-in flow. */
   loginHref: string;
+  /** Link that discards the current flow and starts registration again. */
   resetHref: string;
 }
 
+/**
+ * Properties shared by every successful registration step model.
+ */
 interface RegistrationStepModelBase extends RegistrationPageLinks {
+  /** Kratos flow identifier for the current registration flow. */
   flowId: string;
+  /** Kratos form action URL for the current step submission. */
   action: string;
+  /** HTTP method Kratos expects for the current form. */
   method: string;
+  /** Flow-level messages Kratos returned for this registration step. */
   messages: KratosUiMessage[];
+  /** Hidden inputs that preserve the Kratos flow state across submissions. */
   hiddenFields: RegistrationHiddenField[];
 }
 
+/**
+ * View model for the first registration step where profile traits are entered.
+ */
 export interface RegistrationProfileStepModel extends RegistrationStepModelBase {
+  /** Discriminator for the profile-entry step. */
   variant: "profile";
+  /** Human-readable step number used by the UI. */
   stepNumber: 1;
+  /** Total number of registration steps in the product flow. */
   totalSteps: 2;
+  /** Visible profile fields rendered on the first step. */
   fields: Record<RegistrationCommonFieldKey, RegistrationFieldModel>;
+  /** Primary action that advances the flow to the password step. */
   submit: RegistrationSubmitModel;
 }
 
+/**
+ * View model for the second registration step where the password is chosen.
+ */
 export interface RegistrationPasswordStepModel extends RegistrationStepModelBase {
+  /** Discriminator for the password step. */
   variant: "password";
+  /** Human-readable step number used by the UI. */
   stepNumber: 2;
+  /** Total number of registration steps in the product flow. */
   totalSteps: 2;
+  /** Visible password field rendered on the second step. */
   passwordField: RegistrationFieldModel;
+  /** Primary action that completes registration. */
   submit: RegistrationSubmitModel;
+  /** Optional Kratos action that moves the flow back to the profile step. */
   previousStepSubmit: RegistrationSubmitModel | null;
 }
 
+/**
+ * Recoverable page model used when the registration flow cannot be mapped into
+ * a supported BookShare step.
+ */
 export interface RegistrationErrorPageModel extends RegistrationPageLinks {
+  /** Discriminator for the recoverable error page. */
   variant: "error";
+  /** Page title shown when registration cannot continue. */
   title: string;
+  /** User-facing explanation of the failure state. */
   description: string;
+  /** Lower-level detail that helps explain the specific mapping failure. */
   detail?: string;
 }
 
+/**
+ * Union of all registration page states the route can render.
+ */
 export type RegistrationPageModel =
   | RegistrationProfileStepModel
   | RegistrationPasswordStepModel
@@ -392,7 +307,11 @@ function buildPasswordStepModel(
   loginHref: string,
   resetHref: string
 ): RegistrationPasswordStepModel {
-  const passwordNode = findVisibleFieldNode(flow, REGISTRATION_PASSWORD_FIELD);
+  const passwordNode = findVisibleFieldNode(
+    flow,
+    REGISTRATION_PASSWORD_FIELD.name,
+    "Registration password step expected exactly one visible 'password' node."
+  );
   const submit = findSubmitNode(
     flow,
     { group: "password", name: "method", value: "password" },
@@ -435,7 +354,11 @@ export function buildRegistrationModel(
   loginHref: string,
   resetHref: string
 ): RegistrationProfileStepModel | RegistrationPasswordStepModel {
-  const passwordField = findOptionalVisibleFieldNode(flow, REGISTRATION_PASSWORD_FIELD);
+  const passwordField = findOptionalVisibleFieldNode(
+    flow,
+    REGISTRATION_PASSWORD_FIELD.name,
+    "Registration step expected at most one visible 'password' node."
+  );
 
   if (passwordField) {
     return buildPasswordStepModel(flow, loginHref, resetHref);

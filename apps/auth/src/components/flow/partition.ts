@@ -1,16 +1,11 @@
 import type { KratosBrowserFlow, KratosUiNode } from "@/lib/kratos";
+import {
+  dedupeHiddenNodes,
+  isHiddenNode,
+  isSubmitNode,
+  normalizeGroup,
+} from "@/lib/kratos-ui";
 import type { NodeSection } from "./types";
-
-function isHiddenNode(node: KratosUiNode): boolean {
-  return node.type === "input" && node.attributes.type === "hidden";
-}
-
-function isSubmitNode(node: KratosUiNode): boolean {
-  return (
-    node.type === "input" &&
-    (node.attributes.type === "submit" || node.attributes.type === "button")
-  );
-}
 
 function isBackNavigationSubmit(node: KratosUiNode): boolean {
   return (
@@ -53,17 +48,6 @@ function groupTitle(group: string): string {
   }
 }
 
-function dedupeHiddenNodes(nodes: KratosUiNode[]): KratosUiNode[] {
-  const seen = new Set<string>();
-
-  return nodes.filter((node) => {
-    const key = `${node.attributes.name ?? ""}:${node.attributes.value ?? ""}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 function dedupeNodesByName(nodes: KratosUiNode[]): KratosUiNode[] {
   const seen = new Set<string>();
 
@@ -96,16 +80,16 @@ export function buildSections(
   };
 
   const defaultHidden = nodes.filter(
-    (node) => (node.group || "default") === "default" && isHiddenNode(node)
+    (node) => normalizeGroup(node.group) === "default" && isHiddenNode(node)
   );
   const defaultInputs = dedupeNodesByName(
     nodes.filter(
-      (node) => (node.group || "default") === "default" && includeInputNode(node)
+      (node) => normalizeGroup(node.group) === "default" && includeInputNode(node)
     )
   );
 
   const sectionGroups = Array.from(
-    new Set(nodes.filter(isSubmitNode).map((node) => node.group || "default"))
+    new Set(nodes.filter(isSubmitNode).map((node) => normalizeGroup(node.group)))
   );
 
   const preferred = preferredGroups
@@ -119,7 +103,7 @@ export function buildSections(
   }
 
   return groups.map((group) => {
-    const groupNodes = nodes.filter((node) => (node.group || "default") === group);
+    const groupNodes = nodes.filter((node) => normalizeGroup(node.group) === group);
 
     const hiddenNodes = dedupeHiddenNodes([
       ...defaultHidden,
@@ -171,4 +155,3 @@ export function filterSubmitNodes(
     return allowedSubmitNames.has(name);
   });
 }
-

@@ -110,6 +110,10 @@ export function RegistrationPasswordStepForm({
       </form>
 
       {model.previousStepSubmit ? (
+        // Kratos models "Back" as another flow submission, not client-side
+        // navigation. This separate form resubmits the hidden flow state with
+        // the previous-step submit values so step 2 can move back to step 1
+        // without running password confirmation logic.
         <form
           action={model.action}
           method={model.method}
