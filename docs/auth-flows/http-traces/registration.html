@@ -49,7 +49,7 @@
         --actor-kratos: #fef3c7;
         --actor-mail: #ffe4e6;
         --sidebar-w: 260px;
-        --font-sans: "Avenir", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        --font-sans: "Avenir Medium", "Avenir-Medium", "Avenir", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
         --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Menlo, Consolas, monospace;
         --radius: 12px;
         --radius-sm: 8px;
@@ -445,7 +445,7 @@
       .flow-path {
         display: flex;
         align-items: center;
-        gap: 0;
+        gap: 6px 0;
         margin-top: 16px;
         flex-wrap: wrap;
       }
@@ -628,6 +628,104 @@
         margin-bottom: 8px;
       }
 
+      .http-panel-desc {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--ink-secondary);
+        margin-bottom: 10px;
+        padding: 0 2px;
+      }
+
+      .http-panel-desc strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .note-box {
+        background: var(--info-soft);
+        border-left: 3px solid var(--info);
+        border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+        padding: 10px 14px;
+        margin: 12px 20px 16px;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--ink-secondary);
+      }
+
+      .note-box + .note-box {
+        margin-top: 0;
+      }
+
+      .note-box strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .note-box code {
+        background: var(--surface-sunken);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11.5px;
+      }
+
+      .note-box-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--info);
+        margin-bottom: 4px;
+      }
+
+      .json-explainer {
+        margin: 12px 20px 16px;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+      }
+
+      .json-explainer-title {
+        background: var(--surface-raised);
+        padding: 8px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .json-explainer-body {
+        padding: 10px 14px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--ink-secondary);
+      }
+
+      .json-explainer-body dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+      }
+
+      .json-explainer-body dt {
+        font-weight: 600;
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+      }
+
+      .json-explainer-body dd {
+        margin: 0;
+      }
+
+      .json-explainer-body dd code {
+        background: var(--surface-sunken);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+
       /* ── Code Blocks ── */
       .code-block {
         background: var(--code-bg);
@@ -695,9 +793,11 @@
 
       /* ── Result Section ── */
       .result-section {
-        padding: 12px 20px;
+        padding: 12px 20px 14px;
+        margin: 0 20px;
         border-top: 1px solid var(--border-light);
         background: var(--surface-raised);
+        border-radius: var(--radius-xs);
       }
 
       .result-section .http-panel-label {
@@ -981,9 +1081,10 @@
             <li class="nav-item" data-stage="3"><a href="#stage-3"><span class="nav-num">3</span> Submit profile</a></li>
             <li class="nav-item" data-stage="4"><a href="#stage-4"><span class="nav-num">4</span> Password step</a></li>
             <li class="nav-item" data-stage="5"><a href="#stage-5"><span class="nav-num">5</span> Submit password</a></li>
-            <li class="nav-item" data-stage="6"><a href="#stage-6"><span class="nav-num">6</span> Verification</a></li>
-            <li class="nav-item" data-stage="7"><a href="#stage-7"><span class="nav-num">7</span> Submit code</a></li>
-            <li class="nav-item" data-stage="8"><a href="#stage-8"><span class="nav-num">8</span> Exit to login</a></li>
+            <li class="nav-item" data-stage="6"><a href="#stage-6"><span class="nav-num">6</span> Session check</a></li>
+            <li class="nav-item" data-stage="7"><a href="#stage-7"><span class="nav-num">7</span> Verification flow</a></li>
+            <li class="nav-item" data-stage="8"><a href="#stage-8"><span class="nav-num">8</span> Submit code</a></li>
+            <li class="nav-item" data-stage="9"><a href="#stage-9"><span class="nav-num">9</span> Exit to login</a></li>
           </ul>
         </div>
 
@@ -1047,12 +1148,12 @@
         <!-- Sequence Diagram -->
         <div class="sequence" id="sequence">
           <div class="sequence-title">Message Sequence</div>
-          <svg viewBox="0 0 800 420" style="width:100%;height:auto;font-family:var(--font-sans)">
+          <svg viewBox="0 0 800 500" style="width:100%;height:auto;font-family:var(--font-sans)">
             <!-- Lifelines -->
-            <line x1="100" y1="50" x2="100" y2="410" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="300" y1="50" x2="300" y2="410" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="500" y1="50" x2="500" y2="410" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="700" y1="50" x2="700" y2="410" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="100" y1="50" x2="100" y2="490" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="300" y1="50" x2="300" y2="490" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="500" y1="50" x2="500" y2="490" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="700" y1="50" x2="700" y2="490" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
 
             <!-- Actor boxes -->
             <rect x="40" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
@@ -1121,21 +1222,35 @@
 
             <!-- 5: Kratos -> Browser (303 /verification) -->
             <line x1="496" y1="320" x2="104" y2="320" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="300" y="315" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /verification?flow=...</text>
+            <text x="300" y="315" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /verification?flow=... (new flow ID)</text>
 
-            <!-- 7: Browser -> Kratos (POST code) -->
-            <line x1="104" y1="350" x2="496" y2="350" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="300" cy="350" r="10" fill="var(--accent)"/><text x="300" y="354" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">7</text>
-            <text x="304" y="343" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST code=834642</text>
+            <!-- 6: Auth Portal -> Kratos (session check) -->
+            <line x1="304" y1="350" x2="496" y2="350" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="350" r="10" fill="var(--accent)"/><text x="400" y="354" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">6</text>
+            <text x="404" y="343" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /sessions/whoami</text>
 
-            <!-- 8: Auth -> Browser (307 /login) -->
-            <line x1="296" y1="380" x2="104" y2="380" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
-            <circle cx="200" cy="380" r="10" fill="var(--success)"/><text x="200" y="384" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">8</text>
-            <text x="204" y="373" font-size="10" fill="var(--success)" font-weight="600">307 /login</text>
+            <!-- 6: Kratos -> Auth (401) -->
+            <line x1="496" y1="370" x2="304" y2="370" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="365" text-anchor="middle" font-size="10" fill="var(--danger)" font-weight="500">401 Unauthorized</text>
+
+            <!-- 7: Auth Portal -> Kratos (fetch verification flow) -->
+            <line x1="304" y1="395" x2="496" y2="395" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="395" r="10" fill="var(--accent)"/><text x="400" y="399" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">7</text>
+            <text x="404" y="388" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /verification/flows?id=...</text>
+
+            <!-- 8: Browser -> Kratos (POST code) -->
+            <line x1="104" y1="425" x2="496" y2="425" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="425" r="10" fill="var(--accent)"/><text x="300" y="429" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">8</text>
+            <text x="304" y="418" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST code=834642</text>
+
+            <!-- 9: Auth -> Browser (307 /login) -->
+            <line x1="296" y1="455" x2="104" y2="455" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
+            <circle cx="200" cy="455" r="10" fill="var(--success)"/><text x="200" y="459" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">9</text>
+            <text x="204" y="448" font-size="10" fill="var(--success)" font-weight="600">307 /login</text>
 
             <!-- No-session indicator -->
-            <rect x="40" y="395" width="520" height="18" rx="4" fill="var(--danger-soft)" opacity="0.5"/>
-            <text x="300" y="408" text-anchor="middle" font-size="10" fill="var(--danger)" font-weight="600">No browser session created at any point &mdash; user must log in after verification</text>
+            <rect x="40" y="472" width="520" height="18" rx="4" fill="var(--danger-soft)" opacity="0.5"/>
+            <text x="300" y="485" text-anchor="middle" font-size="10" fill="var(--danger)" font-weight="600">No browser session created at any point &mdash; user must log in after verification</text>
           </svg>
         </div>
 
@@ -1157,10 +1272,12 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> navigates to the Auth Portal's registration page. No flow exists yet &mdash; the Auth Portal's route handler sees no <code>?flow=</code> parameter and decides to bootstrap one.</div>
                   <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/register</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> redirects the Browser to <strong>Kratos</strong> to create a new registration flow. This is a server-side redirect &mdash; the Auth Portal never renders anything itself at this point.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4433/self-service/registration/browser</span></pre>
                 </div>
@@ -1190,10 +1307,12 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected from Stage 0) sends a GET to <strong>Kratos</strong> asking it to initialize a new browser-based registration flow.</div>
                   <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/registration/browser</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> creates the flow internally, then responds with a <strong>303 redirect</strong> back to the Auth Portal with the new flow ID in the URL. Crucially, Kratos does <em>not</em> return the flow details in this response &mdash; it only provides the flow ID and sets a CSRF cookie.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">text/html; charset=utf-8</span>
@@ -1210,6 +1329,10 @@
                   <div class="result-row"><div class="result-key">Flow ID</div><div class="result-val"><code>4edd5173-4a94-4380-b89d-1889dd688559</code></div></div>
                   <div class="result-row"><div class="result-key">CSRF Cookie</div><div class="result-val"><code>csrf_token_82b1...48ab</code> set</div></div>
                 </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Why 303 and not 200?</div>
+                Kratos intentionally does not return the flow details here. The CSRF cookie is set on Kratos' origin (<code>localhost:4433</code>), but the Auth Portal lives on a different origin (<code>localhost:3337</code>). Due to the browser's <strong>Same-Origin Policy (SOP)</strong>, only the origin that set the cookie can read it. By redirecting back to the Auth Portal with just the flow ID, Kratos forces the Auth Portal to fetch the flow in a separate request (Stage 2) where the browser automatically attaches the CSRF cookie &mdash; proving the request is coming from the same browser session that initiated the flow. This two-step pattern (create &rarr; redirect &rarr; fetch) prevents cross-origin actors from reading or hijacking the flow.
               </div>
             </div>
           </div>
@@ -1228,12 +1351,14 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> (server-side, during page load) sends a GET to <strong>Kratos</strong> to fetch the full flow details using the flow ID from the URL. The browser's CSRF cookie is forwarded to prove this is the same session that created the flow in Stage 1.</div>
                   <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/registration/flows?id=4edd5173-4a94-4380-b89d-1889dd688559</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=6LtE33nN...</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the flow as JSON. The flow <code>state</code> is <code>"choose_method"</code> and the <code>ui.nodes</code> array describes every form element the UI should render. At this initial step, Kratos only provides profile fields &mdash; no password field yet.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
 <span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span>
@@ -1301,6 +1426,32 @@
                   </div>
                 </div>
               </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the JSON response</div>
+                <div class="json-explainer-body">
+                  <p style="margin-bottom:8px">Kratos returns a generic <code>ui.nodes</code> array. Each node is a form element instruction. The Auth Portal interprets these to build the registration form:</p>
+                  <dl>
+                    <dt>"state"</dt>
+                    <dd>The flow's current phase. <code>"choose_method"</code> means Kratos is waiting for the user to pick an authentication method (profile first, then password).</dd>
+                    <dt>"ui.action"</dt>
+                    <dd>The URL the form must POST to. Always points to Kratos, not the Auth Portal.</dd>
+                    <dt>"group"</dt>
+                    <dd>Which authentication method a node belongs to. <code>"default"</code> = shared across all methods (identity traits, CSRF). <code>"profile"</code> = the profile collection step. Later, <code>"password"</code> = the credential step.</dd>
+                    <dt>"name"</dt>
+                    <dd>The form field name. <code>"traits.*"</code> fields map to the identity schema (e.g. <code>traits.email</code>, <code>traits.name.first</code>). <code>"method"</code> tells Kratos which step is being submitted.</dd>
+                    <dt>"type"</dt>
+                    <dd>The HTML input type to render: <code>"hidden"</code>, <code>"email"</code>, <code>"text"</code>, <code>"password"</code>, or <code>"submit"</code>.</dd>
+                    <dt>"value"</dt>
+                    <dd>A pre-filled value. For submit buttons, this is the value sent when clicked (e.g. <code>"profile"</code> tells Kratos "I'm submitting the profile step").</dd>
+                    <dt>"required"</dt>
+                    <dd>Whether the field must be filled before submitting. Only <code>traits.email</code> is required at the profile step.</dd>
+                  </dl>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; No password field yet</div>
+                Kratos uses a two-step registration flow. In this first step, only <code>group: "default"</code> (trait fields) and <code>group: "profile"</code> (the profile submit button) are present. The password field (<code>group: "password"</code>) only appears after the profile step is successfully submitted. This is by design &mdash; Kratos validates identity traits before asking for credentials.
+              </div>
             </div>
           </div>
 
@@ -1318,6 +1469,7 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the profile form to <strong>Kratos</strong>. The form POSTs directly to Kratos' action URL (not the Auth Portal). The <code>method=profile</code> field tells Kratos this is a profile step submission. The CSRF cookie and token are included for cross-site request protection.</div>
                   <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/registration?flow=4edd5173-4a94-4380-b89d-1889dd688559</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=...</span>
@@ -1331,6 +1483,7 @@
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates the profile traits, stores them on the flow, and responds with a <strong>303 redirect</strong> back to the Auth Portal with the <em>same</em> flow ID. The flow has internally advanced to the password step, but Kratos communicates this through the redirect &mdash; the Auth Portal must re-fetch the flow to discover the new state.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/register?flow=4edd5173-4a94-4380-b89d-1889dd688559</span>
 <span class="hl-header-name">Vary:</span> <span class="hl-header-value">Cookie</span>
@@ -1344,6 +1497,10 @@
                   <div class="result-row"><div class="result-key">Flow</div><div class="result-val">unchanged &mdash; same ID</div></div>
                   <div class="result-row"><div class="result-key">Next Screen</div><div class="result-val">Registration &middot; Password</div></div>
                 </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Same flow, different step</div>
+                Kratos reuses the same flow ID across both registration steps. The flow is not recreated &mdash; it advances internally from profile collection to credential selection. This is why the redirect URL looks identical to Stage 2's. The difference only becomes visible when the Auth Portal re-fetches the flow in Stage 4.
               </div>
             </div>
           </div>
@@ -1362,12 +1519,14 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> re-fetches the same flow from <strong>Kratos</strong> (same flow ID as Stage 2). This is triggered by the browser following the 303 redirect from Stage 3 back to <code>/register?flow=...</code>, which causes the Auth Portal's route loader to run again.</div>
                   <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/registration/flows?id=4edd5173-4a94-4380-b89d-1889dd688559</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=...</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the same flow, but now the <code>ui.nodes</code> have changed completely. The profile trait fields have become <code>hidden</code> inputs (carrying their values forward), a new <code>password</code> field has appeared, and two submit actions are available: <code>method=password</code> to continue, and <code>screen=previous</code> to go back.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
 <span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
@@ -1449,6 +1608,20 @@
                   <div class="result-row"><div class="result-key">Hidden</div><div class="result-val">Profile fields carried as hidden inputs</div></div>
                 </div>
               </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">What changed from Stage 2</div>
+                <div class="json-explainer-body">
+                  <p style="margin-bottom:8px">Compare this response with Stage 2's. Same flow ID, but the nodes have been restructured by Kratos:</p>
+                  <dl>
+                    <dt>traits.* &rarr; hidden</dt>
+                    <dd>All profile trait fields (<code>email</code>, <code>name.first</code>, <code>name.last</code>, <code>gender</code>) changed from visible input types to <code>"type": "hidden"</code> with their submitted values pre-filled. This is how Kratos carries forward Step 1 data &mdash; the hidden fields must be re-submitted alongside the password.</dd>
+                    <dt>group: "password"</dt>
+                    <dd>Two new nodes appeared with <code>"group": "password"</code>: the password input field and the <code>method=password</code> submit button. This group was entirely absent in Stage 2.</dd>
+                    <dt>screen=previous</dt>
+                    <dd>A new submit node with <code>"group": "profile"</code> and <code>"value": "previous"</code>. This is Kratos' built-in back navigation &mdash; submitting it tells Kratos to revert the flow to the profile step. This is a server-side action, not client-side browser history.</dd>
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1457,7 +1630,7 @@
             <div class="stage-dot">5</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Browser submits the password step</div>
+                <div class="stage-title">Browser submits the password step &mdash; identity created</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
                   <span class="source-badge captured">Captured</span>
@@ -1466,6 +1639,7 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the password form to <strong>Kratos</strong>. All hidden profile fields from Stage 4 are re-submitted alongside the new password and <code>method=password</code>. This is the final registration submission.</div>
                   <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/registration?flow=4edd5173-4a94-4380-b89d-1889dd688559</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=...</span>
@@ -1480,6 +1654,7 @@
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> creates the identity and password credential, then initiates a verification flow. Instead of redirecting back to <code>/register</code>, it redirects to <code>/verification</code> with a <em>brand new</em> flow ID. The CSRF cookie is also rotated. Critically, Kratos does <strong>not</strong> create a browser session &mdash; the user is not signed in.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span>
 <span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax</span>
@@ -1495,6 +1670,20 @@
                   <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--danger);font-weight:700">none &mdash; no session created</div></div>
                 </div>
               </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Flow ID and token change</div>
+                This is the boundary between registration and verification. Three things change at once:
+                <br><br>
+                <strong>1. New flow ID.</strong> The registration flow ID (<code>4edd5173...8559</code>) is finished. Kratos creates an entirely separate verification flow with its own ID (<code>46d2420a...ca3f</code>). These are different self-service flow types in Kratos &mdash; the registration flow is consumed and cannot be reused.
+                <br><br>
+                <strong>2. CSRF cookie rotated.</strong> The cookie value changes from <code>6LtE33nN...</code> to <code>CLqlnMNJ...</code>. Kratos rotates the CSRF token when transitioning between flows for security &mdash; the old token tied to the registration flow is no longer valid.
+                <br><br>
+                <strong>3. Different route.</strong> The redirect points to <code>/verification</code> instead of <code>/register</code>. The Auth Portal's verification route handler (not the registration one) will process this request.
+              </div>
+              <div class="note-box" style="border-left-color:var(--danger);background:var(--danger-soft)">
+                <div class="note-box-label" style="color:var(--danger)">Note &mdash; No session created</div>
+                Kratos' <code>show_verification_ui</code> post-registration hook is configured to redirect to verification instead of creating a session. This is by design &mdash; BookShare requires email verification before login. The user's identity exists in Kratos, but they cannot authenticate until verification completes.
+              </div>
             </div>
           </div>
 
@@ -1503,23 +1692,63 @@
             <div class="stage-dot">6</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Verification flow loaded &mdash; user still unsigned</div>
+                <div class="stage-title">Auth Portal checks for an existing session</div>
                 <div class="stage-meta">
-                  <span class="direction-badge">Auth Portal &rarr; Kratos / Mailpit &rarr; Browser</span>
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Auth Portal</span>
                   <span class="source-badge captured">Captured</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
-                  <div class="http-panel-label">Session Check</div>
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> (server-side, during the verification page load) sends a session check to <strong>Kratos</strong> to see if the user is already signed in. This is part of the verification route's loader &mdash; it runs before fetching the verification flow.</div>
                   <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/sessions/whoami</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> confirms there is no active session. This is expected &mdash; the <code>show_verification_ui</code> hook used in Stage 5 deliberately skips session creation. The Auth Portal proceeds to load the verification flow.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-4xx">401 Unauthorized</span>
 
 {<span class="hl-json-key">"error"</span>: {<span class="hl-json-key">"code"</span>: <span class="hl-json-number">401</span>, <span class="hl-json-key">"status"</span>: <span class="hl-json-string">"Unauthorized"</span>, <span class="hl-json-key">"reason"</span>: <span class="hl-json-string">"No valid session credentials found in the request."</span>}}</pre>
                 </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--danger);font-weight:700">none &mdash; 401 Unauthorized</div></div>
+                  <div class="result-row"><div class="result-key">Next</div><div class="result-val">Proceed to fetch verification flow</div></div>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Why check the session here?</div>
+                The verification page can be reached from two entry points: (1) after registration (no session), or (2) when a logged-in but unverified user is gated. The session check lets the Auth Portal know which scenario it's in. In this case, 401 confirms we're on the post-registration path.
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 7 -->
+          <div class="stage" id="stage-7">
+            <div class="stage-dot">7</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal loads the verification flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
                 <div class="http-panel">
-                  <div class="http-panel-label">Verification Flow</div>
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> fetches the verification flow from <strong>Kratos</strong> using the new flow ID from Stage 5's redirect. This follows the same pattern as Stage 2 &mdash; the flow ID came from the redirect URL, and the CSRF cookie authenticates the request.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/verification/flows?id=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the verification flow. The state is <code>"sent_email"</code> &mdash; Kratos already sent a verification code email as part of creating this flow in Stage 5. The UI nodes describe a code entry form. A verification email has also been delivered to Mailpit.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span>
 <span class="hl-header-name">Content-Length:</span> <span class="hl-header-value">1736</span></pre>
@@ -1578,12 +1807,32 @@
                   <div class="result-row"><div class="result-key">Verification ID</div><div class="result-val"><code>46d2420a-22c6-4cee-bf5e-88457ac6ca3f</code></div></div>
                 </div>
               </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the verification JSON</div>
+                <div class="json-explainer-body">
+                  <p style="margin-bottom:8px">The verification flow uses <code>group: "code"</code> instead of <code>"profile"</code> or <code>"password"</code>. The node structure is different from registration:</p>
+                  <dl>
+                    <dt>"state": "sent_email"</dt>
+                    <dd>The verification flow is already past initialization &mdash; Kratos sent the email when it created this flow in Stage 5. Compare with registration's <code>"choose_method"</code> state.</dd>
+                    <dt>"active": "code"</dt>
+                    <dd>The active verification method. Kratos supports multiple verification strategies; BookShare uses the <code>code</code> method (a 6-digit code sent via email).</dd>
+                    <dt>hidden method=code</dt>
+                    <dd>A hidden field that tells Kratos which verification method is being used when the form is submitted. Always included automatically.</dd>
+                    <dt>name: "code"</dt>
+                    <dd>The text input where the user enters the 6-digit verification code from their email. This is the only visible field.</dd>
+                    <dt>submit method=code</dt>
+                    <dd>The submit button. Sends the entered code to Kratos for validation.</dd>
+                    <dt>submit email=...</dt>
+                    <dd>A resend action. Clicking this submit button (with <code>name: "email"</code> and the email as its <code>value</code>) asks Kratos to send a new verification code. This is how "Resend code" works.</dd>
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Stage 7 -->
-          <div class="stage" id="stage-7">
-            <div class="stage-dot">7</div>
+          <!-- Stage 8 -->
+          <div class="stage" id="stage-8">
+            <div class="stage-dot">8</div>
             <div class="stage-card">
               <div class="stage-header">
                 <div class="stage-title">Browser submits the verification code</div>
@@ -1595,6 +1844,7 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the verification code to <strong>Kratos</strong>. The form includes the hidden <code>method=code</code> field and the user-entered 6-digit code. The CSRF cookie (rotated in Stage 5) authenticates the request.</div>
                   <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...</span>
@@ -1605,13 +1855,14 @@
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates the code, marks the email address as verified on the identity, and redirects back to the Auth Portal's verification page. The identity (fetched from the admin API for this trace) now shows <code>verified: true</code>.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span>
 <span class="hl-header-name">Vary:</span> <span class="hl-header-value">Cookie</span>
 <span class="hl-header-name">Date:</span> <span class="hl-header-value">Thu, 09 Apr 2026 07:11:21 GMT</span></pre>
 
                   <div class="collapsible">
-                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body &mdash; identity after verification</button>
                     <div class="collapsible-body">
                       <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
   <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"dfc0f507-4e36-4d69-9d8a-dd02b08b825d"</span>,
@@ -1647,9 +1898,9 @@
             </div>
           </div>
 
-          <!-- Stage 8 -->
-          <div class="stage" id="stage-8">
-            <div class="stage-dot" style="background:var(--success)">8</div>
+          <!-- Stage 9 -->
+          <div class="stage" id="stage-9">
+            <div class="stage-dot" style="background:var(--success)">9</div>
             <div class="stage-card">
               <div class="stage-header">
                 <div class="stage-title">Completed verification exits to login</div>
@@ -1661,10 +1912,12 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> follows the 303 redirect from Stage 8 and lands back on the <strong>Auth Portal's</strong> verification route. The Auth Portal re-fetches the verification flow, sees <code>state: "passed_challenge"</code>, and decides the flow is complete.</div>
                   <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> redirects the Browser to <code>/login</code>. Registration and verification are complete &mdash; the user now has a verified identity but still no session. They must log in with their new credentials.</div>
                   <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">/login</span></pre>
                 </div>
@@ -1676,6 +1929,10 @@
                   <div class="result-row"><div class="result-key">Verification</div><div class="result-val" style="color:var(--success);font-weight:700">completed</div></div>
                   <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--danger)">none &mdash; user must log in</div></div>
                 </div>
+              </div>
+              <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
+                <div class="note-box-label" style="color:var(--success)">Note &mdash; Registration complete</div>
+                The full registration path is now finished. The user's identity in Kratos has: (1) profile traits (email, name, gender), (2) a password credential, and (3) a verified email address. At no point during this entire flow was a browser session created &mdash; the user must now go through the login flow to obtain one.
               </div>
             </div>
           </div>

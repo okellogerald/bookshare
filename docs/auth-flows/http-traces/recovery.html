@@ -4,573 +4,1825 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>BookShare Recovery Flow Trace</title>
-    <link rel="stylesheet" href="./trace.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #f8f9fb;
+        --surface: #ffffff;
+        --surface-raised: #f3f5f8;
+        --surface-sunken: #eef1f5;
+        --ink: #1a1d23;
+        --ink-secondary: #5c6370;
+        --ink-tertiary: #8b929e;
+        --border: #e2e5ea;
+        --border-light: #eef1f5;
+        --accent: #2563eb;
+        --accent-soft: #eff4ff;
+        --accent-muted: #93b4f5;
+        --success: #16a34a;
+        --success-soft: #ecfdf3;
+        --warning: #d97706;
+        --warning-soft: #fffbeb;
+        --danger: #dc2626;
+        --danger-soft: #fef2f2;
+        --info: #7c3aed;
+        --info-soft: #f5f0ff;
+        --redirect: #0891b2;
+        --redirect-soft: #ecfeff;
+        --code-bg: #1e2028;
+        --code-surface: #262830;
+        --code-ink: #d4d7e0;
+        --code-comment: #6b7280;
+        --code-keyword: #c084fc;
+        --code-string: #86efac;
+        --code-number: #fbbf24;
+        --code-header-name: #93c5fd;
+        --code-header-value: #d4d7e0;
+        --code-method-get: #34d399;
+        --code-method-post: #fbbf24;
+        --code-status: #f9a8d4;
+        --code-key: #93c5fd;
+        --actor-browser: #dbeafe;
+        --actor-auth: #dcfce7;
+        --actor-kratos: #fef3c7;
+        --actor-mail: #ffe4e6;
+        --sidebar-w: 260px;
+        --font-sans: "Avenir Medium", "Avenir-Medium", "Avenir", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-xs: 6px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+      }
+
+      [data-theme="dark"] {
+        --bg: #111318;
+        --surface: #1a1d24;
+        --surface-raised: #22252e;
+        --surface-sunken: #15171d;
+        --ink: #e4e7ed;
+        --ink-secondary: #9ca3b0;
+        --ink-tertiary: #6b7280;
+        --border: #2d3140;
+        --border-light: #22252e;
+        --accent: #60a5fa;
+        --accent-soft: #1e293b;
+        --accent-muted: #3b5998;
+        --success: #4ade80;
+        --success-soft: #14271e;
+        --warning: #fbbf24;
+        --warning-soft: #271f0f;
+        --danger: #f87171;
+        --danger-soft: #2a1515;
+        --info: #a78bfa;
+        --info-soft: #1e1533;
+        --redirect: #22d3ee;
+        --redirect-soft: #0f2a30;
+        --code-bg: #13151a;
+        --code-surface: #1a1d24;
+        --actor-browser: #1e3a5f;
+        --actor-auth: #14331e;
+        --actor-kratos: #33290f;
+        --actor-mail: #331519;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ── Layout ── */
+      .layout {
+        display: grid;
+        grid-template-columns: var(--sidebar-w) 1fr;
+        min-height: 100vh;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 24px 0;
+        z-index: 100;
+      }
+
+      .sidebar-brand {
+        padding: 0 20px 20px;
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .sidebar-brand h1 {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .sidebar-brand .badge {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 6px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .sidebar-section {
+        padding: 16px 12px 8px;
+      }
+
+      .sidebar-section-title {
+        padding: 0 8px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+      }
+
+      .nav-list {
+        list-style: none;
+        margin-top: 6px;
+      }
+
+      .nav-item a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 8px;
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        color: var(--ink-secondary);
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+
+      .nav-item a:hover {
+        color: var(--ink);
+        background: var(--surface-raised);
+      }
+
+      .nav-item.active a {
+        color: var(--accent);
+        background: var(--accent-soft);
+        font-weight: 600;
+      }
+
+      .nav-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--surface-raised);
+        color: var(--ink-tertiary);
+        font-size: 11px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .nav-item.active .nav-num {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .nav-item.error .nav-num {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .sidebar-footer {
+        padding: 16px 20px;
+        border-top: 1px solid var(--border-light);
+        margin-top: auto;
+      }
+
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        color: var(--ink-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        transition: all 0.15s;
+      }
+
+      .theme-toggle:hover {
+        background: var(--surface);
+        color: var(--ink);
+        border-color: var(--accent-muted);
+      }
+
+      /* ── Main Content ── */
+      .main {
+        padding: 32px 40px 80px;
+        max-width: 1100px;
+      }
+
+      /* ── Header ── */
+      .header {
+        margin-bottom: 32px;
+      }
+
+      .header h2 {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      .header-sub {
+        margin-top: 6px;
+        color: var(--ink-secondary);
+        font-size: 14px;
+      }
+
+      /* ── Env & Overview cards ── */
+      .overview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .card-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 14px;
+      }
+
+      .meta-table {
+        display: grid;
+        gap: 8px;
+      }
+
+      .meta-row {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 12px;
+        align-items: baseline;
+      }
+
+      .meta-key {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-tertiary);
+      }
+
+      .meta-val {
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .meta-val code {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--surface-raised);
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      /* ── Actors ── */
+      .actor-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .actor {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .actor-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      .actor.browser { background: var(--actor-browser); }
+      .actor.browser .actor-dot { background: #3b82f6; }
+      .actor.auth { background: var(--actor-auth); }
+      .actor.auth .actor-dot { background: #22c55e; }
+      .actor.kratos { background: var(--actor-kratos); }
+      .actor.kratos .actor-dot { background: #f59e0b; }
+      .actor.mail { background: var(--actor-mail); }
+      .actor.mail .actor-dot { background: #ef4444; }
+
+      /* ── Sequence Diagram ── */
+      .sequence {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 32px;
+        box-shadow: var(--shadow-sm);
+        overflow-x: auto;
+      }
+
+      .sequence-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 16px;
+      }
+
+      .seq-diagram {
+        display: grid;
+        grid-template-columns: 80px 1fr;
+        gap: 0;
+        min-width: 700px;
+      }
+
+      .seq-actors {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        grid-column: 1 / -1;
+        margin-bottom: 8px;
+      }
+
+      .seq-actor {
+        text-align: center;
+        padding: 8px 4px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .seq-row {
+        display: contents;
+      }
+
+      .seq-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-tertiary);
+        padding: 6px 8px 6px 0;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .seq-arrows {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        position: relative;
+        padding: 4px 0;
+      }
+
+      .seq-arrows::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        height: 1px;
+        background: var(--border);
+      }
+
+      .seq-cell {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 28px;
+      }
+
+      .seq-cell .seq-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--border);
+      }
+
+      /* ── Flow Path Summary ── */
+      .flow-path {
+        display: flex;
+        align-items: center;
+        gap: 6px 0;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      .flow-step {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .flow-step code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      .flow-arrow {
+        color: var(--ink-tertiary);
+        font-size: 16px;
+        padding: 0 4px;
+      }
+
+      /* ── Timeline ── */
+      .timeline-section {
+        margin-bottom: 8px;
+      }
+
+      .timeline-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 16px;
+        padding-left: 4px;
+      }
+
+      /* ── Stage ── */
+      .stage {
+        position: relative;
+        padding-left: 40px;
+        padding-bottom: 28px;
+        scroll-margin-top: 20px;
+      }
+
+      .stage::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 36px;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+      }
+
+      .stage:last-child::before {
+        display: none;
+      }
+
+      .stage-dot {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        box-shadow: 0 0 0 3px var(--bg);
+      }
+
+      .stage-dot.error-dot {
+        background: var(--danger);
+      }
+
+      .stage-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .stage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border-light);
+        flex-wrap: wrap;
+      }
+
+      .stage-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .stage-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .direction-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--surface-raised);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-secondary);
+        white-space: nowrap;
+      }
+
+      .source-badge {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .source-badge.captured {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+
+      .source-badge.derived {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .source-badge.route {
+        background: var(--info-soft);
+        color: var(--info);
+      }
+
+      /* ── Request / Response Grid ── */
+      .http-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        overflow: hidden;
+      }
+
+      .http-panel {
+        padding: 16px 20px;
+        min-width: 0;
+        overflow-x: auto;
+      }
+
+      .http-panel + .http-panel {
+        border-left: 1px solid var(--border-light);
+      }
+
+      .http-panel-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 8px;
+      }
+
+      .http-panel-desc {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--ink-secondary);
+        margin-bottom: 10px;
+        padding: 0 2px;
+      }
+
+      .http-panel-desc strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .note-box {
+        background: var(--info-soft);
+        border-left: 3px solid var(--info);
+        border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+        padding: 10px 14px;
+        margin: 12px 20px 16px;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--ink-secondary);
+      }
+
+      .note-box + .note-box {
+        margin-top: 0;
+      }
+
+      .note-box strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .note-box code {
+        background: var(--surface-sunken);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11.5px;
+      }
+
+      .note-box-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--info);
+        margin-bottom: 4px;
+      }
+
+      .json-explainer {
+        margin: 12px 20px 16px;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+      }
+
+      .json-explainer-title {
+        background: var(--surface-raised);
+        padding: 8px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .json-explainer-body {
+        padding: 10px 14px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--ink-secondary);
+      }
+
+      .json-explainer-body dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+      }
+
+      .json-explainer-body dt {
+        font-weight: 600;
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+      }
+
+      .json-explainer-body dd {
+        margin: 0;
+      }
+
+      .json-explainer-body dd code {
+        background: var(--surface-sunken);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+
+      /* ── Code Blocks ── */
+      .code-block {
+        background: var(--code-bg);
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        line-height: 1.65;
+        color: var(--code-ink);
+        white-space: pre;
+        margin: 0;
+      }
+
+      .code-block + .code-block {
+        margin-top: 8px;
+      }
+
+      /* Syntax tokens */
+      .hl-method-get { color: var(--code-method-get); font-weight: 700; }
+      .hl-method-post { color: var(--code-method-post); font-weight: 700; }
+      .hl-path { color: #e2e8f0; }
+      .hl-proto { color: var(--code-comment); }
+      .hl-status-2xx { color: var(--code-method-get); font-weight: 600; }
+      .hl-status-3xx { color: #22d3ee; font-weight: 600; }
+      .hl-status-4xx { color: #f87171; font-weight: 600; }
+      .hl-header-name { color: var(--code-header-name); }
+      .hl-header-value { color: var(--code-header-value); }
+      .hl-json-key { color: var(--code-key); }
+      .hl-json-string { color: var(--code-string); }
+      .hl-json-number { color: var(--code-number); }
+      .hl-json-bool { color: var(--code-keyword); }
+      .hl-json-null { color: var(--code-keyword); }
+      .hl-json-brace { color: #9ca3af; }
+      .hl-comment { color: var(--code-comment); font-style: italic; }
+      .hl-form-key { color: var(--code-key); }
+      .hl-form-value { color: var(--code-string); }
+
+      /* ── Method + Status Badges ── */
+      .method-badge {
+        display: inline-flex;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .method-badge.get { background: #064e3b; color: #6ee7b7; }
+      .method-badge.post { background: #78350f; color: #fde68a; }
+
+      .status-badge {
+        display: inline-flex;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .status-badge.s2xx { background: #064e3b; color: #6ee7b7; }
+      .status-badge.s3xx { background: #164e63; color: #67e8f9; }
+      .status-badge.s4xx { background: #7f1d1d; color: #fca5a5; }
+
+      /* ── Result Section ── */
+      .result-section {
+        padding: 12px 20px 14px;
+        margin: 0 20px;
+        border-top: 1px solid var(--border-light);
+        background: var(--surface-raised);
+        border-radius: var(--radius-xs);
+      }
+
+      .result-section .http-panel-label {
+        margin-bottom: 8px;
+      }
+
+      .result-table {
+        display: grid;
+        gap: 0;
+      }
+
+      .result-row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 12px;
+        align-items: baseline;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .result-row:last-child {
+        border-bottom: none;
+      }
+
+      .result-key {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ink-tertiary);
+        white-space: nowrap;
+      }
+
+      .result-val {
+        font-size: 13px;
+        font-weight: 500;
+        word-break: break-all;
+      }
+
+      .result-val code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--code-bg);
+        color: var(--code-ink);
+      }
+
+      .result-val strong {
+        font-weight: 700;
+      }
+
+      /* ── Chip List ── */
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .chip code {
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      /* ── Collapsible ── */
+      .collapsible {
+        margin-top: 8px;
+      }
+
+      .collapsible-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: var(--radius-xs);
+        background: rgba(255,255,255,0.05);
+        color: var(--code-comment);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .collapsible-toggle:hover {
+        background: rgba(255,255,255,0.1);
+        color: var(--code-ink);
+      }
+
+      .collapsible-toggle .arrow {
+        transition: transform 0.2s;
+      }
+
+      .collapsible-toggle.open .arrow {
+        transform: rotate(90deg);
+      }
+
+      .collapsible-body {
+        display: none;
+      }
+
+      .collapsible-body.open {
+        display: block;
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 1024px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: fixed;
+          left: -280px;
+          width: 280px;
+          transition: left 0.25s ease;
+          box-shadow: var(--shadow-md);
+        }
+        .sidebar.open {
+          left: 0;
+        }
+        .mobile-nav-toggle {
+          display: flex;
+        }
+        .main {
+          padding: 20px;
+        }
+      }
+
+      @media (min-width: 1025px) {
+        .mobile-nav-toggle, .mobile-overlay {
+          display: none !important;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .overview-grid {
+          grid-template-columns: 1fr;
+        }
+        .http-grid {
+          grid-template-columns: 1fr;
+        }
+        .http-panel + .http-panel {
+          border-left: none;
+          border-top: 1px solid var(--border-light);
+        }
+      }
+
+      .mobile-nav-toggle {
+        display: none;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 200;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--ink);
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 99;
+      }
+
+      .mobile-overlay.open {
+        display: block;
+      }
+
+      /* ── Print ── */
+      @media print {
+        .sidebar, .mobile-nav-toggle, .mobile-overlay, .theme-toggle, .collapsible-toggle { display: none !important; }
+        .layout { grid-template-columns: 1fr; }
+        .collapsible-body { display: block !important; }
+        .stage-card { break-inside: avoid; }
+        .code-block { white-space: pre-wrap; }
+        body { background: #fff; }
+      }
+    </style>
   </head>
   <body>
-    <div class="page">
-      <div class="hero" id="top">
-        <div class="eyebrow">Recovery Flow · HTTP Trace</div>
-        <h1>BookShare Recovery</h1>
-        <div class="subtitle">
-          Requests, responses, redirects, email delivery, privileged session
-          creation, and password reset completion.
+    <button class="mobile-nav-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">&#9776;</button>
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="layout">
+      <!-- ── Sidebar ── -->
+      <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+          <h1>BookShare</h1>
+          <div class="badge">Recovery Trace</div>
         </div>
 
-        <div class="toolbar">
-          <a href="#timeline">Jump To Timeline</a>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Overview</div>
+          <ul class="nav-list">
+            <li class="nav-item"><a href="#env"><span class="nav-num">&#8505;</span> Environment</a></li>
+            <li class="nav-item"><a href="#sequence"><span class="nav-num">&#8634;</span> Flow Diagram</a></li>
+          </ul>
         </div>
 
-        <div class="top-grid">
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Main Path</div>
+          <ul class="nav-list" id="mainNav">
+            <li class="nav-item" data-stage="0"><a href="#stage-0"><span class="nav-num">0</span> Bootstrap flow</a></li>
+            <li class="nav-item" data-stage="1"><a href="#stage-1"><span class="nav-num">1</span> Create flow</a></li>
+            <li class="nav-item" data-stage="2"><a href="#stage-2"><span class="nav-num">2</span> Email step</a></li>
+            <li class="nav-item" data-stage="3"><a href="#stage-3"><span class="nav-num">3</span> Submit email</a></li>
+            <li class="nav-item" data-stage="4"><a href="#stage-4"><span class="nav-num">4</span> Code step</a></li>
+            <li class="nav-item" data-stage="5"><a href="#stage-5"><span class="nav-num">5</span> Submit code</a></li>
+            <li class="nav-item" data-stage="6"><a href="#stage-6"><span class="nav-num">6</span> Settings flow</a></li>
+            <li class="nav-item" data-stage="7"><a href="#stage-7"><span class="nav-num">7</span> Submit password</a></li>
+            <li class="nav-item" data-stage="8"><a href="#stage-8"><span class="nav-num">8</span> Exit to login</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-footer">
+          <button class="theme-toggle" onclick="toggleTheme()">
+            <span id="themeIcon">&#9789;</span>
+            <span id="themeLabel">Dark mode</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- ── Main ── -->
+      <main class="main">
+        <!-- Header -->
+        <div class="header" id="env">
+          <h2>Recovery Flow</h2>
+          <div class="header-sub">HTTP trace of every request, redirect, header, and cookie through the full password recovery path.</div>
+        </div>
+
+        <!-- Environment + Actors -->
+        <div class="overview-grid">
           <div class="card">
-            <h2>Environment</h2>
-            <div class="meta-list">
-              <div class="meta-row">
-                <div class="meta-key">Capture Date</div>
-                <div>2026-04-09</div>
-              </div>
-              <div class="meta-row">
-                <div class="meta-key">Auth Portal</div>
-                <div><code>http://localhost:3337</code></div>
-              </div>
-              <div class="meta-row">
-                <div class="meta-key">Kratos Public</div>
-                <div><code>http://localhost:4433</code></div>
-              </div>
-              <div class="meta-row">
-                <div class="meta-key">Mailpit</div>
-                <div><code>http://localhost:4436</code></div>
-              </div>
-              <div class="meta-row">
-                <div class="meta-key">Kratos</div>
-                <div><code>v26.2.0</code></div>
-              </div>
+            <div class="card-title">Environment</div>
+            <div class="meta-table">
+              <div class="meta-row"><div class="meta-key">Captured</div><div class="meta-val">2026-04-09</div></div>
+              <div class="meta-row"><div class="meta-key">Auth Portal</div><div class="meta-val"><code>localhost:3337</code></div></div>
+              <div class="meta-row"><div class="meta-key">Kratos</div><div class="meta-val"><code>localhost:4433</code> &middot; v26.2.0</div></div>
+              <div class="meta-row"><div class="meta-key">Mailpit</div><div class="meta-val"><code>localhost:4436</code></div></div>
+              <div class="meta-row"><div class="meta-key">Identity</div><div class="meta-val"><code>trace.1775718679@example.com</code></div></div>
             </div>
           </div>
 
           <div class="card">
-            <h2>Flow Layout</h2>
-            <div class="actor-row">
-              <div class="actor browser">Browser / User</div>
-              <div class="actor auth">Auth Portal</div>
-              <div class="actor kratos">Kratos</div>
-              <div class="actor mail">Mailpit</div>
+            <div class="card-title">Actors</div>
+            <div class="actor-list">
+              <div class="actor browser"><span class="actor-dot"></span>Browser</div>
+              <div class="actor auth"><span class="actor-dot"></span>Auth Portal</div>
+              <div class="actor kratos"><span class="actor-dot"></span>Kratos</div>
+              <div class="actor mail"><span class="actor-dot"></span>Mailpit</div>
             </div>
-            <div class="outcome">
-              <code>/recovery</code> → code → <code>/settings</code> →
-              <code>/login</code>
-            </div>
-            <div class="mini-list">
-              <div>Recovery uses Kratos <code>code</code> strategy</div>
-              <div>A correct code creates a privileged <code>ory_kratos_session</code></div>
-              <div>New password is saved through the settings flow</div>
-              <div>Recovery ends at login, not inside the web app</div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div class="block" id="timeline">
-        <div class="block-head">
-          <div>
-            <div class="label">Main Path</div>
-            <h2>Recovery and password reset</h2>
-          </div>
-        </div>
-      </div>
-
-      <div class="stage" id="stage-0">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">0</div>
-            <div class="stage-title-text">
-              <div class="label">Auth Route</div>
-              <h2><code>/recovery</code> bootstraps the Kratos recovery browser flow</h2>
-            </div>
-          </div>
-          <div class="direction">Browser → Auth Portal → Browser</div>
-        </div>
-
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Request</h3>
-            <pre class="http">GET /recovery HTTP/1.1</pre>
-          </div>
-
-          <div class="card">
-            <h3>Response</h3>
-            <pre class="http">HTTP/1.1 307 Temporary Redirect
-Location: http://localhost:4433/self-service/recovery/browser</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Route</div>
-                <div class="result-value"><code>/recovery</code></div>
-              </div>
-              <div class="result-row">
-                <div class="result-key">Flow</div>
-                <div class="result-value">not started</div>
-              </div>
-              <div class="result-row">
-                <div class="result-key">Next</div>
-                <div class="result-value"><code>/self-service/recovery/browser</code></div>
-              </div>
+            <div class="flow-path" style="margin-top:16px">
+              <div class="flow-step"><code>/recovery</code> Email</div>
+              <span class="flow-arrow">&rarr;</span>
+              <div class="flow-step"><code>/recovery</code> Code</div>
+              <span class="flow-arrow">&rarr;</span>
+              <div class="flow-step"><code>/settings</code> Reset Password</div>
+              <span class="flow-arrow">&rarr;</span>
+              <div class="flow-step"><code>/login</code></div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="stage" id="stage-1">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">1</div>
-            <div class="stage-title-text">
-              <div class="label">Captured + Auth Output</div>
-              <h2>Kratos creates the recovery flow and Auth renders the email step</h2>
-            </div>
-          </div>
-          <div class="direction">Browser → Kratos → Auth Portal → Browser</div>
+        <!-- Sequence Diagram -->
+        <div class="sequence" id="sequence">
+          <div class="sequence-title">Message Sequence</div>
+          <svg viewBox="0 0 800 520" style="width:100%;height:auto;font-family:var(--font-sans)">
+            <!-- Lifelines -->
+            <line x1="100" y1="50" x2="100" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="300" y1="50" x2="300" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="500" y1="50" x2="500" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="700" y1="50" x2="700" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+            <!-- Actor boxes -->
+            <rect x="40" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
+            <text x="100" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Browser</text>
+
+            <rect x="230" y="10" width="140" height="32" rx="8" fill="var(--actor-auth)" stroke="var(--border)" stroke-width="1"/>
+            <text x="300" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Auth Portal</text>
+
+            <rect x="445" y="10" width="110" height="32" rx="8" fill="var(--actor-kratos)" stroke="var(--border)" stroke-width="1"/>
+            <text x="500" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Kratos</text>
+
+            <rect x="645" y="10" width="110" height="32" rx="8" fill="var(--actor-mail)" stroke="var(--border)" stroke-width="1"/>
+            <text x="700" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Mailpit</text>
+
+            <!-- Arrows with numbered circles -->
+            <defs>
+              <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--accent)"/></marker>
+              <marker id="arrowL" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6" fill="var(--ink-tertiary)"/></marker>
+            </defs>
+
+            <!-- 0: Browser -> Auth Portal (GET /recovery) -->
+            <line x1="104" y1="70" x2="296" y2="70" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="200" cy="70" r="10" fill="var(--accent)"/><text x="200" y="74" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">0</text>
+            <text x="204" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /recovery</text>
+
+            <!-- 1: redirect to Kratos, Kratos -> Browser (303 + flow) -->
+            <line x1="304" y1="100" x2="496" y2="100" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="100" r="10" fill="var(--accent)"/><text x="400" y="104" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
+            <text x="404" y="93" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /recovery/browser</text>
+
+            <!-- 1: Kratos -> Browser (303 + flow id) -->
+            <line x1="496" y1="120" x2="104" y2="120" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="300" y="115" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /recovery?flow=...</text>
+
+            <!-- 2: Auth Portal -> Kratos (fetch flow JSON) -->
+            <line x1="304" y1="150" x2="496" y2="150" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="150" r="10" fill="var(--accent)"/><text x="400" y="154" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
+            <text x="404" y="143" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
+
+            <!-- 2: Kratos -> Auth (200 email step) -->
+            <line x1="496" y1="170" x2="304" y2="170" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="165" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 email step</text>
+
+            <!-- 3: Browser -> Kratos (POST email) -->
+            <line x1="104" y1="200" x2="496" y2="200" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="200" r="10" fill="var(--accent)"/><text x="300" y="204" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
+            <text x="304" y="193" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST email + method=code</text>
+
+            <!-- 3: Kratos -> Mailpit (recovery email) -->
+            <line x1="504" y1="220" x2="696" y2="220" stroke="var(--warning)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <text x="600" y="215" text-anchor="middle" font-size="10" fill="var(--warning)" font-weight="600">recovery email</text>
+
+            <!-- 4: Auth Portal -> Kratos (fetch flow again) -->
+            <line x1="304" y1="250" x2="496" y2="250" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="250" r="10" fill="var(--accent)"/><text x="400" y="254" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">4</text>
+            <text x="404" y="243" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
+
+            <!-- 4: Kratos -> Auth (200 code step) -->
+            <line x1="496" y1="270" x2="304" y2="270" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="265" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 code step</text>
+
+            <!-- 5: Browser -> Kratos (POST code) -->
+            <line x1="104" y1="300" x2="496" y2="300" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="300" r="10" fill="var(--accent)"/><text x="300" y="304" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">5</text>
+            <text x="304" y="293" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST code=276808</text>
+
+            <!-- 5: Kratos -> Browser (303 + session + settings flow) -->
+            <line x1="496" y1="320" x2="104" y2="320" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="300" y="315" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /settings?flow=... + session</text>
+
+            <!-- 6: Auth Portal -> Kratos (GET /settings/flows) -->
+            <line x1="304" y1="355" x2="496" y2="355" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="355" r="10" fill="var(--accent)"/><text x="400" y="359" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">6</text>
+            <text x="404" y="348" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /settings/flows?id=...</text>
+
+            <!-- 6: Kratos -> Auth (200 settings) -->
+            <line x1="496" y1="375" x2="304" y2="375" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="370" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 settings (password)</text>
+
+            <!-- 7: Browser -> Kratos (POST password) -->
+            <line x1="104" y1="405" x2="496" y2="405" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="405" r="10" fill="var(--accent)"/><text x="300" y="409" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">7</text>
+            <text x="304" y="398" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST method=password</text>
+
+            <!-- 8: Auth Portal -> Browser (307 /login) -->
+            <line x1="296" y1="440" x2="104" y2="440" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
+            <circle cx="200" cy="440" r="10" fill="var(--success)"/><text x="200" y="444" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">8</text>
+            <text x="204" y="433" font-size="10" fill="var(--success)" font-weight="600">307 /login</text>
+
+            <!-- Bottom bar -->
+            <rect x="40" y="465" width="720" height="18" rx="4" fill="var(--info-soft)" opacity="0.5"/>
+            <text x="400" y="478" text-anchor="middle" font-size="10" fill="var(--info)" font-weight="600">Privileged session created for password reset only &mdash; user must log in after recovery</text>
+          </svg>
         </div>
 
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Creation Response</h3>
-            <pre class="http">HTTP/1.1 303 See Other
-Cache-Control: private, no-cache, no-store, must-revalidate
-Content-Type: text/html; charset=utf-8
-Location: http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170
-Set-Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=o19amlB7ngYS3aqgtxoomWwy5yjUJ/TJAnKtvyFOpus=; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax
-Date: Thu, 09 Apr 2026 07:11:23 GMT</pre>
+        <!-- ── Timeline ── -->
+        <div class="timeline-section" id="timeline">
+          <div class="timeline-label">Main Path</div>
 
-            <pre class="http">GET /self-service/recovery/flows?id=74124c0b-886e-4041-8386-ab63939c8170 HTTP/1.1
-Accept: application/json
-Cookie: csrf_token_82b119fa58a0a1cb6faa9738c1d0dbbf04fcc89a657b7beb31fcde400ced48ab=...</pre>
+          <!-- Stage 0 -->
+          <div class="stage" id="stage-0">
+            <div class="stage-dot">0</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal bootstraps the recovery flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
+                  <span class="source-badge route">Auth Route</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> navigates to the Auth Portal's recovery page. No flow exists yet &mdash; the Auth Portal redirects to <strong>Kratos</strong> to create one.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/recovery</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> redirects the Browser to Kratos' recovery browser endpoint.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4433/self-service/recovery/browser</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/recovery</code></div></div>
+                  <div class="result-row"><div class="result-key">Flow</div><div class="result-val">not started</div></div>
+                  <div class="result-row"><div class="result-key">Next</div><div class="result-val"><code>/self-service/recovery/browser</code></div></div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="card">
-            <h3>Flow Response</h3>
-            <pre class="http">HTTP/1.1 200 OK
-Cache-Control: private, no-cache, no-store, must-revalidate
-Content-Type: application/json; charset=utf-8
-Vary: Cookie
-Date: Thu, 09 Apr 2026 07:11:23 GMT
-Content-Length: 1068
-Connection: close</pre>
-
-            <pre class="http">{
-  "id": "74124c0b-886e-4041-8386-ab63939c8170",
-  "state": "choose_method",
-  "active": "code",
-  "ui": {
-    "action": "http://localhost:4433/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170",
-    "method": "POST",
-    "nodes": [
-      { "group": "default", "name": "csrf_token", "type": "hidden" },
-      { "group": "code", "name": "email", "type": "email", "required": true },
-      { "group": "code", "name": "method", "type": "submit", "value": "code" }
-    ]
-  }
-}</pre>
+          <!-- Stage 1 -->
+          <div class="stage" id="stage-1">
+            <div class="stage-dot">1</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Kratos creates the recovery flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected from Stage 0) sends a GET to <strong>Kratos</strong> to initialize a new recovery flow.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/recovery/browser</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> creates the recovery flow and redirects back to the Auth Portal with the flow ID and CSRF cookie. Same pattern as registration &mdash; Kratos doesn't return flow details here.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span>
+<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">csrf_token_...=...; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/recovery?flow=74124c0b...8170</code></div></div>
+                  <div class="result-row"><div class="result-key">Flow ID</div><div class="result-val"><code>74124c0b-886e-4041-8386-ab63939c8170</code></div></div>
+                  <div class="result-row"><div class="result-key">CSRF Cookie</div><div class="result-val">set</div></div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Route</div>
-                <div class="result-value"><code>/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</code></div>
+          <!-- Stage 2 -->
+          <div class="stage" id="stage-2">
+            <div class="stage-dot">2</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal loads the recovery flow &mdash; email step</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Screen</div>
-                <div class="result-value">Recovery · Email entry</div>
-              </div>
-              <div class="result-row">
-                <div class="result-key">Inputs</div>
-                <div class="result-value">
-                  <div class="chip-list">
-                    <span class="chip">Email</span>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> fetches the recovery flow from <strong>Kratos</strong> using the flow ID. The CSRF cookie authenticates the request.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/recovery/flows?id=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the recovery flow. The state is <code>"choose_method"</code> and the active method is <code>"code"</code>. The form has one visible field: the email address input, plus the <code>method=code</code> submit button.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
+
+                  <div class="collapsible">
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
+                    <div class="collapsible-body">
+                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"74124c0b-886e-4041-8386-ab63939c8170"</span>,
+  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"choose_method"</span>,
+  <span class="hl-json-key">"active"</span>: <span class="hl-json-string">"code"</span>,
+  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"action"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/recovery?flow=74124c0b..."</span>,
+    <span class="hl-json-key">"method"</span>: <span class="hl-json-string">"POST"</span>,
+    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"default"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"csrf_token"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"email"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"email"</span>,
+        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
+      <span class="hl-json-brace">}</span>
+    <span class="hl-json-brace">]</span>
+  <span class="hl-json-brace">}</span>
+<span class="hl-json-brace">}</span></pre>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Submit</div>
-                <div class="result-value"><code>method=code</code></div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Recovery &middot; Email</div></div>
+                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Email</div></div>
+                  <div class="result-row"><div class="result-key">Submit</div><div class="result-val"><code>method=code</code></div></div>
+                </div>
+              </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the recovery JSON</div>
+                <div class="json-explainer-body">
+                  <dl>
+                    <dt>"active": "code"</dt>
+                    <dd>The active recovery strategy. Kratos supports multiple strategies; BookShare uses <code>code</code> (a 6-digit code sent to the user's email). This is configured in <code>kratos.yml</code>.</dd>
+                    <dt>group: "code"</dt>
+                    <dd>All recovery-specific nodes use this group. Unlike registration (which has "default", "profile", "password"), recovery only has "default" (CSRF) and "code" (the recovery method).</dd>
+                    <dt>"email" field</dt>
+                    <dd>The user's email address input. Kratos uses this to look up the identity. If no identity exists with this email, Kratos still behaves identically (to prevent email enumeration).</dd>
+                    <dt>"method": "submit"</dt>
+                    <dd>The submit button with <code>value: "code"</code>. Sends <code>method=code</code> to tell Kratos to use the code recovery strategy.</dd>
+                  </dl>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note</div>
+                At this point there is no session and no privileged access. Recovery is in the "who are you?" phase.
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="stage" id="stage-2">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">2</div>
-            <div class="stage-title-text">
-              <div class="label">Captured</div>
-              <h2>Browser submits the recovery email</h2>
-            </div>
-          </div>
-          <div class="direction">Browser → Kratos → Browser</div>
-        </div>
-
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Request</h3>
-            <pre class="http">POST /self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170 HTTP/1.1
-Content-Type: application/x-www-form-urlencoded
-
-csrf_token=...
-email=trace.1775718679%40example.com
-method=code</pre>
-          </div>
-
-          <div class="card">
-            <h3>Response</h3>
-            <pre class="http">HTTP/1.1 303 See Other
-Location: http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170
-Vary: Cookie
-Date: Thu, 09 Apr 2026 07:11:24 GMT
-Content-Length: 0
-Connection: close</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Route</div>
-                <div class="result-value"><code>/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</code></div>
+          <!-- Stage 3 -->
+          <div class="stage" id="stage-3">
+            <div class="stage-dot">3</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Browser submits the recovery email</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Flow</div>
-                <div class="result-value">unchanged</div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the email form to <strong>Kratos</strong>. The <code>method=code</code> field tells Kratos to send a recovery code to the provided email address.</div>
+                  <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span>
+
+<span class="hl-form-key">csrf_token</span>=<span class="hl-form-value">...</span>
+<span class="hl-form-key">email</span>=<span class="hl-form-value">trace.1775718679%40example.com</span>
+<span class="hl-form-key">method</span>=<span class="hl-form-value">code</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> sends a recovery code email and redirects back to the Auth Portal with the same flow ID. The flow advances internally from "choose_method" to "sent_email".</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span></pre>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Next screen</div>
-                <div class="result-value">Recovery · Code entry</div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Flow</div><div class="result-val">unchanged &mdash; same ID</div></div>
+                  <div class="result-row"><div class="result-key">Next Screen</div><div class="result-val">Recovery &middot; Code</div></div>
+                  <div class="result-row"><div class="result-key">Email Sent</div><div class="result-val">yes</div></div>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Anti-enumeration</div>
+                Kratos sends the recovery email regardless of whether the email exists. This prevents email enumeration attacks &mdash; an attacker cannot determine which emails are registered by observing the response.
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="stage" id="stage-3">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">3</div>
-            <div class="stage-title-text">
-              <div class="label">Captured + Mail</div>
-              <h2>Kratos returns the code step and sends the recovery email</h2>
-            </div>
-          </div>
-          <div class="direction">Auth Portal → Kratos / Mailpit → Browser</div>
-        </div>
-
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Flow Response</h3>
-            <pre class="http">HTTP/1.1 200 OK
-Cache-Control: private, no-cache, no-store, must-revalidate
-Content-Type: application/json; charset=utf-8
-Vary: Cookie
-Date: Thu, 09 Apr 2026 07:11:24 GMT
-Content-Length: 1753
-Connection: close</pre>
-
-            <pre class="http">{
-  "id": "74124c0b-886e-4041-8386-ab63939c8170",
-  "state": "sent_email",
-  "active": "code",
-  "ui": {
-    "nodes": [
-      { "group": "default", "name": "csrf_token", "type": "hidden" },
-      { "group": "code", "name": "code", "type": "text", "required": true, "maxlength": 6 },
-      { "group": "code", "name": "method", "type": "hidden", "value": "code" },
-      { "group": "code", "name": "method", "type": "submit", "value": "code" },
-      { "group": "code", "name": "email", "type": "submit", "value": "trace.1775718679@example.com" }
-    ]
-  }
-}</pre>
-          </div>
-
-          <div class="card">
-            <h3>Mail Output</h3>
-            <pre class="http">{
-  "Subject": "Use code 276808 to recover access to your account",
-  "Created": "2026-04-09T07:11:24.345Z",
-  "Snippet": "Recover access to your account by entering the following code: 276808 ..."
-}</pre>
-
-            <pre class="http">276808</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Screen</div>
-                <div class="result-value">Recovery · Code entry</div>
+          <!-- Stage 4 -->
+          <div class="stage" id="stage-4">
+            <div class="stage-dot">4</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal loads the code step</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Inputs</div>
-                <div class="result-value">
-                  <div class="chip-list">
-                    <span class="chip">Recovery code</span>
-                    <span class="chip">Resend code</span>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> re-fetches the same flow from <strong>Kratos</strong>. The flow has advanced to the code entry step.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/recovery/flows?id=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the updated flow. State is now <code>"sent_email"</code>. The nodes show a code input field, a submit button, and a resend email action. A message confirms the code was sent.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
+
+                  <div class="collapsible">
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
+                    <div class="collapsible-body">
+                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"74124c0b-886e-4041-8386-ab63939c8170"</span>,
+  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"sent_email"</span>,
+  <span class="hl-json-key">"active"</span>: <span class="hl-json-string">"code"</span>,
+  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"default"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"csrf_token"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>,
+        <span class="hl-json-key">"maxlength"</span>: <span class="hl-json-number">6</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"email"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>
+      <span class="hl-json-brace">}</span>
+    <span class="hl-json-brace">]</span>,
+    <span class="hl-json-key">"messages"</span>: <span class="hl-json-brace">[</span>
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"id"</span>: <span class="hl-json-number">1060003</span>,
+        <span class="hl-json-key">"text"</span>: <span class="hl-json-string">"An email containing a recovery code has been sent to the email address you provided."</span>
+      <span class="hl-json-brace">}</span>
+    <span class="hl-json-brace">]</span>
+  <span class="hl-json-brace">}</span>
+<span class="hl-json-brace">}</span></pre>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Code</div>
-                <div class="result-value"><code>276808</code></div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Recovery &middot; Code</div></div>
+                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Code (6-digit)</div></div>
+                  <div class="result-row"><div class="result-key">Email Sent</div><div class="result-val"><code>Use code 276808 to recover access to your account</code></div></div>
+                  <div class="result-row"><div class="result-key">Code</div><div class="result-val"><code>276808</code></div></div>
+                </div>
+              </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the code step JSON</div>
+                <div class="json-explainer-body">
+                  <dl>
+                    <dt>"state": "sent_email"</dt>
+                    <dd>The flow advanced from <code>"choose_method"</code>. Kratos has already dispatched the recovery email.</dd>
+                    <dt>"code" input (maxlength: 6)</dt>
+                    <dd>The text field for the 6-digit recovery code.</dd>
+                    <dt>hidden method=code</dt>
+                    <dd>Automatically included to tell Kratos which method is being used on submit.</dd>
+                    <dt>submit method=code</dt>
+                    <dd>The submit button for the code.</dd>
+                    <dt>submit email=...</dt>
+                    <dd>The resend action. Clicking this re-sends the recovery code to the same email. The email address is embedded as the button's value.</dd>
+                    <dt>"messages"</dt>
+                    <dd>A UI-level message array. Kratos adds informational and error messages here. The Auth Portal can display these to the user.</dd>
+                  </dl>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="stage" id="stage-4">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">4</div>
-            <div class="stage-title-text">
-              <div class="label">Captured</div>
-              <h2>Browser submits the recovery code</h2>
+          <!-- Stage 5 -->
+          <div class="stage" id="stage-5">
+            <div class="stage-dot">5</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Browser submits the recovery code</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the 6-digit recovery code to <strong>Kratos</strong>. The hidden <code>method=code</code> field is included.</div>
+                  <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span>
+
+<span class="hl-form-key">csrf_token</span>=<span class="hl-form-value">...</span>
+<span class="hl-form-key">method</span>=<span class="hl-form-value">code</span>
+<span class="hl-form-key">code</span>=<span class="hl-form-value">276808</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates the code. On success, it creates a <strong>privileged session</strong> (<code>ory_kratos_session</code>) and redirects to the Auth Portal's settings page with a <strong>brand new settings flow ID</strong>. The recovery flow is now consumed.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</span>
+<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; HttpOnly; SameSite=Lax</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings?flow=b871d432...31c3</code></div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">privileged session created</div></div>
+                  <div class="result-row"><div class="result-key">Recovery Flow</div><div class="result-val">consumed</div></div>
+                  <div class="result-row"><div class="result-key">Settings Flow</div><div class="result-val">new</div></div>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Critical transition: recovery to settings</div>
+                This is the most important step in the recovery flow. Three major things happen:
+                <br><br>
+                <strong>1. Privileged session created.</strong> Kratos creates a session with elevated privileges. This is not a normal login session &mdash; it has a short privilege window (15 minutes by default) that allows the user to change their password without re-entering their current one.
+                <br><br>
+                <strong>2. New flow type.</strong> The redirect points to <code>/settings</code> with a new flow ID. The recovery flow (<code>74124c0b...</code>) is consumed and replaced by a settings flow (<code>b871d432...</code>). This is a different flow type entirely.
+                <br><br>
+                <strong>3. No password written yet.</strong> The recovery code only proves identity ownership &mdash; it does not set a new password. The actual password change happens in the settings flow (Stage 6-7).
+              </div>
+              <div class="note-box" style="border-left-color:var(--danger);background:var(--danger-soft)">
+                <div class="note-box-label" style="color:var(--danger)">Warning</div>
+                The recovery code is single-use. Once submitted successfully, it cannot be reused. If the user navigates away before setting a new password, the privileged session eventually expires (15 minutes) and they must start recovery again.
+              </div>
             </div>
           </div>
-          <div class="direction">Browser → Kratos → Browser</div>
-        </div>
 
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Request</h3>
-            <pre class="http">POST /self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170 HTTP/1.1
-Content-Type: application/x-www-form-urlencoded
-
-csrf_token=...
-method=code
-code=276808</pre>
-          </div>
-
-          <div class="card">
-            <h3>Response</h3>
-            <pre class="http">HTTP/1.1 303 See Other
-Location: http://localhost:3337/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3
-Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:24 GMT; Max-Age=86399; HttpOnly; SameSite=Lax
-Vary: Cookie
-Date: Thu, 09 Apr 2026 07:11:25 GMT
-Content-Length: 0
-Connection: close</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Route</div>
-                <div class="result-value"><code>/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</code></div>
+          <!-- Stage 6 -->
+          <div class="stage" id="stage-6">
+            <div class="stage-dot">6</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal loads the recovery-created settings flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Cookie</div>
-                <div class="result-value"><code>ory_kratos_session</code></div>
-              </div>
-              <div class="result-row">
-                <div class="result-key">Meaning</div>
-                <div class="result-value">privileged session created; password not yet changed</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> fetches the settings flow from <strong>Kratos</strong> using the new flow ID from Stage 5's redirect. The privileged session cookie authenticates the request.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/settings/flows?id=b871d432-8db2-4743-b686-e649e7f931c3</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; csrf_token_...=...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the settings flow. It contains BOTH <code>profile</code> and <code>password</code> groups &mdash; the full settings form. A message indicates recovery context with a 15-minute window. BookShare intentionally ignores the profile nodes and renders only the password reset form.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
 
-      <div class="stage" id="stage-5">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">5</div>
-            <div class="stage-title-text">
-              <div class="label">Captured + Auth Output</div>
-              <h2>Recovery enters a password-only view of the settings flow</h2>
-            </div>
-          </div>
-          <div class="direction">Browser → Kratos → Auth Portal → Browser</div>
-        </div>
-
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Privileged Session Check</h3>
-            <pre class="http">HTTP/1.1 200 OK
-Cache-Control: private, no-cache, no-store, must-revalidate
-Content-Type: application/json; charset=utf-8
-Vary: Cookie
-X-Kratos-Authenticated-Identity-Id: dfc0f507-4e36-4d69-9d8a-dd02b08b825d
-Date: Thu, 09 Apr 2026 07:11:25 GMT
-Content-Length: 1451
-Connection: close</pre>
-
-            <pre class="http">{
-  "authentication_methods": [
-    {
-      "method": "code_recovery",
-      "aal": "aal1",
-      "completed_at": "2026-04-09T07:11:25.110634426Z"
-    }
-  ]
-}</pre>
-          </div>
-
-          <div class="card">
-            <h3>Settings Flow Response</h3>
-            <pre class="http">HTTP/1.1 200 OK
-Cache-Control: private, no-cache, no-store, must-revalidate
-Content-Type: application/json; charset=utf-8
-Vary: Cookie
-Date: Thu, 09 Apr 2026 07:11:25 GMT
-Transfer-Encoding: chunked
-Connection: close</pre>
-
-            <pre class="http">{
-  "id": "b871d432-8db2-4743-b686-e649e7f931c3",
-  "request_url": "http://localhost:4433/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170",
-  "ui": {
-    "action": "http://localhost:4433/self-service/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3",
-    "nodes": [
-      { "group": "profile", "name": "traits.email", "type": "email" },
-      { "group": "profile", "name": "method", "type": "submit", "value": "profile" },
-      { "group": "password", "name": "password", "type": "password", "required": true },
-      { "group": "password", "name": "method", "type": "submit", "value": "password" }
-    ]
-  }
-}</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Route</div>
-                <div class="result-value"><code>/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</code></div>
-              </div>
-              <div class="result-row">
-                <div class="result-key">Screen</div>
-                <div class="result-value">Recovery reset · Password only</div>
-              </div>
-              <div class="result-row">
-                <div class="result-key">Visible input</div>
-                <div class="result-value">
-                  <div class="chip-list">
-                    <span class="chip">New password</span>
+                  <div class="collapsible">
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
+                    <div class="collapsible-body">
+                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"b871d432-8db2-4743-b686-e649e7f931c3"</span>,
+  <span class="hl-json-key">"request_url"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/recovery?flow=74124c0b..."</span>,
+  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"action"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/settings?flow=b871d432..."</span>,
+    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.email"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"email"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.name.first"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"Trace"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.name.last"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"Runner"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.gender"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"prefer_not_to_say"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"profile"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"password"</span>
+      <span class="hl-json-brace">}</span>
+    <span class="hl-json-brace">]</span>,
+    <span class="hl-json-key">"messages"</span>: <span class="hl-json-brace">[</span>
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"id"</span>: <span class="hl-json-number">1060001</span>,
+        <span class="hl-json-key">"text"</span>: <span class="hl-json-string">"You successfully recovered your account. Please change your password or set up an alternative login method (e.g. social sign in) within the next 15.00 minutes."</span>
+      <span class="hl-json-brace">}</span>
+    <span class="hl-json-brace">]</span>
+  <span class="hl-json-brace">}</span>
+<span class="hl-json-brace">}</span></pre>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Hidden reality</div>
-                <div class="result-value">Kratos still returned profile and password groups together</div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Recovery &middot; Set New Password</div></div>
+                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Password only (profile ignored)</div></div>
+                  <div class="result-row"><div class="result-key">Submit</div><div class="result-val"><code>method=password</code></div></div>
+                  <div class="result-row"><div class="result-key">Privilege Window</div><div class="result-val">15 minutes</div></div>
+                </div>
+              </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the settings flow in recovery context</div>
+                <div class="json-explainer-body">
+                  <dl>
+                    <dt>"request_url" points to recovery</dt>
+                    <dd>This confirms this settings flow was created by the recovery process. Normal settings flows have a <code>/settings</code> request_url.</dd>
+                    <dt>group: "profile" nodes</dt>
+                    <dd>Kratos includes the full profile (email, name, gender) with pre-filled values. BookShare ignores these entirely in recovery mode &mdash; the user is here to reset their password, not edit their profile.</dd>
+                    <dt>group: "password"</dt>
+                    <dd>The password input field and <code>method=password</code> submit. This is the only group BookShare renders. No "current password" field is required because the privileged session from the recovery code grants access.</dd>
+                    <dt>"messages" with ID 1060001</dt>
+                    <dd>Kratos' built-in recovery success message indicating the 15-minute privilege window.</dd>
+                  </dl>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Why recovery has its own settings model</div>
+                Kratos returns a generic settings flow with both profile and password groups. BookShare must filter this down to password-only to create the recovery password reset experience.
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="stage" id="stage-6">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">6</div>
-            <div class="stage-title-text">
-              <div class="label">Captured</div>
-              <h2>Browser submits the new password</h2>
-            </div>
-          </div>
-          <div class="direction">Browser → Kratos → Browser</div>
-        </div>
-
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Request</h3>
-            <pre class="http">POST /self-service/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3 HTTP/1.1
-Content-Type: application/x-www-form-urlencoded
-
-csrf_token=...
-password=ResetPassw0rd2026
-method=password</pre>
-          </div>
-
-          <div class="card">
-            <h3>Response</h3>
-            <pre class="http">HTTP/1.1 303 See Other
-Location: http://localhost:3337/settings/complete
-Set-Cookie: ory_kratos_session=...; Path=/; Expires=Fri, 10 Apr 2026 07:11:24 GMT; Max-Age=86399; HttpOnly; SameSite=Lax
-Vary: Cookie
-Date: Thu, 09 Apr 2026 07:11:25 GMT
-Content-Length: 0
-Connection: close</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Route</div>
-                <div class="result-value"><code>/settings/complete</code></div>
+          <!-- Stage 7 -->
+          <div class="stage" id="stage-7">
+            <div class="stage-dot">7</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Browser submits the new password</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Password</div>
-                <div class="result-value">persisted by Kratos</div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the new password to <strong>Kratos</strong> via the settings flow. Only the password and <code>method=password</code> are sent &mdash; no profile fields.</div>
+                  <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; csrf_token_...=...</span>
+
+<span class="hl-form-key">csrf_token</span>=<span class="hl-form-value">...</span>
+<span class="hl-form-key">password</span>=<span class="hl-form-value">ResetPassw0rd2026</span>
+<span class="hl-form-key">method</span>=<span class="hl-form-value">password</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates and persists the new password. The session cookie is refreshed. Kratos redirects to the Auth Portal's settings completion endpoint.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/settings/complete</span>
+<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; HttpOnly; SameSite=Lax</span></pre>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Session</div>
-                <div class="result-value"><code>ory_kratos_session</code> remains present</div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings/complete</code></div></div>
+                  <div class="result-row"><div class="result-key">Password</div><div class="result-val">updated</div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">refreshed</div></div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="stage" id="stage-7">
-        <div class="stage-head">
-          <div class="stage-title">
-            <div class="stage-id">7</div>
-            <div class="stage-title-text">
-              <div class="label">Auth Route</div>
-              <h2>Recovery completion exits to login</h2>
-            </div>
-          </div>
-          <div class="direction">Browser → Auth Portal → Browser</div>
-        </div>
-
-        <div class="stage-grid">
-          <div class="card">
-            <h3>Request</h3>
-            <pre class="http">GET /settings/complete HTTP/1.1
-Cookie: ory_kratos_session=...</pre>
-          </div>
-
-          <div class="card">
-            <h3>Response</h3>
-            <pre class="http">HTTP/1.1 307 Temporary Redirect
-Location: http://localhost:3337/login</pre>
-          </div>
-
-          <div class="card">
-            <h3>Result</h3>
-            <div class="result-grid">
-              <div class="result-row">
-                <div class="result-key">Final route</div>
-                <div class="result-value"><code>/login</code></div>
+          <!-- Stage 8 -->
+          <div class="stage" id="stage-8">
+            <div class="stage-dot" style="background:var(--success)">8</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal completes recovery &mdash; exits to login</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
+                  <span class="source-badge route">Auth Route</span>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Recovery</div>
-                <div class="result-value">complete</div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> follows the redirect to the <strong>Auth Portal's</strong> settings completion endpoint.</div>
+                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/settings/complete</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> redirects the Browser to <code>/login</code>. Recovery is complete &mdash; the user has a new password but must log in again with it.</div>
+                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/login</span></pre>
+                </div>
               </div>
-              <div class="result-row">
-                <div class="result-key">Requirement</div>
-                <div class="result-value">user must sign in again with the new password</div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/login</code></div></div>
+                  <div class="result-row"><div class="result-key">Recovery</div><div class="result-val" style="color:var(--success)"><strong>completed</strong></div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">none &mdash; user must log in</div></div>
+                </div>
+              </div>
+              <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
+                <div class="note-box-label" style="color:var(--success)">Note &mdash; Recovery complete</div>
+                Recovery does not automatically log the user into the web app. The privileged session was only valid inside the auth box for the password reset. The user must now go through the full login flow (including Hydra) with their new password.
               </div>
             </div>
           </div>
+
         </div>
-      </div>
+      </main>
     </div>
+
+    <script>
+      // Theme toggle
+      function toggleTheme() {
+        const html = document.documentElement;
+        const isDark = html.getAttribute('data-theme') === 'dark';
+        html.setAttribute('data-theme', isDark ? '' : 'dark');
+        document.getElementById('themeIcon').textContent = isDark ? '\u263D' : '\u2600';
+        document.getElementById('themeLabel').textContent = isDark ? 'Dark mode' : 'Light mode';
+        localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      }
+
+      // Restore theme
+      if (localStorage.getItem('theme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.getElementById('themeIcon').textContent = '\u2600';
+        document.getElementById('themeLabel').textContent = 'Light mode';
+      }
+
+      // Collapsible
+      function toggleCollapsible(btn) {
+        btn.classList.toggle('open');
+        btn.nextElementSibling.classList.toggle('open');
+      }
+
+      // Mobile sidebar
+      function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('mobileOverlay').classList.toggle('open');
+      }
+
+      // Active nav on scroll
+      const stages = document.querySelectorAll('.stage');
+      const navItems = document.querySelectorAll('.nav-item');
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            navItems.forEach(item => {
+              const link = item.querySelector('a');
+              item.classList.toggle('active', link.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      stages.forEach(s => observer.observe(s));
+
+      // Close sidebar on nav click (mobile)
+      document.querySelectorAll('.nav-item a').forEach(a => {
+        a.addEventListener('click', () => {
+          if (window.innerWidth <= 1024) {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('mobileOverlay').classList.remove('open');
+          }
+        });
+      });
+    </script>
   </body>
 </html>
