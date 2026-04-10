@@ -16,7 +16,8 @@ import {
   type JWK,
 } from "jose";
 import { createHash } from "crypto";
-import { type Database, memberProfiles } from "@bookshare/db";
+import { type Database, memberProfiles, staffRoles } from "@bookshare/db";
+import { UserRole } from "@bookshare/shared";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
@@ -110,6 +111,7 @@ export class AuthGuard implements CanActivate {
       }
 
       const mappedUser = this.mapToAuthenticatedUser(payload);
+      mappedUser.roles = await this.resolveAuthorizedRoles(mappedUser);
       await this.ensureActiveAccount(mappedUser.id);
       request.user = mappedUser;
       return true;
@@ -254,6 +256,43 @@ export class AuthGuard implements CanActivate {
 
   private getIssuer(): string {
     return this.configService.getOrThrow<string>("OIDC_ISSUER");
+  }
+
+  private normalizeEmail(value: string | undefined) {
+    if (!value) return null;
+    const normalized = value.trim().toLowerCase();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private parseBootstrapEmails() {
+    return new Set(
+      (this.configService.get<string>("BOOTSTRAP_ADMIN_EMAILS") ?? "")
+        .split(",")
+        .map((value) => this.normalizeEmail(value))
+        .filter((value): value is string => !!value)
+    );
+  }
+
+  private async resolveAuthorizedRoles(
+    user: Pick<AuthenticatedUser, "id" | "email" | "roles">
+  ) {
+    const roles = new Set(user.roles);
+    const email = this.normalizeEmail(user.email);
+
+    if (email && this.parseBootstrapEmails().has(email)) {
+      roles.add(UserRole.OWNER);
+    }
+
+    const persistedRoles = await this.db
+      .select({ role: staffRoles.role })
+      .from(staffRoles)
+      .where(eq(staffRoles.userId, user.id));
+
+    for (const entry of persistedRoles) {
+      roles.add(entry.role);
+    }
+
+    return Array.from(roles);
   }
 
   private async verifyToken(token: string): Promise<IdentityJwtPayload> {

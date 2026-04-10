@@ -13,7 +13,7 @@ This app is for platform staff only. It is distinct from:
 
 ## Current Status
 
-Current milestone: `Catalog Operations & Staff Management`
+Current milestone: `Catalog Operations & Batch Ingestion`
 
 ## Milestones
 
@@ -27,8 +27,8 @@ Current milestone: `Catalog Operations & Staff Management`
 - [x] Restrict admin-capable NestJS endpoints with `@Roles(...)`
 - [x] Add admin API proxy and query layer
 - [x] Ship Catalog Workbench v0
+- [x] Ship Staff Management v0
 - [ ] Ship batch ingestion UI
-- [ ] Ship Staff Management v0
 
 ## Decisions
 
@@ -51,27 +51,29 @@ The first slice in progress is:
    - Staff
 5. Staff can search the current catalog from the admin app
 6. Staff roles are enforced from auth claims through admin route protection and API writes
+7. Staff can search identities, grant platform access, and revoke roles from the admin app
 
 This slice does not yet include:
 
-- staff directory and role grant/revoke screens
 - full catalog CRUD backed by API data
 - import/batch execution from the browser
 - duplicate-aware catalog tooling beyond search
+- staff-role audit history beyond current assignment state
 
 ## Next Tasks
 
 1. Build Catalog Workbench create/edit flows on top of the new search path
-2. Add staff directory and role grant/revoke actions
-3. Surface staff-role audit context in the admin UI
+2. Surface staff-role audit context in the admin UI
+3. Add batch-ingestion validation and preview workflow
 4. Add create-on-behalf member listing flow
-5. Build browser-based batch validation/preview/commit
+5. Build browser-based batch commit flow
 
 ## Key Files
 
 - `docs/admin-dashboard-implementation.md`
 - `apps/admin`
 - `apps/admin/src/features/catalog/components/catalog-workbench.tsx`
+- `apps/admin/src/features/staff/components/staff-management.tsx`
 - `infra/ory/hydra/init-client.sh`
 - `docker-compose.dev.yml`
 - `packages/db/src/schema/staff-roles.ts`

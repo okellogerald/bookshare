@@ -17,6 +17,7 @@ import { WishesModule } from "./modules/wishes/wishes.module";
 import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { SubmissionsModule } from "./modules/submissions/submissions.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { StaffModule } from "./modules/staff/staff.module";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
     NotificationsModule,
     ProfilesModule,
     SubmissionsModule,
+    StaffModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

@@ -1,3 +1,5 @@
+import { getSession } from "@/features/auth/lib/session";
+import { StaffManagement } from "@/features/staff/components/staff-management";
 import {
   Card,
   CardContent,
@@ -6,7 +8,10 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card";
 
-export default function StaffPage() {
+export default async function StaffPage() {
+  const session = await getSession();
+  const actorRoles = session?.user.roles ?? [];
+
   return (
     <section>
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
@@ -21,35 +26,22 @@ export default function StaffPage() {
         explicitly introduced later.
       </p>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
-        <Card className="border-border/80 bg-background/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Roles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="text-sm leading-6 text-slate-600">
-            Grant and revoke internal access levels such as owner, manager, and staff.
+      <div className="mt-8 space-y-4">
+        <StaffManagement actorRoles={actorRoles} />
+
+        <Card className="border-dashed border-border/90 bg-background/75">
+          <CardHeader>
+            <CardTitle className="text-lg">What comes next</CardTitle>
+            <CardDescription>
+              This v0 keeps staff management operational and intentionally narrow.
             </CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="border-border/80 bg-background/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Access Control</CardTitle>
           </CardHeader>
-          <CardContent>
-            <CardDescription className="text-sm leading-6 text-slate-600">
-            Ensure admin capabilities are limited to trusted platform operators only.
-            </CardDescription>
-          </CardContent>
-        </Card>
-        <Card className="border-border/80 bg-background/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Audit Trail</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="text-sm leading-6 text-slate-600">
-            Track who changed staff privileges and when those changes happened.
-            </CardDescription>
+          <CardContent className="space-y-2 text-sm leading-6 text-slate-700">
+            <p>Next, we can surface who granted each role and when.</p>
+            <p>
+              After that, the same admin shell can take on member management and
+              create-on-behalf flows without colliding with the future bookstore app.
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -249,6 +249,7 @@ services:
       PORT: 3333
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
       AUTH_PROVIDER: ory
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
       OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
       OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
@@ -330,9 +331,12 @@ services:
       context: .
       dockerfile: apps/admin/Dockerfile.dev
     restart: unless-stopped
+    command: ["/bin/sh", "-lc", "bun install --frozen-lockfile && bun run dev"]
     environment:
       PORT: 3338
       NEXT_PUBLIC_APP_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
       NEXT_PUBLIC_POSTGREST_URL: ${PUBLIC_POSTGREST_URL:-http://localhost:3336}
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
@@ -350,6 +354,9 @@ services:
     ports:
       - "3338:3338"
     volumes:
+      - ./package.json:/app/package.json:ro
+      - ./bun.lock:/app/bun.lock:ro
+      - ./apps/admin/package.json:/app/apps/admin/package.json:ro
       - ./apps/admin/src:/app/apps/admin/src
       - ./packages/shared/src:/app/packages/shared/src
     depends_on:
