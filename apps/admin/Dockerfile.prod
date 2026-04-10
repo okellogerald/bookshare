@@ -6,17 +6,17 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/db/package.json ./packages/db/
 COPY packages/importer/package.json ./packages/importer/
 COPY apps/auth/package.json ./apps/auth/
-COPY apps/admin/package.json ./apps/admin/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY apps/workflows/package.json ./apps/workflows/
+COPY apps/admin/package.json ./apps/admin/
 
 RUN bun install --frozen-lockfile
 
-COPY apps/auth ./apps/auth
+COPY apps/admin ./apps/admin
 COPY tsconfig.base.json ./
 
-WORKDIR /app/apps/auth
+WORKDIR /app/apps/admin
 RUN bun run build
 
 FROM oven/bun:1-slim AS runner
@@ -28,15 +28,14 @@ RUN addgroup --system --gid 1001 nodejs && \
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY --from=builder /app/apps/auth/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/auth/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/admin/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/admin/.next/static ./.next/static
 
 USER nextjs
 
-EXPOSE 3337
+EXPOSE 3338
 
-ENV PORT=3337
+ENV PORT=3338
 ENV HOSTNAME="0.0.0.0"
 
 CMD ["bun", "run", "server.js"]

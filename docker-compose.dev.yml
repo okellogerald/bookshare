@@ -320,6 +320,39 @@ services:
       hydra-client-init:
         condition: service_completed_successfully
 
+  # ─── Admin (Next.js) ─────────────────────────────────────────
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 3338
+      NEXT_PUBLIC_APP_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
+      NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_CLIENT_ID: ${ADMIN_OIDC_CLIENT_ID:-bookshare-admin}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
+      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
+      NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
+      SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
+    ports:
+      - "3338:3338"
+    volumes:
+      - ./apps/admin/src:/app/apps/admin/src
+    depends_on:
+      auth:
+        condition: service_started
+      hydra:
+        condition: service_started
+      hydra-client-init:
+        condition: service_completed_successfully
+
 volumes:
   postgres_data:
   minio_data:

@@ -1,28 +1,23 @@
 FROM oven/bun:1 AS base
 WORKDIR /app
 
-# Copy workspace root files
 COPY package.json bun.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/db/package.json ./packages/db/
 COPY packages/importer/package.json ./packages/importer/
 COPY apps/auth/package.json ./apps/auth/
-COPY apps/admin/package.json ./apps/admin/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY apps/workflows/package.json ./apps/workflows/
+COPY apps/admin/package.json ./apps/admin/
 
-# Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy source (volumes will override in dev)
-COPY packages/shared ./packages/shared
-COPY packages/db ./packages/db
-COPY apps/api ./apps/api
+COPY apps/admin ./apps/admin
 COPY tsconfig.base.json ./
 
-WORKDIR /app/apps/api
+WORKDIR /app/apps/admin
 
-EXPOSE 3333
+EXPOSE 3338
 
 CMD ["bun", "run", "dev"]

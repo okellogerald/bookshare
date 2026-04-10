@@ -24,6 +24,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/db/package.json ./packages/db/
 COPY packages/importer/package.json ./packages/importer/
 COPY apps/auth/package.json ./apps/auth/
+COPY apps/admin/package.json ./apps/admin/
 COPY apps/workflows/package.json ./apps/workflows/
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
