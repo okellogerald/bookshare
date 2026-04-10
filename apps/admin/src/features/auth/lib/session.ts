@@ -14,6 +14,7 @@ export interface SessionData {
     name?: string;
     username?: string;
     emailVerified?: boolean;
+    roles?: string[];
   };
 }
 

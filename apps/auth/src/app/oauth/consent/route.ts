@@ -5,6 +5,7 @@ import {
 } from "@/lib/config";
 import { hydraAdminRequest } from "@/lib/hydra";
 import { getKratosSession, isKratosEmailVerified } from "@/lib/kratos";
+import { resolveStaffRoles } from "@/lib/staff-roles";
 
 interface HydraConsentRequest {
   subject: string;
@@ -32,7 +33,8 @@ function getNameClaims(traits: Record<string, unknown>) {
 
 function buildIdTokenClaims(
   traits: Record<string, unknown>,
-  emailVerified: boolean
+  emailVerified: boolean,
+  roles: string[]
 ): Record<string, unknown> {
   const email =
     typeof traits.email === "string" ? traits.email.trim().toLowerCase() : "";
@@ -50,6 +52,10 @@ function buildIdTokenClaims(
   if (firstName) claims.given_name = firstName;
   if (lastName) claims.family_name = lastName;
   if (fullName) claims.name = fullName;
+  if (roles.length > 0) {
+    claims.roles = roles;
+    claims.realm_access = { roles };
+  }
 
   return claims;
 }
@@ -81,6 +87,17 @@ export async function GET(request: NextRequest) {
         : {};
 
     const emailVerified = isKratosEmailVerified(session);
+    const subject = session?.identity?.id || consentRequest.subject;
+    const email =
+      typeof normalizedTraits.email === "string"
+        ? normalizedTraits.email.trim().toLowerCase()
+        : null;
+    const roles = subject
+      ? await resolveStaffRoles({
+          userId: subject,
+          email,
+        })
+      : [];
 
     const accepted = await hydraAdminRequest<{ redirect_to: string }>(
       `/admin/oauth2/auth/requests/consent/accept?consent_challenge=${encodeURIComponent(challenge)}`,
@@ -93,9 +110,13 @@ export async function GET(request: NextRequest) {
           remember: true,
           remember_for: getHydraRememberFor(),
           session: {
-            id_token: buildIdTokenClaims(normalizedTraits, emailVerified),
+            id_token: buildIdTokenClaims(normalizedTraits, emailVerified, roles),
             access_token: {
-              sub: session?.identity?.id || consentRequest.subject,
+              sub: subject,
+              roles,
+              realm_access: {
+                roles,
+              },
               email_verified: emailVerified,
             },
           },

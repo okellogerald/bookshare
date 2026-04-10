@@ -13,6 +13,8 @@ COPY apps/workflows/package.json ./apps/workflows/
 
 RUN bun install --frozen-lockfile
 
+COPY packages/shared ./packages/shared
+COPY packages/db ./packages/db
 COPY apps/auth ./apps/auth
 COPY tsconfig.base.json ./
 

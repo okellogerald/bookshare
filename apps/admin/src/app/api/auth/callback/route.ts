@@ -18,6 +18,23 @@ function toBoolean(value: unknown): boolean {
   return false;
 }
 
+function extractRoles(claims: Record<string, unknown>): string[] {
+  if (Array.isArray(claims.roles)) {
+    return claims.roles.filter((value): value is string => typeof value === "string");
+  }
+
+  const realmAccess =
+    typeof claims.realm_access === "object" && claims.realm_access !== null
+      ? (claims.realm_access as { roles?: unknown })
+      : null;
+
+  if (Array.isArray(realmAccess?.roles)) {
+    return realmAccess.roles.filter((value): value is string => typeof value === "string");
+  }
+
+  return [];
+}
+
 function clearAuthCookies(response: NextResponse) {
   response.cookies.delete(ADMIN_SESSION_COOKIE);
   response.cookies.delete(ADMIN_TOKEN_COOKIE);
@@ -50,6 +67,7 @@ export async function GET(request: NextRequest) {
 
     const claims = tokens.claims()!;
     const emailVerified = toBoolean(claims.email_verified);
+    const roles = extractRoles(claims as Record<string, unknown>);
 
     const encryptedReturnTo = request.cookies.get(ADMIN_RETURN_TO_COOKIE)?.value;
     let returnToRaw: string | null = null;
@@ -67,6 +85,12 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
+    if (roles.length === 0) {
+      const response = NextResponse.redirect(new URL("/?error=forbidden", request.url));
+      clearAuthCookies(response);
+      return response;
+    }
+
     await setSession(
       {
         idToken: tokens.id_token,
@@ -77,6 +101,7 @@ export async function GET(request: NextRequest) {
           name: claims.name as string | undefined,
           username: claims.preferred_username as string | undefined,
           emailVerified,
+          roles,
         },
       },
       tokens.access_token

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookCopy, FolderKanban, ShieldCheck } from "lucide-react";
 import { getSession } from "@/features/auth/lib/session";
+import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent } from "@/shared/components/ui/card";
 
 const navItems = [
   {
@@ -30,8 +33,9 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
+  const roles = session?.user.roles ?? [];
 
-  if (!session) {
+  if (!session || roles.length === 0) {
     redirect("/");
   }
 
@@ -49,6 +53,13 @@ export default async function AdminLayout({
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Signed in as {session.user.email || session.user.name || session.user.id}
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {roles.map((role) => (
+                <Badge key={role} variant="secondary">
+                  {role}
+                </Badge>
+              ))}
+            </div>
           </div>
 
           <nav className="mt-5 space-y-3">
@@ -73,22 +84,21 @@ export default async function AdminLayout({
             ))}
           </nav>
 
-          <div className="mt-6 rounded-[1.25rem] border border-dashed border-border/90 bg-muted/55 p-4">
-            <p className="text-sm font-semibold">Implementation tracker</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Progress is tracked in
-              {" "}
-              <code>docs/admin-dashboard-implementation.md</code>.
-            </p>
-          </div>
+          <Card className="mt-6 rounded-[1.25rem] border-dashed border-border/90 bg-muted/55 shadow-none">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold">Implementation tracker</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Progress is tracked in
+                {" "}
+                <code>docs/admin-dashboard-implementation.md</code>.
+              </p>
+            </CardContent>
+          </Card>
 
           <div className="mt-6">
-            <a
-              href="/api/auth/logout"
-              className="inline-flex rounded-full border border-border px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-muted"
-            >
-              Sign Out
-            </a>
+            <Button asChild variant="outline">
+              <a href="/api/auth/logout">Sign Out</a>
+            </Button>
           </div>
         </aside>
 

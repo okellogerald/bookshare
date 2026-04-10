@@ -10,6 +10,7 @@ import { buildAuthPortalVerificationUrl } from "@/features/auth/lib/auth-portal"
 
 const protectedPrefixes = ["/catalog", "/batches", "/staff"];
 const authPaths = ["/api/auth/login", "/api/auth/callback", "/api/auth/logout"];
+const allowedRoles = new Set(["owner", "manager", "staff", "viewer"]);
 
 function isSessionExpired(value: unknown): boolean {
   if (typeof value !== "number") return true;
@@ -51,7 +52,7 @@ export async function middleware(request: NextRequest) {
   try {
     const session = JSON.parse(await decrypt(sessionCookie)) as {
       expiresAt?: unknown;
-      user?: { emailVerified?: unknown };
+      user?: { emailVerified?: unknown; roles?: unknown };
     };
 
     if (isSessionExpired(session.expiresAt)) {
@@ -63,6 +64,17 @@ export async function middleware(request: NextRequest) {
 
     if (session.user?.emailVerified !== true) {
       return NextResponse.redirect(buildAuthPortalVerificationUrl());
+    }
+
+    const roles = Array.isArray(session.user?.roles)
+      ? session.user.roles.filter((value): value is string => typeof value === "string")
+      : [];
+
+    if (!roles.some((role) => allowedRoles.has(role))) {
+      const response = NextResponse.redirect(landingUrl);
+      response.cookies.delete(ADMIN_SESSION_COOKIE);
+      response.cookies.delete(ADMIN_TOKEN_COOKIE);
+      return response;
     }
   } catch {
     return NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);

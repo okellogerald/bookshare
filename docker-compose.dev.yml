@@ -105,6 +105,8 @@ services:
       PORT: 3337
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSHARE_APP_PUBLIC_URL: ${BOOKSHARE_APP_PUBLIC_URL:-http://localhost:3334}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL:-http://localhost:4433}
       KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://kratos:4433}
       HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://hydra:4445}
@@ -113,6 +115,8 @@ services:
       - "3337:3337"
     volumes:
       - ./apps/auth/src:/app/apps/auth/src
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/db/src:/app/packages/db/src
     depends_on:
       hydra:
         condition: service_started
@@ -329,6 +333,8 @@ services:
     environment:
       PORT: 3338
       NEXT_PUBLIC_APP_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
+      POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
+      NEXT_PUBLIC_POSTGREST_URL: ${PUBLIC_POSTGREST_URL:-http://localhost:3336}
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
       OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
@@ -345,8 +351,11 @@ services:
       - "3338:3338"
     volumes:
       - ./apps/admin/src:/app/apps/admin/src
+      - ./packages/shared/src:/app/packages/shared/src
     depends_on:
       auth:
+        condition: service_started
+      postgrest:
         condition: service_started
       hydra:
         condition: service_started

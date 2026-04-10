@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/shared/styles/globals.css";
+import { QueryProvider } from "@/shared/providers/query-provider";
 
 export const metadata: Metadata = {
   title: "BookShare Admin",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

@@ -1,10 +1,13 @@
 import { Controller, Post, Put, Delete, Body, Param } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { UserRole } from "@bookshare/shared";
 import { BooksService } from "./books.service";
 import { CreateBookDto, UpdateBookDto } from "./dto";
+import { Roles } from "../../common/decorators";
 
 @ApiTags("Books")
 @ApiBearerAuth()
+@Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
 @Controller("books")
 export class BooksController {
   constructor(private readonly booksService: BooksService) {}

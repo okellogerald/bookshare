@@ -1,13 +1,15 @@
-const workbenchTracks = [
-  "Search existing books, editions, and linked member inventory",
-  "Create books and editions without leaving the page",
-  "Attach covers and catch duplicate ISBN/title collisions",
-  "Create listings on behalf of a member through the same domain path as normal app writes",
-];
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+import { CatalogWorkbench } from "@/features/catalog/components/catalog-workbench";
 
 export default function CatalogPage() {
   return (
-    <section>
+    <section className="space-y-6">
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
         Catalog
       </p>
@@ -20,25 +22,24 @@ export default function CatalogPage() {
         batch-ingestion flow.
       </p>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <div className="rounded-[1.5rem] border border-border/80 bg-background/80 p-6">
-          <h3 className="text-lg font-semibold">Initial workbench scope</h3>
-          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-            {workbenchTracks.map((item) => (
-              <li key={item} className="rounded-2xl bg-card px-4 py-3">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="rounded-[1.5rem] border border-border/80 bg-muted/45 p-6">
-          <h3 className="text-lg font-semibold">Current phase</h3>
-          <p className="mt-4 text-sm leading-6 text-slate-700">
-            The app scaffold is in place. The next implementation step is to wire
-            staff authorization and the first API-backed catalog search/create path.
-          </p>
-        </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <CatalogWorkbench />
+        <Card className="border-border/80 bg-muted/45">
+          <CardHeader>
+            <CardTitle className="text-lg">Current phase</CardTitle>
+            <CardDescription>
+              The workbench now starts with a live catalog search path inside the
+              same app structure conventions used by `apps/web`.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm leading-6 text-slate-700">
+            <p>Next up is create/edit flow wiring through staff-only API endpoints.</p>
+            <p>
+              That will extend this screen from search and inspection into actual
+              catalog operations.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </section>
   );

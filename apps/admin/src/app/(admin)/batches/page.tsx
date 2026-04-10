@@ -1,3 +1,11 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+
 export default function BatchesPage() {
   return (
     <section>
@@ -13,15 +21,22 @@ export default function BatchesPage() {
         concepts instead of forcing staff through raw CSV commands.
       </p>
 
-      <div className="mt-8 rounded-[1.5rem] border border-dashed border-border/90 bg-background/70 p-6">
-        <h3 className="text-lg font-semibold">Planned capabilities</h3>
-        <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
+      <Card className="mt-8 border-dashed border-border/90 bg-background/70">
+        <CardHeader>
+          <CardTitle className="text-lg">Planned capabilities</CardTitle>
+          <CardDescription>
+            The browser-native ingestion path will replace command-line-only batch work.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-3 text-sm leading-6 text-slate-700">
           <li>Paste tabular data or upload CSV files</li>
           <li>Preview validation errors before commit</li>
           <li>Spot duplicates against the live catalog</li>
           <li>Save and revisit ingestion batches</li>
-        </ul>
-      </div>
+          </ul>
+        </CardContent>
+      </Card>
     </section>
   );
 }

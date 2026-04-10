@@ -1,3 +1,11 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+
 export default function StaffPage() {
   return (
     <section>
@@ -14,24 +22,36 @@ export default function StaffPage() {
       </p>
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
-        <article className="rounded-[1.4rem] border border-border/80 bg-background/80 p-5">
-          <h3 className="font-semibold">Roles</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+        <Card className="border-border/80 bg-background/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Roles</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription className="text-sm leading-6 text-slate-600">
             Grant and revoke internal access levels such as owner, manager, and staff.
-          </p>
-        </article>
-        <article className="rounded-[1.4rem] border border-border/80 bg-background/80 p-5">
-          <h3 className="font-semibold">Access Control</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+            </CardDescription>
+          </CardContent>
+        </Card>
+        <Card className="border-border/80 bg-background/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Access Control</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription className="text-sm leading-6 text-slate-600">
             Ensure admin capabilities are limited to trusted platform operators only.
-          </p>
-        </article>
-        <article className="rounded-[1.4rem] border border-border/80 bg-background/80 p-5">
-          <h3 className="font-semibold">Audit Trail</h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+            </CardDescription>
+          </CardContent>
+        </Card>
+        <Card className="border-border/80 bg-background/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Audit Trail</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription className="text-sm leading-6 text-slate-600">
             Track who changed staff privileges and when those changes happened.
-          </p>
-        </article>
+            </CardDescription>
+          </CardContent>
+        </Card>
       </div>
     </section>
   );

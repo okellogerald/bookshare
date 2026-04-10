@@ -13,7 +13,7 @@ This app is for platform staff only. It is distinct from:
 
 ## Current Status
 
-Current milestone: `Scaffold & Wiring`
+Current milestone: `Catalog Operations & Staff Management`
 
 ## Milestones
 
@@ -22,10 +22,11 @@ Current milestone: `Scaffold & Wiring`
 - [x] Add a dedicated Hydra OAuth client for `apps/admin`
 - [x] Add local Docker Compose wiring for the admin app
 - [x] Add protected admin routes with isolated auth cookies
-- [ ] Carry staff roles through OIDC token claims
-- [ ] Restrict admin-capable NestJS endpoints with `@Roles(...)`
-- [ ] Add admin API proxy and query layer
-- [ ] Ship Catalog Workbench v0
+- [x] Add and migrate the persistent `staff_roles` table
+- [x] Carry staff roles through OIDC token claims
+- [x] Restrict admin-capable NestJS endpoints with `@Roles(...)`
+- [x] Add admin API proxy and query layer
+- [x] Ship Catalog Workbench v0
 - [ ] Ship batch ingestion UI
 - [ ] Ship Staff Management v0
 
@@ -48,25 +49,30 @@ The first slice in progress is:
    - Catalog
    - Batches
    - Staff
+5. Staff can search the current catalog from the admin app
+6. Staff roles are enforced from auth claims through admin route protection and API writes
 
 This slice does not yet include:
 
-- role-based authorization enforcement
-- persisted staff management actions
-- catalog CRUD backed by API data
+- staff directory and role grant/revoke screens
+- full catalog CRUD backed by API data
 - import/batch execution from the browser
+- duplicate-aware catalog tooling beyond search
 
 ## Next Tasks
 
-1. Add role claims to tokens during Hydra consent
-2. Persist or resolve staff role membership from a reliable source
-3. Enforce staff-only access in the API
-4. Build Catalog Workbench search and creation flow
-5. Reuse importer concepts for browser-based batch validation/commit
+1. Build Catalog Workbench create/edit flows on top of the new search path
+2. Add staff directory and role grant/revoke actions
+3. Surface staff-role audit context in the admin UI
+4. Add create-on-behalf member listing flow
+5. Build browser-based batch validation/preview/commit
 
 ## Key Files
 
 - `docs/admin-dashboard-implementation.md`
 - `apps/admin`
+- `apps/admin/src/features/catalog/components/catalog-workbench.tsx`
 - `infra/ory/hydra/init-client.sh`
 - `docker-compose.dev.yml`
+- `packages/db/src/schema/staff-roles.ts`
+- `packages/db/src/migrations/0003_add_staff_roles.sql`
