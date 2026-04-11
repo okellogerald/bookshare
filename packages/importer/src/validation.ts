@@ -230,10 +230,14 @@ export async function validateParsedInput(
 
   const actorIdentifier = compactString(actorUsername);
   const actorEmail = normalizeEmail(actorIdentifier);
-  const actor = await db.query.memberProfiles.findFirst({
-    where: and(isNotNull(memberProfiles.email), eq(memberProfiles.email, actorEmail)),
-  });
-  if (!actor) {
+  const requiresActorProfile = parsed.files["copies.csv"].rows.length > 0;
+  const actor = requiresActorProfile
+    ? await db.query.memberProfiles.findFirst({
+        where: and(isNotNull(memberProfiles.email), eq(memberProfiles.email, actorEmail)),
+      })
+    : null;
+
+  if (requiresActorProfile && !actor) {
     addIssue(summary, {
       file: "run",
       code: "unknown_actor",

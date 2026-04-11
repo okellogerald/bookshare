@@ -24,21 +24,23 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
   const apiPath = path.join("/");
   const search = request.nextUrl.searchParams.toString();
   const url = `${API_URL}/${apiPath}${search ? `?${search}` : ""}`;
+  const headers = new Headers();
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("x-auth-access-token", token);
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-    "x-auth-access-token": token,
-  };
+  const contentType = request.headers.get("content-type");
+  if (contentType) {
+    headers.set("Content-Type", contentType);
+  }
 
   const fetchOptions: RequestInit = {
     method: request.method,
     headers,
   };
 
-  if (request.method !== "GET") {
-    const body = await request.text();
-    if (body) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    const body = await request.arrayBuffer();
+    if (body.byteLength > 0) {
       fetchOptions.body = body;
     }
   }

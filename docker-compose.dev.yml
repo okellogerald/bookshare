@@ -276,6 +276,7 @@ services:
       - ./apps/api/src:/app/apps/api/src
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/db/src:/app/packages/db/src
+      - ./packages/importer/src:/app/packages/importer/src
     depends_on:
       postgres:
         condition: service_healthy

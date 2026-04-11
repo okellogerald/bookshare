@@ -42,11 +42,13 @@
         --code-header-value: #d4d7e0;
         --code-method-get: #34d399;
         --code-method-post: #fbbf24;
+        --code-method-put: #a78bfa;
         --code-status: #f9a8d4;
         --code-key: #93c5fd;
         --actor-browser: #dbeafe;
         --actor-auth: #dcfce7;
         --actor-kratos: #fef3c7;
+        --actor-mail: #ffe4e6;
         --actor-webapp: #f3e8ff;
         --actor-hydra: #ffedd5;
         --sidebar-w: 260px;
@@ -88,6 +90,7 @@
         --actor-browser: #1e3a5f;
         --actor-auth: #14331e;
         --actor-kratos: #33290f;
+        --actor-mail: #331519;
         --actor-webapp: #2d1a4e;
         --actor-hydra: #3d2a0f;
         --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
@@ -354,12 +357,14 @@
 
       .actor.browser { background: var(--actor-browser); }
       .actor.browser .actor-dot { background: #3b82f6; }
-      .actor.webapp { background: var(--actor-webapp); }
-      .actor.webapp .actor-dot { background: #a855f7; }
       .actor.auth { background: var(--actor-auth); }
       .actor.auth .actor-dot { background: #22c55e; }
       .actor.kratos { background: var(--actor-kratos); }
       .actor.kratos .actor-dot { background: #f59e0b; }
+      .actor.mail { background: var(--actor-mail); }
+      .actor.mail .actor-dot { background: #ef4444; }
+      .actor.webapp { background: var(--actor-webapp); }
+      .actor.webapp .actor-dot { background: #a855f7; }
       .actor.hydra { background: var(--actor-hydra); }
       .actor.hydra .actor-dot { background: #f97316; }
 
@@ -392,7 +397,7 @@
 
       .seq-actors {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 0;
         grid-column: 1 / -1;
         margin-bottom: 8px;
@@ -421,7 +426,7 @@
 
       .seq-arrows {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         position: relative;
         padding: 4px 0;
       }
@@ -610,6 +615,23 @@
         color: var(--info);
       }
 
+      .channel-badge {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      .channel-badge.front {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .channel-badge.back {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
       /* ── Request / Response Grid ── */
       .http-grid {
         display: grid;
@@ -756,6 +778,7 @@
       /* Syntax tokens */
       .hl-method-get { color: var(--code-method-get); font-weight: 700; }
       .hl-method-post { color: var(--code-method-post); font-weight: 700; }
+      .hl-method-put { color: var(--code-method-put); font-weight: 700; }
       .hl-path { color: #e2e8f0; }
       .hl-proto { color: var(--code-comment); }
       .hl-status-2xx { color: var(--code-method-get); font-weight: 600; }
@@ -786,6 +809,7 @@
 
       .method-badge.get { background: #064e3b; color: #6ee7b7; }
       .method-badge.post { background: #78350f; color: #fde68a; }
+      .method-badge.put { background: #3b0764; color: #d8b4fe; }
 
       .status-badge {
         display: inline-flex;
@@ -927,7 +951,6 @@
         margin-top: 40px;
         padding-top: 32px;
         border-top: 2px solid var(--warning-soft);
-        scroll-margin-top: 20px;
       }
 
       .branch-label {
@@ -1085,21 +1108,22 @@
         <div class="sidebar-section">
           <div class="sidebar-section-title">Main Path</div>
           <ul class="nav-list" id="mainNav">
-            <li class="nav-item" data-stage="0"><a href="#stage-0"><span class="nav-num">0</span> OIDC login start</a></li>
+            <li class="nav-item" data-stage="0"><a href="#stage-0"><span class="nav-num">0</span> Start OIDC login</a></li>
             <li class="nav-item" data-stage="1"><a href="#stage-1"><span class="nav-num">1</span> Login challenge</a></li>
             <li class="nav-item" data-stage="2"><a href="#stage-2"><span class="nav-num">2</span> Internalize state</a></li>
-            <li class="nav-item" data-stage="3"><a href="#stage-3"><span class="nav-num">3</span> Boot Kratos flow</a></li>
+            <li class="nav-item" data-stage="3"><a href="#stage-3"><span class="nav-num">3</span> Create login flow</a></li>
             <li class="nav-item" data-stage="4"><a href="#stage-4"><span class="nav-num">4</span> Load login flow</a></li>
             <li class="nav-item" data-stage="5"><a href="#stage-5"><span class="nav-num">5</span> Submit credentials</a></li>
-            <li class="nav-item" data-stage="6"><a href="#stage-6"><span class="nav-num">6</span> Resume Hydra</a></li>
-            <li class="nav-item" data-stage="7"><a href="#stage-7"><span class="nav-num">7</span> App session</a></li>
+            <li class="nav-item" data-stage="6"><a href="#stage-6"><span class="nav-num">6</span> Accept challenge</a></li>
+            <li class="nav-item" data-stage="7"><a href="#stage-7"><span class="nav-num">7</span> Consent flow</a></li>
+            <li class="nav-item" data-stage="8"><a href="#stage-8"><span class="nav-num">8</span> Callback session</a></li>
           </ul>
         </div>
 
         <div class="sidebar-section">
           <div class="sidebar-section-title">Branches</div>
           <ul class="nav-list">
-            <li class="nav-item warning"><a href="#unverified-login"><span class="nav-num">!</span> Unverified account</a></li>
+            <li class="nav-item warning"><a href="#unverified-account"><span class="nav-num">!</span> Unverified account</a></li>
           </ul>
         </div>
 
@@ -1116,7 +1140,7 @@
         <!-- Header -->
         <div class="header" id="env">
           <h2>BookShare Login Flow Trace</h2>
-          <div class="header-sub">HTTP trace of every request, redirect, header, and cookie through the full login path.</div>
+          <div class="header-sub">HTTP trace of every request, redirect, header, and cookie through the full login path &mdash; including front-channel browser redirects and back-channel server-to-server calls.</div>
         </div>
 
         <!-- Environment + Actors -->
@@ -1139,12 +1163,12 @@
               <div class="actor browser"><span class="actor-dot"></span>Browser</div>
               <div class="actor webapp"><span class="actor-dot"></span>Web App</div>
               <div class="actor auth"><span class="actor-dot"></span>Auth Portal</div>
-              <div class="actor kratos"><span class="actor-dot"></span>Kratos</div>
               <div class="actor hydra"><span class="actor-dot"></span>Hydra</div>
+              <div class="actor kratos"><span class="actor-dot"></span>Kratos</div>
             </div>
 
             <div class="flow-path" style="margin-top:16px">
-              <div class="flow-step"><code>/web-app</code> Login</div>
+              <div class="flow-step"><code>/api/auth/login</code> Start</div>
               <span class="flow-arrow">&rarr;</span>
               <div class="flow-step"><code>/oauth2/auth</code> Hydra</div>
               <span class="flow-arrow">&rarr;</span>
@@ -1154,7 +1178,7 @@
               <span class="flow-arrow">&rarr;</span>
               <div class="flow-step"><code>/oauth/login</code> Resume</div>
               <span class="flow-arrow">&rarr;</span>
-              <div class="flow-step"><code>/web-app</code> Session</div>
+              <div class="flow-step"><code>/api/auth/callback</code> Session</div>
             </div>
           </div>
         </div>
@@ -1162,111 +1186,109 @@
         <!-- Sequence Diagram -->
         <div class="sequence" id="sequence">
           <div class="sequence-title">Message Sequence</div>
-          <svg viewBox="0 0 960 580" style="width:100%;height:auto;font-family:var(--font-sans)">
+          <svg viewBox="0 0 1000 520" style="width:100%;height:auto;font-family:var(--font-sans)">
             <!-- Lifelines -->
-            <line x1="96" y1="50" x2="96" y2="560" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="288" y1="50" x2="288" y2="560" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="480" y1="50" x2="480" y2="560" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="672" y1="50" x2="672" y2="560" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="864" y1="50" x2="864" y2="560" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="100" y1="50" x2="100" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="300" y1="50" x2="300" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="500" y1="50" x2="500" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="700" y1="50" x2="700" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="900" y1="50" x2="900" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
 
             <!-- Actor boxes -->
-            <rect x="36" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
-            <text x="96" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Browser</text>
+            <rect x="40" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
+            <text x="100" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Browser</text>
 
-            <rect x="218" y="10" width="140" height="32" rx="8" fill="var(--actor-webapp)" stroke="var(--border)" stroke-width="1"/>
-            <text x="288" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Web App</text>
+            <rect x="230" y="10" width="140" height="32" rx="8" fill="var(--actor-webapp)" stroke="var(--border)" stroke-width="1"/>
+            <text x="300" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Web App</text>
 
-            <rect x="415" y="10" width="130" height="32" rx="8" fill="var(--actor-auth)" stroke="var(--border)" stroke-width="1"/>
-            <text x="480" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Auth Portal</text>
+            <rect x="430" y="10" width="140" height="32" rx="8" fill="var(--actor-auth)" stroke="var(--border)" stroke-width="1"/>
+            <text x="500" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Auth Portal</text>
 
-            <rect x="612" y="10" width="120" height="32" rx="8" fill="var(--actor-kratos)" stroke="var(--border)" stroke-width="1"/>
-            <text x="672" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Kratos</text>
+            <rect x="640" y="10" width="120" height="32" rx="8" fill="var(--actor-kratos)" stroke="var(--border)" stroke-width="1"/>
+            <text x="700" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Kratos</text>
 
-            <rect x="804" y="10" width="120" height="32" rx="8" fill="var(--actor-hydra)" stroke="var(--border)" stroke-width="1"/>
-            <text x="864" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Hydra</text>
+            <rect x="840" y="10" width="120" height="32" rx="8" fill="var(--actor-hydra)" stroke="var(--border)" stroke-width="1"/>
+            <text x="900" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Hydra</text>
 
             <!-- Arrows -->
             <defs>
               <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--accent)"/></marker>
               <marker id="arrowL" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6" fill="var(--ink-tertiary)"/></marker>
+              <marker id="arrowRwarn" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--warning)"/></marker>
             </defs>
 
-            <!-- 0: Browser -> Web App (GET login) -->
-            <line x1="100" y1="70" x2="284" y2="70" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="192" cy="70" r="10" fill="var(--accent)"/><text x="192" y="74" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">0</text>
-            <text x="196" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /api/auth/login</text>
+            <!-- 0: Browser -> Web App (GET /api/auth/login) -->
+            <line x1="104" y1="70" x2="296" y2="70" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="200" cy="70" r="10" fill="var(--accent)"/><text x="200" y="74" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">0</text>
+            <text x="204" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /api/auth/login</text>
 
-            <!-- 0: Web App -> Browser (307 to Hydra) -->
-            <line x1="284" y1="90" x2="100" y2="90" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="192" y="85" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">307 to Hydra /oauth2/auth</text>
+            <!-- 1: Web App redirects Browser -> Hydra -->
+            <line x1="104" y1="100" x2="896" y2="100" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="500" cy="100" r="10" fill="var(--accent)"/><text x="500" y="104" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
+            <text x="504" y="93" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /oauth2/auth</text>
 
-            <!-- 1: Browser -> Hydra -->
-            <line x1="100" y1="120" x2="860" y2="120" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="480" cy="120" r="10" fill="var(--accent)"/><text x="480" y="124" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
-            <text x="484" y="113" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /oauth2/auth?...</text>
+            <!-- 1: Hydra -> Browser (302 + challenge) -->
+            <line x1="896" y1="120" x2="104" y2="120" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="500" y="115" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">302 /oauth/login?login_challenge=...</text>
 
-            <!-- 1: Hydra -> Browser (302 with challenge) -->
-            <line x1="860" y1="140" x2="100" y2="140" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="480" y="135" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">302 /oauth/login?login_challenge=...</text>
-
-            <!-- 2: Browser -> Auth Portal -->
-            <line x1="100" y1="170" x2="476" y2="170" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="288" cy="170" r="10" fill="var(--accent)"/><text x="288" y="174" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
-            <text x="292" y="163" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /oauth/login?login_challenge=...</text>
+            <!-- 2: Browser -> Auth Portal (challenge) -->
+            <line x1="104" y1="150" x2="496" y2="150" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="150" r="10" fill="var(--accent)"/><text x="300" y="154" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
+            <text x="304" y="143" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /oauth/login</text>
 
             <!-- 2: Auth Portal -> Browser (307 + cookie) -->
-            <line x1="476" y1="190" x2="100" y2="190" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="288" y="185" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">307 /login + challenge cookie</text>
+            <line x1="496" y1="170" x2="104" y2="170" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="300" y="165" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">307 /login + challenge cookie</text>
 
-            <!-- 3: Auth Portal -> Kratos (GET /login/browser) -->
-            <line x1="484" y1="220" x2="668" y2="220" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="576" cy="220" r="10" fill="var(--accent)"/><text x="576" y="224" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
-            <text x="580" y="213" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /login/browser</text>
+            <!-- 3: Browser -> Kratos (create flow) -->
+            <line x1="104" y1="200" x2="696" y2="200" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="200" r="10" fill="var(--accent)"/><text x="400" y="204" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
+            <text x="404" y="193" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /login/browser</text>
 
             <!-- 3: Kratos -> Browser (303 + flow) -->
-            <line x1="668" y1="240" x2="100" y2="240" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="384" y="235" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /login?flow=...</text>
+            <line x1="696" y1="220" x2="104" y2="220" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="215" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /login?flow=...</text>
 
-            <!-- 4: Auth Portal -> Kratos (GET /flows?id=...) -->
-            <line x1="484" y1="270" x2="668" y2="270" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="576" cy="270" r="10" fill="var(--accent)"/><text x="576" y="274" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">4</text>
-            <text x="580" y="263" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
+            <!-- 4: Auth Portal -> Kratos (back-channel, dashed with warning) -->
+            <line x1="504" y1="250" x2="696" y2="250" stroke="var(--warning)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowRwarn)"/>
+            <circle cx="600" cy="250" r="10" fill="var(--warning)"/><text x="600" y="254" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">4</text>
+            <text x="604" y="243" font-size="10" fill="var(--warning)" font-weight="600">GET /flows?id=...</text>
 
-            <!-- 4: Kratos -> Auth Portal (200 login nodes) -->
-            <line x1="668" y1="290" x2="484" y2="290" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="576" y="285" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 login nodes</text>
+            <!-- 4: Kratos -> Auth (200 login nodes) -->
+            <line x1="696" y1="270" x2="504" y2="270" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="600" y="265" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 login nodes</text>
 
             <!-- 5: Browser -> Kratos (POST credentials) -->
-            <line x1="100" y1="320" x2="668" y2="320" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="384" cy="320" r="10" fill="var(--accent)"/><text x="384" y="324" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">5</text>
-            <text x="388" y="313" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST credentials</text>
+            <line x1="104" y1="300" x2="696" y2="300" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="300" r="10" fill="var(--accent)"/><text x="400" y="304" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">5</text>
+            <text x="404" y="293" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST credentials</text>
 
             <!-- 5: Kratos -> Browser (303 + session) -->
-            <line x1="668" y1="340" x2="100" y2="340" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="384" y="335" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /oauth/login + ory_kratos_session</text>
+            <line x1="696" y1="320" x2="104" y2="320" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="315" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /oauth/login + session cookie</text>
 
-            <!-- 6: Auth Portal -> Hydra (accept challenge) -->
-            <line x1="484" y1="380" x2="860" y2="380" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="672" cy="380" r="10" fill="var(--accent)"/><text x="672" y="384" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">6</text>
-            <text x="676" y="373" font-size="10" fill="var(--ink-secondary)" font-weight="600">Accept login challenge</text>
+            <!-- 6: Auth Portal -> Hydra Admin (accept challenge, back-channel) -->
+            <line x1="504" y1="355" x2="896" y2="355" stroke="var(--warning)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowRwarn)"/>
+            <circle cx="700" cy="355" r="10" fill="var(--warning)"/><text x="700" y="359" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">6</text>
+            <text x="704" y="348" font-size="10" fill="var(--warning)" font-weight="600">PUT accept login</text>
 
-            <!-- 6: Hydra -> Browser (redirect) -->
-            <line x1="860" y1="400" x2="100" y2="400" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="480" y="395" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">307 consent redirect chain</text>
+            <!-- 7: Consent chain -> callback -->
+            <line x1="104" y1="390" x2="896" y2="390" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="500" cy="390" r="10" fill="var(--accent)"/><text x="500" y="394" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">7</text>
+            <text x="504" y="383" font-size="10" fill="var(--ink-secondary)" font-weight="600">consent + auto-accept</text>
 
-            <!-- 7: Browser -> Web App (callback) -->
-            <line x1="100" y1="440" x2="284" y2="440" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="192" cy="440" r="10" fill="var(--success)"/><text x="192" y="444" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">7</text>
-            <text x="196" y="433" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /api/auth/callback?code=...</text>
+            <!-- 7: Hydra -> Browser (302 callback) -->
+            <line x1="896" y1="410" x2="104" y2="410" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="500" y="405" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">302 /api/auth/callback?code=...&amp;state=...</text>
 
-            <!-- 7: Web App -> Browser (307 /browse + session) -->
-            <line x1="284" y1="460" x2="100" y2="460" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
-            <text x="192" y="455" text-anchor="middle" font-size="10" fill="var(--success)" font-weight="600">307 /browse + bookshare_token</text>
+            <!-- 8: Web App -> Browser (307 /browse + session) -->
+            <line x1="296" y1="440" x2="104" y2="440" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
+            <circle cx="200" cy="440" r="10" fill="var(--success)"/><text x="200" y="444" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">8</text>
+            <text x="204" y="433" font-size="10" fill="var(--success)" font-weight="600">307 /browse + session</text>
 
-            <!-- Session indicator -->
-            <rect x="36" y="490" width="888" height="18" rx="4" fill="var(--success-soft)" opacity="0.5"/>
-            <text x="480" y="503" text-anchor="middle" font-size="10" fill="var(--success)" font-weight="600">Two sessions created: ory_kratos_session (auth) + bookshare_token (app)</text>
+            <!-- Bottom bar (success) -->
+            <rect x="40" y="465" width="920" height="22" rx="4" fill="var(--success-soft)" opacity="0.5"/>
+            <text x="500" y="480" text-anchor="middle" font-size="10" fill="var(--success)" font-weight="600">Two sessions: ory_kratos_session (auth box) + bookshare_token (web app)</text>
           </svg>
         </div>
 
@@ -1283,26 +1305,29 @@
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Web App &rarr; Browser</span>
                   <span class="source-badge route">Web Route</span>
+                  <span class="channel-badge front">Front Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> navigates to the Web App's login trigger (e.g. clicking "Sign In"). The <strong>Web App</strong> decides to authenticate via OIDC.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/api/auth/login</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                  <div class="http-panel-desc">The <strong>Browser</strong> triggers login on the <strong>Web App</strong> (e.g., clicking "Sign In").</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Web App (localhost:3334)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/api/auth/login</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc">The <strong>Web App</strong> redirects the Browser to <strong>Hydra's</strong> authorization endpoint with PKCE parameters, requesting <code>openid profile email offline_access</code> scopes. The <code>prompt=login</code> and <code>max_age=0</code> parameters force a fresh authentication &mdash; Hydra will not reuse an existing session.</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+                  <div class="http-panel-desc">The <strong>Web App</strong> redirects the Browser to <strong>Hydra's</strong> authorization endpoint with PKCE parameters. <code>prompt=login</code> and <code>max_age=0</code> force fresh authentication.</div>
+                  <pre class="code-block"><span class="hl-comment"># Web App (localhost:3334) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4444/oauth2/auth?redirect_uri=http%3A%2F%2Flocalhost%3A3334%2Fapi%2Fauth%2Fcallback&amp;scope=openid+profile+email+offline_access&amp;code_challenge=...&amp;code_challenge_method=S256&amp;state=...&amp;prompt=login&amp;max_age=0&amp;client_id=bookshare-web&amp;response_type=code</span></pre>
                 </div>
               </div>
               <div class="result-section">
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/api/auth/login</code></div></div>
-                  <div class="result-row"><div class="result-key">Next</div><div class="result-val">Hydra authorization endpoint</div></div>
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/oauth2/auth</code> &mdash; Hydra authorization</div></div>
+                  <div class="result-row"><div class="result-key">Next</div><div class="result-val">OAuth2 flow</div></div>
                 </div>
               </div>
               <div class="note-box">
@@ -1321,32 +1346,35 @@
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Hydra &rarr; Browser</span>
                   <span class="source-badge captured">Captured</span>
+                  <span class="channel-badge front">Front Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected from Stage 0) sends a GET to <strong>Hydra's</strong> authorization endpoint with the OAuth2 parameters.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/oauth2/auth?redirect_uri=...&amp;scope=openid+profile+email+offline_access&amp;...&amp;client_id=bookshare-web&amp;response_type=code</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected) sends a GET to <strong>Hydra's</strong> authorization endpoint.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Hydra (localhost:4444)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/oauth2/auth?redirect_uri=...&amp;scope=openid+profile+email+offline_access&amp;...&amp;client_id=bookshare-web&amp;response_type=code</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Hydra</strong> creates a login challenge and redirects the Browser to the <strong>Auth Portal's</strong> OAuth login handler. The <code>login_challenge</code> parameter is Hydra's way of saying "prove this user is authenticated." Hydra also sets its own CSRF cookie.</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">302 Found</span>
+                  <div class="http-panel-desc"><strong>Hydra</strong> creates a login challenge and redirects the Browser to the <strong>Auth Portal's</strong> OAuth login handler. The <code>login_challenge</code> is Hydra's way of saying "prove this user is authenticated."</div>
+                  <pre class="code-block"><span class="hl-comment"># Hydra (localhost:4444) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">302 Found</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/oauth/login?login_challenge=...</span>
-<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_hydra_login_csrf_dev_...=...; HttpOnly; SameSite=Lax</span></pre>
+<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_hydra_login_csrf_dev_...=...; Path=/; HttpOnly; SameSite=Lax</span></pre>
                 </div>
               </div>
               <div class="result-section">
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/oauth/login?login_challenge=...</code></div></div>
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/oauth/login</code></div></div>
                   <div class="result-row"><div class="result-key">Challenge</div><div class="result-val">created by Hydra</div></div>
                 </div>
               </div>
               <div class="note-box">
                 <div class="note-box-label">Note &mdash; Why the login challenge?</div>
-                Hydra delegates authentication to an external "login provider" (Auth Portal). The login challenge is a one-time token that ties this OAuth2 authorization request to whatever authentication the Auth Portal performs. Auth Portal must later "accept" or "reject" this challenge to resume the OAuth2 flow.
+                Hydra delegates authentication to the Auth Portal. The login challenge is a one-time token tying this OAuth2 request to whatever authentication the Auth Portal performs. The Auth Portal must later "accept" or "reject" this challenge via Hydra's Admin API to resume the OAuth2 flow.
               </div>
             </div>
           </div>
@@ -1356,22 +1384,25 @@
             <div class="stage-dot">2</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Auth Portal internalizes the Hydra state</div>
+                <div class="stage-title">Auth Portal internalizes Hydra state</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
                   <span class="source-badge route">Auth Route</span>
+                  <span class="channel-badge front">Front Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected from Stage 1) arrives at the <strong>Auth Portal's</strong> <code>/oauth/login</code> route with Hydra's login challenge in the URL.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/oauth/login?login_challenge=...</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                  <div class="http-panel-desc">The <strong>Browser</strong> arrives at the <strong>Auth Portal's</strong> <code>/oauth/login</code> route with Hydra's login challenge.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/oauth/login?login_challenge=...</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> stores the Hydra login challenge in an HttpOnly cookie (<code>bookshare_hydra_login_challenge</code>) and redirects the Browser to <code>/login</code>. This is the boxed-auth design &mdash; the Hydra challenge is internalized so that <code>/login</code> doesn't need to know about OAuth2.</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> stores the Hydra login challenge in an HttpOnly cookie and redirects to <code>/login</code>.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
 <span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">bookshare_hydra_login_challenge=...; HttpOnly; SameSite=lax</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/login</span></pre>
                 </div>
@@ -1385,7 +1416,7 @@
               </div>
               <div class="note-box">
                 <div class="note-box-label">Note &mdash; Boxed auth design</div>
-                By storing the Hydra challenge in a cookie, the Auth Portal decouples the login UI from OAuth2 concerns. The <code>/login</code> page doesn't need <code>return_to</code> URL threading or Hydra awareness. When login completes, the Auth Portal reads the challenge cookie to resume the OAuth2 flow. This is what makes login, verification, recovery, and settings all self-contained within the auth box.
+                By storing the challenge in a cookie, the Auth Portal decouples the login UI from OAuth2. The <code>/login</code> page doesn't need <code>return_to</code> URL threading or Hydra awareness. When login completes, the Auth Portal reads the challenge cookie to resume the OAuth2 flow.
               </div>
             </div>
           </div>
@@ -1395,28 +1426,24 @@
             <div class="stage-dot">3</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Auth Portal boots the Kratos login flow</div>
+                <div class="stage-title">Kratos creates the login flow</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Kratos &rarr; Browser</span>
                   <span class="source-badge captured">Captured</span>
+                  <span class="channel-badge front">Front Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> navigates to <code>/login</code> (no <code>?flow=</code> parameter). The <strong>Auth Portal</strong> sees no flow ID and redirects the Browser to <strong>Kratos</strong> to create a new login flow &mdash; same bootstrap pattern as registration.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/login</span> <span class="hl-proto">HTTP/1.1</span>
-
-<span class="hl-comment">// Auth Portal responds:</span>
-<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4433/self-service/login/browser</span></pre>
+                  <div class="http-panel-desc">The <strong>Browser</strong> navigates to <code>/login</code> (no <code>?flow=</code> parameter). The <strong>Auth Portal</strong> redirects to <strong>Kratos</strong> to create a new login flow.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/login/browser</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> creates the login flow and redirects back to the Auth Portal with the new flow ID and a CSRF cookie. Same create-then-redirect-then-fetch pattern as registration.</div>
-                  <pre class="code-block"><span class="hl-comment">// Browser follows redirect to Kratos:</span>
-<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/login/browser</span> <span class="hl-proto">HTTP/1.1</span>
-
+                  <div class="http-panel-desc"><strong>Kratos</strong> creates the login flow and redirects back with the flow ID and CSRF cookie. Same create-then-redirect pattern as registration.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
 <span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a</span>
 <span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">csrf_token_...=...; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax</span></pre>
@@ -1440,22 +1467,25 @@
               <div class="stage-header">
                 <div class="stage-title">Auth Portal loads the login flow</div>
                 <div class="stage-meta">
-                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Auth Portal</span>
                   <span class="source-badge captured">Captured</span>
+                  <span class="channel-badge back">Back Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> (server-side, during page load) fetches the login flow details from <strong>Kratos</strong> using the flow ID. The CSRF cookie authenticates the request.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/self-service/login/flows?id=3c222fe2-93de-4562-ad58-293f09c9673a</span> <span class="hl-proto">HTTP/1.1</span>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> (server-side, during page load) fetches the login flow from <strong>Kratos</strong>. This is a back-channel call &mdash; the browser doesn't see this request.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/login/flows?id=3c222fe2-93de-4562-ad58-293f09c9673a</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> returns the login flow as JSON. Unlike registration's two-step flow, login shows all fields at once: <code>identifier</code> (email), <code>password</code>, and the <code>method=password</code> submit button. The state is <code>"choose_method"</code>.</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the login flow JSON. Unlike registration's two-step flow, login shows all fields at once.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
 <span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
 
@@ -1503,30 +1533,26 @@
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
                   <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Login &middot; Credentials</div></div>
-                  <div class="result-row">
-                    <div class="result-key">Visible Fields</div>
-                    <div class="result-val">Email (identifier), Password</div>
-                  </div>
+                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Identifier (email), Password</div></div>
                   <div class="result-row"><div class="result-key">Submit</div><div class="result-val"><code>method=password</code></div></div>
                 </div>
               </div>
               <div class="json-explainer">
                 <div class="json-explainer-title">Understanding the login JSON</div>
                 <div class="json-explainer-body">
-                  <p style="margin-bottom:8px">Kratos returns a generic <code>ui.nodes</code> array. The login flow differs from registration in key ways:</p>
                   <dl>
-                    <dt>"identifier"</dt>
-                    <dd>Unlike registration's <code>traits.email</code>, login uses a generic <code>identifier</code> field. Kratos resolves this to an identity by checking all configured identifier traits (in BookShare's case, email). This means the user types their email but Kratos treats it as an identifier lookup.</dd>
-                    <dt>group "default" vs "password"</dt>
-                    <dd><code>identifier</code> is in <code>"default"</code> group (shared across methods). <code>password</code> and <code>method=password</code> are in <code>"password"</code> group &mdash; they're specific to the password authentication method. If social login were configured, additional groups like <code>"oidc"</code> would appear here.</dd>
-                    <dt>No two-step flow</dt>
-                    <dd>Unlike registration (profile &rarr; password), login presents everything in one step. There's no <code>group: "profile"</code> and no <code>screen=previous</code> back button.</dd>
+                    <dt>"identifier" vs "traits.email"</dt>
+                    <dd>Login uses <code>"identifier"</code> instead of <code>traits.email</code>. Kratos resolves this to an identity by checking all configured identifier traits. The user types their email but Kratos treats it as an identifier lookup.</dd>
+                    <dt>group: "default" vs "password"</dt>
+                    <dd><code>identifier</code> is shared across all methods. <code>password</code> and <code>method=password</code> are specific to the password method. If social login were configured, additional groups would appear.</dd>
+                    <dt>Single-step flow</dt>
+                    <dd>Unlike registration (profile &rarr; password), login presents everything at once. No <code>screen=previous</code> navigation.</dd>
                   </dl>
                 </div>
               </div>
               <div class="note-box">
                 <div class="note-box-label">Note &mdash; Simpler than registration</div>
-                Login is simpler than registration &mdash; a single step with all fields visible. BookShare still converts the raw Kratos nodes into a login-specific model to control field ordering, labels, and to fail loudly if Kratos ever changes the expected shape.
+                Login is simpler than registration &mdash; one step with all fields. BookShare still converts the Kratos nodes into a login model to control field ordering and fail loudly if the shape changes.
               </div>
             </div>
           </div>
@@ -1536,17 +1562,19 @@
             <div class="stage-dot">5</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Browser submits credentials to Kratos</div>
+                <div class="stage-title">Browser submits credentials</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
                   <span class="source-badge captured">Captured</span>
+                  <span class="channel-badge front">Front Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> submits the login form to <strong>Kratos</strong> with the user's email (as <code>identifier</code>) and password. Like registration, the form POSTs directly to Kratos' action URL.</div>
-                  <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a</span> <span class="hl-proto">HTTP/1.1</span>
+                  <div class="http-panel-desc">The <strong>Browser</strong> submits the login form directly to <strong>Kratos</strong>.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/login?flow=3c222fe2-93de-4562-ad58-293f09c9673a</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span>
 
@@ -1557,8 +1585,9 @@
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> validates the credentials. On success, it creates a browser session (the <code>ory_kratos_session</code> cookie) and redirects to the Auth Portal's <code>/oauth/login</code> route. Unlike registration, a session IS created here.</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates credentials. On success, it creates a browser session (<code>ory_kratos_session</code> cookie) and redirects to <code>/oauth/login</code>. Unlike registration, a session IS created here.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/oauth/login</span>
 <span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; HttpOnly; SameSite=Lax</span></pre>
                 </div>
@@ -1567,17 +1596,17 @@
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
                   <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/oauth/login</code></div></div>
-                  <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--success);font-weight:700"><code>ory_kratos_session</code> created</div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val"><code>ory_kratos_session</code> created</div></div>
                   <div class="result-row"><div class="result-key">Credentials</div><div class="result-val">validated</div></div>
                 </div>
               </div>
               <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
                 <div class="note-box-label" style="color:var(--success)">Note &mdash; Session created</div>
-                This is a key difference from registration. After successful login, Kratos creates a browser session immediately. The <code>ory_kratos_session</code> cookie proves to the Auth Portal that the user is authenticated. The Auth Portal will use this session to make decisions about the next step.
+                Key difference from registration. Kratos creates a session immediately after successful login. This cookie proves authentication to the Auth Portal.
               </div>
               <div class="note-box">
-                <div class="note-box-label">Note &mdash; Redirect to /oauth/login</div>
-                Kratos redirects back to <code>/oauth/login</code> (not <code>/login</code>). This is configured in Kratos as the login flow's <code>return_to</code> URL. The Auth Portal's <code>/oauth/login</code> handler is the decision point &mdash; it checks the session, the user's verification status, and their profile completeness before deciding whether to resume Hydra or redirect elsewhere.
+                <div class="note-box-label">Note &mdash; Redirect target</div>
+                The redirect goes to <code>/oauth/login</code> (not <code>/login</code>). This is configured in Kratos as the login flow's return URL. The Auth Portal's <code>/oauth/login</code> handler is the central decision point.
               </div>
             </div>
           </div>
@@ -1587,70 +1616,126 @@
             <div class="stage-dot">6</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Auth Portal resumes Hydra</div>
+                <div class="stage-title">Auth Portal accepts Hydra's login challenge</div>
                 <div class="stage-meta">
-                  <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Hydra &rarr; Browser</span>
+                  <span class="direction-badge">Auth Portal &rarr; Hydra Admin &rarr; Auth Portal</span>
                   <span class="source-badge route">Auth Route</span>
+                  <span class="channel-badge back">Back Channel</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected from Stage 5) arrives at the <strong>Auth Portal's</strong> <code>/oauth/login</code> route. This time there's no <code>login_challenge</code> in the URL &mdash; the Auth Portal reads it from the cookie set in Stage 2.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/oauth/login</span> <span class="hl-proto">HTTP/1.1</span>
-<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">bookshare_hydra_login_challenge=...; ory_kratos_session=...</span></pre>
+                  <div class="http-panel-desc">The <strong>Auth Portal</strong> (server-side) checks three things: (1) valid Kratos session, (2) email verified, (3) profile complete. All pass. It calls the <strong>Hydra Admin API</strong> to accept the login challenge stored in the cookie from Stage 2.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Hydra Admin (localhost:4445)</span>
+<span class="hl-method-put">PUT</span> <span class="hl-path">/admin/oauth2/auth/requests/login/accept</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json</span>
+
+<span class="hl-json-brace">{</span><span class="hl-json-key">"subject"</span>: <span class="hl-json-string">"dfc0f507-4e36-4d69-9d8a-dd02b08b825d"</span>, <span class="hl-json-key">"remember"</span>: <span class="hl-json-bool">false</span><span class="hl-json-brace">}</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> checks three things: (1) valid Kratos session exists, (2) email is verified, (3) profile is complete. All three pass, so it accepts Hydra's login challenge via the Hydra Admin API and redirects the Browser to Hydra's consent endpoint. The consent is auto-accepted (BookShare is a first-party app).</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4444/oauth2/auth?...&amp;consent_verifier=...</span></pre>
+                  <div class="http-panel-desc"><strong>Hydra</strong> returns a redirect URL to continue the OAuth2 consent flow.</div>
+                  <pre class="code-block"><span class="hl-comment"># Hydra Admin (localhost:4445) &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json</span>
+
+<span class="hl-json-brace">{</span><span class="hl-json-key">"redirect_to"</span>: <span class="hl-json-string">"http://localhost:4444/oauth2/auth?...&amp;login_verifier=..."</span><span class="hl-json-brace">}</span></pre>
+
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4444/oauth2/auth?...&amp;login_verifier=...</span></pre>
                 </div>
               </div>
               <div class="result-section">
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val">Hydra consent</div></div>
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/oauth2/auth</code> &mdash; Hydra consent</div></div>
                   <div class="result-row"><div class="result-key">Login Challenge</div><div class="result-val">accepted</div></div>
                   <div class="result-row"><div class="result-key">Next</div><div class="result-val">consent auto-accept</div></div>
                 </div>
               </div>
               <div class="note-box">
                 <div class="note-box-label">Note &mdash; The three gates</div>
-                The Auth Portal's <code>/oauth/login</code> handler is the central decision point in the boxed auth flow. It checks:
-                <br><br>
-                <strong>1. Session</strong> &mdash; is the user authenticated? If not, redirect to <code>/login</code>.
-                <br>
-                <strong>2. Verification</strong> &mdash; is their email verified? If not, redirect to <code>/verification</code>.
-                <br>
-                <strong>3. Profile</strong> &mdash; is their profile complete? If not, redirect to <code>/settings</code>.
-                <br><br>
-                Only when all three pass does it accept the Hydra challenge and let the user leave the auth box.
+                The Auth Portal's <code>/oauth/login</code> handler is the central decision point. It checks: (1) <strong>Session</strong> &mdash; is the user authenticated? If not &rarr; <code>/login</code>. (2) <strong>Verification</strong> &mdash; is email verified? If not &rarr; <code>/verification</code>. (3) <strong>Profile</strong> &mdash; is profile complete? If not &rarr; <code>/settings</code>. Only when all pass does it accept the Hydra challenge.
               </div>
             </div>
           </div>
 
           <!-- Stage 7 -->
           <div class="stage" id="stage-7">
-            <div class="stage-dot" style="background:var(--success)">7</div>
+            <div class="stage-dot">7</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Web App callback creates the app session</div>
+                <div class="stage-title">Hydra consent (auto-accepted)</div>
                 <div class="stage-meta">
-                  <span class="direction-badge">Browser &rarr; Hydra &rarr; Web App &rarr; Browser</span>
-                  <span class="source-badge route">Web Route</span>
+                  <span class="direction-badge">Browser &rarr; Hydra &rarr; Auth Portal &rarr; Hydra &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                  <span class="channel-badge front">Front</span>
+                  <span class="channel-badge back">Back</span>
                 </div>
               </div>
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> follows the Hydra consent redirect chain, which eventually redirects to the <strong>Web App's</strong> callback URL with an authorization code.</div>
-                  <pre class="code-block"><span class="hl-method-get">GET</span> <span class="hl-path">/api/auth/callback?code=...&amp;state=...</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                  <div class="http-panel-desc">The <strong>Browser</strong> follows the redirect to <strong>Hydra</strong>. Hydra initiates a consent challenge. The <strong>Auth Portal</strong> auto-accepts it (BookShare is a first-party app).</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Hydra (localhost:4444)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/oauth2/auth?...&amp;login_verifier=...</span> <span class="hl-proto">HTTP/1.1</span></pre>
+
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Hydra Admin (localhost:4445)</span>
+<span class="hl-method-put">PUT</span> <span class="hl-path">/admin/oauth2/auth/requests/consent/accept</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc">The <strong>Web App</strong> exchanges the authorization code for tokens with Hydra (server-to-server), creates its own session cookie (<code>bookshare_token</code>), and redirects the Browser to the app's main page.</div>
-                  <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+                  <div class="http-panel-desc"><strong>Hydra</strong> issues an authorization code and redirects the Browser to the <strong>Web App's</strong> callback.</div>
+                  <pre class="code-block"><span class="hl-comment"># Hydra (localhost:4444) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">302 Found</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3334/api/auth/callback?code=...&amp;state=...</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Consent</div><div class="result-val">auto-accepted</div></div>
+                  <div class="result-row"><div class="result-key">Auth Code</div><div class="result-val">issued</div></div>
+                  <div class="result-row"><div class="result-key">Next</div><div class="result-val">Web App callback</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 8 -->
+          <div class="stage" id="stage-8">
+            <div class="stage-dot" style="background:var(--success)">8</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Web App callback creates the app session</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Web App &rarr; Hydra &rarr; Web App &rarr; Browser</span>
+                  <span class="source-badge route">Web Route</span>
+                  <span class="channel-badge front">Front</span>
+                  <span class="channel-badge back">Back</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc">The <strong>Browser</strong> arrives at the <strong>Web App's</strong> callback with an authorization code.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Web App (localhost:3334)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/api/auth/callback?code=...&amp;state=...</span> <span class="hl-proto">HTTP/1.1</span></pre>
+
+                  <pre class="code-block"><span class="hl-comment"># Web App (localhost:3334) &rarr; Hydra (localhost:4444)</span>
+<span class="hl-method-post">POST</span> <span class="hl-path">/oauth2/token</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
+
+<span class="hl-form-key">grant_type</span>=<span class="hl-form-value">authorization_code</span>&amp;<span class="hl-form-key">code</span>=<span class="hl-form-value">...</span>&amp;<span class="hl-form-key">redirect_uri</span>=<span class="hl-form-value">...</span>&amp;<span class="hl-form-key">code_verifier</span>=<span class="hl-form-value">...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc">The <strong>Web App</strong> exchanges the code for tokens (back-channel), creates its own session (<code>bookshare_token</code>), and redirects the Browser to the app.</div>
+                  <pre class="code-block"><span class="hl-comment"># Web App (localhost:3334) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3334/browse</span>
 <span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">bookshare_token=...; HttpOnly; SameSite=lax</span></pre>
                 </div>
@@ -1659,33 +1744,28 @@
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
                   <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/browse</code></div></div>
-                  <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--success);font-weight:700"><code>bookshare_token</code> created</div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val"><code>bookshare_token</code> created</div></div>
                   <div class="result-row"><div class="result-key">Login</div><div class="result-val" style="color:var(--success);font-weight:700">complete</div></div>
                 </div>
               </div>
               <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
-                <div class="note-box-label" style="color:var(--success)">Note &mdash; Session layers</div>
-                At this point there are TWO sessions:
-                <br><br>
-                <strong>1. <code>ory_kratos_session</code></strong> &mdash; Kratos knows the user is authenticated.
-                <br>
-                <strong>2. <code>bookshare_token</code></strong> &mdash; the Web App's own session, derived from the OIDC tokens.
-                <br><br>
-                The Web App uses its own session for all subsequent requests. The Kratos session is only relevant inside the auth box.
+                <div class="note-box-label" style="color:var(--success)">Note &mdash; Two sessions</div>
+                At this point there are TWO sessions: (1) <code>ory_kratos_session</code> &mdash; Kratos knows the user is authenticated (inside the auth box). (2) <code>bookshare_token</code> &mdash; the Web App's own session from OIDC tokens. The Web App uses its own session for all subsequent requests.
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ── Unverified Login Branch ── -->
-        <div class="branch-section" id="unverified-login">
+        <!-- ── Unverified Account Branch ── -->
+        <div class="branch-section" id="unverified-account">
           <div class="branch-label">&#9888; Gate Path</div>
           <div class="branch-title">Unverified Account</div>
 
           <div class="branch-cards">
             <div class="branch-card">
               <div class="branch-card-title">Login Submit</div>
-              <pre class="code-block"><span class="hl-method-post">POST</span> <span class="hl-path">/self-service/login?flow=6f6d9944-bfe3-4f99-a27d-e0d2718efbe7</span> <span class="hl-proto">HTTP/1.1</span>
+              <pre class="code-block"><span class="hl-comment"># Browser &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/login?flow=6f6d9944-bfe3-4f99-a27d-e0d2718efbe7</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
 
 <span class="hl-form-key">csrf_token</span>=<span class="hl-comment">...</span>
@@ -1696,23 +1776,25 @@
 
             <div class="branch-card">
               <div class="branch-card-title">Kratos Response</div>
-              <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+              <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/oauth/login</span>
 <span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; HttpOnly; SameSite=Lax</span></pre>
             </div>
 
             <div class="branch-card">
               <div class="branch-card-title">Auth Portal Gate</div>
-              <pre class="code-block"><span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+              <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
 <span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/verification</span></pre>
             </div>
 
             <div class="branch-card">
               <div class="branch-card-title">Result</div>
               <div class="result-table">
-                <div class="result-row"><div class="result-key">Error</div><div class="result-val" style="color:var(--warning);font-weight:700">Email not verified</div></div>
-                <div class="result-row"><div class="result-key">Kratos</div><div class="result-val">Authenticated &mdash; session created</div></div>
+                <div class="result-row"><div class="result-key">Kratos</div><div class="result-val" style="color:var(--warning);font-weight:700">Authenticated &mdash; session created</div></div>
                 <div class="result-row"><div class="result-key">Auth Portal</div><div class="result-val">Blocked Hydra resume</div></div>
+                <div class="result-row"><div class="result-key">Reason</div><div class="result-val">Email not verified</div></div>
                 <div class="result-row"><div class="result-key">Redirect</div><div class="result-val"><code>/verification</code></div></div>
                 <div class="result-row">
                   <div class="result-key">BookShare Actions</div>

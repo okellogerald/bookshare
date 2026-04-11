@@ -13,7 +13,7 @@ This app is for platform staff only. It is distinct from:
 
 ## Current Status
 
-Current milestone: `Catalog Operations & Batch Ingestion`
+Current milestone: `Catalog Operations`
 
 ## Milestones
 
@@ -28,7 +28,7 @@ Current milestone: `Catalog Operations & Batch Ingestion`
 - [x] Add admin API proxy and query layer
 - [x] Ship Catalog Workbench v0
 - [x] Ship Staff Management v0
-- [ ] Ship batch ingestion UI
+- [x] Ship batch ingestion UI
 
 ## Decisions
 
@@ -52,21 +52,22 @@ The first slice in progress is:
 5. Staff can search the current catalog from the admin app
 6. Staff roles are enforced from auth claims through admin route protection and API writes
 7. Staff can search identities, grant platform access, and revoke roles from the admin app
+8. Staff can upload importer ZIPs, validate them, inspect issues, and commit runs from the admin app
 
 This slice does not yet include:
 
 - full catalog CRUD backed by API data
-- import/batch execution from the browser
 - duplicate-aware catalog tooling beyond search
 - staff-role audit history beyond current assignment state
+- browser-native CSV assembly without preparing a ZIP first
 
 ## Next Tasks
 
 1. Build Catalog Workbench create/edit flows on top of the new search path
 2. Surface staff-role audit context in the admin UI
-3. Add batch-ingestion validation and preview workflow
+3. Add browser-native CSV/paste batch assembly on top of the ZIP-backed flow
 4. Add create-on-behalf member listing flow
-5. Build browser-based batch commit flow
+5. Expand duplicate-resolution tooling inside batch review
 
 ## Key Files
 
@@ -74,6 +75,7 @@ This slice does not yet include:
 - `apps/admin`
 - `apps/admin/src/features/catalog/components/catalog-workbench.tsx`
 - `apps/admin/src/features/staff/components/staff-management.tsx`
+- `apps/admin/src/features/batches/components/batch-ingestion-workbench.tsx`
 - `infra/ory/hydra/init-client.sh`
 - `docker-compose.dev.yml`
 - `packages/db/src/schema/staff-roles.ts`

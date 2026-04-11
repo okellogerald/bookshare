@@ -16,6 +16,7 @@ RUN bun install --frozen-lockfile
 
 COPY packages/shared ./packages/shared
 COPY packages/db ./packages/db
+COPY packages/importer ./packages/importer
 COPY apps/api ./apps/api
 COPY tsconfig.base.json ./
 

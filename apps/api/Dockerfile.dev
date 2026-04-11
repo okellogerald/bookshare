@@ -18,6 +18,7 @@ RUN bun install --frozen-lockfile
 # Copy source (volumes will override in dev)
 COPY packages/shared ./packages/shared
 COPY packages/db ./packages/db
+COPY packages/importer ./packages/importer
 COPY apps/api ./apps/api
 COPY tsconfig.base.json ./
 

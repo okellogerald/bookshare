@@ -20,6 +20,15 @@ export function sha256Hex(content: ArrayBuffer): string {
   return createHash("sha256").update(Buffer.from(content)).digest("hex");
 }
 
+function toArrayBuffer(content: ArrayBuffer | Uint8Array | Buffer): ArrayBuffer {
+  const bytes =
+    content instanceof ArrayBuffer
+      ? Uint8Array.from(new Uint8Array(content))
+      : Uint8Array.from(content);
+
+  return bytes.buffer;
+}
+
 function assertCsvFileName(value: string): value is CsvFileName {
   return (CSV_FILES as readonly string[]).includes(value);
 }
@@ -47,18 +56,12 @@ function isCoverEntryPath(path: string): boolean {
   return /(^|\/)covers\/[^/]+$/.test(normalized);
 }
 
-export async function parseZipFile(
-  zipPath: string,
+export async function parseZipBuffer(
+  content: ArrayBuffer | Uint8Array | Buffer,
+  zipName: string,
   options: { mode: ImportMode }
 ): Promise<ParsedZipInput> {
-  let zipBuffer: ArrayBuffer;
-  try {
-    const raw = await readFile(zipPath);
-    zipBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
-  } catch {
-    throw new Error(`ZIP file does not exist or is not readable: ${zipPath}`);
-  }
-
+  const zipBuffer = toArrayBuffer(content);
   const zip = await JSZip.loadAsync(zipBuffer);
 
   const csvFilesByName = new Map<CsvFileName, JSZip.JSZipObject>();
@@ -184,10 +187,22 @@ export async function parseZipFile(
   }
 
   return {
-    zipName: basename(zipPath),
+    zipName: basename(zipName),
     sha256: sha256Hex(zipBuffer),
     mode: options.mode,
     files: parsedFiles,
     covers,
   };
+}
+
+export async function parseZipFile(
+  zipPath: string,
+  options: { mode: ImportMode }
+): Promise<ParsedZipInput> {
+  try {
+    const raw = await readFile(zipPath);
+    return parseZipBuffer(raw, basename(zipPath), options);
+  } catch {
+    throw new Error(`ZIP file does not exist or is not readable: ${zipPath}`);
+  }
 }

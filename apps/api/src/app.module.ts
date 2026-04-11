@@ -18,6 +18,7 @@ import { ProfilesModule } from "./modules/profiles/profiles.module";
 import { SubmissionsModule } from "./modules/submissions/submissions.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { StaffModule } from "./modules/staff/staff.module";
+import { ImportsModule } from "./modules/imports/imports.module";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { StaffModule } from "./modules/staff/staff.module";
     ProfilesModule,
     SubmissionsModule,
     StaffModule,
+    ImportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
