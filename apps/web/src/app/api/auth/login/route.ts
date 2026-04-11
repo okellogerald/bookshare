@@ -1,76 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildScope,
+  clearLoggedOutMarker,
+  createLoginTransaction,
+  persistOIDCTransaction,
+} from "@bookshare/shared";
 import * as client from "openid-client";
 import { getOIDCConfig, getRedirectUri } from "@/features/auth/lib/oidc";
 import { encrypt } from "@/features/auth/lib/crypto";
-
-function sanitizeReturnTo(value: string | null): string {
-  if (!value) return "/browse";
-  if (!value.startsWith("/")) return "/browse";
-  if (value.startsWith("//")) return "/browse";
-  if (value.startsWith("/api/auth")) return "/browse";
-  return value;
-}
+import { WEB_OIDC_COOKIE_NAMES } from "@/features/auth/lib/cookie-names";
 
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
   const redirectUri = getRedirectUri();
-  const returnTo = sanitizeReturnTo(
-    request.nextUrl.searchParams.get("returnTo")
+  const scope = buildScope(
+    ["openid", "profile", "email"],
+    process.env.OIDC_ADDITIONAL_SCOPES || "offline_access"
   );
-
-  const codeVerifier = client.randomPKCECodeVerifier();
-  const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
-  const state = client.randomState();
-
-  const baseScopes = ["openid", "profile", "email"];
-  const additionalScopes = (process.env.OIDC_ADDITIONAL_SCOPES || "offline_access")
-    .split(" ")
-    .map((scope) => scope.trim())
-    .filter(Boolean);
-
-  const scope = Array.from(new Set([...baseScopes, ...additionalScopes])).join(
-    " "
-  );
-
-  const parameters: Record<string, string> = {
+  const transaction = await createLoginTransaction({
+    requestedReturnTo: request.nextUrl.searchParams.get("returnTo"),
+    defaultReturnTo: "/browse",
+  });
+  const authorizationUrl = client.buildAuthorizationUrl(config, {
     redirect_uri: redirectUri,
     scope,
-    code_challenge: codeChallenge,
+    code_challenge: transaction.codeChallenge,
     code_challenge_method: "S256",
-    state,
+    state: transaction.state,
     prompt: "login",
     max_age: "0",
-  };
-
-  const redirectTo = client.buildAuthorizationUrl(config, parameters);
-
-  const response = NextResponse.redirect(redirectTo.href);
-
-  response.cookies.set("oidc_code_verifier", await encrypt(codeVerifier), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 600,
   });
+  const response = NextResponse.redirect(authorizationUrl.href);
 
-  response.cookies.set("oidc_state", await encrypt(state), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 600,
+  await persistOIDCTransaction({
+    cookies: response.cookies,
+    encrypt,
+    cookieNames: WEB_OIDC_COOKIE_NAMES,
+    transaction,
   });
-
-  response.cookies.set("oidc_return_to", await encrypt(returnTo), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 600,
-  });
-
-  response.cookies.delete("bookshare_logged_out");
+  clearLoggedOutMarker(response.cookies, WEB_OIDC_COOKIE_NAMES.loggedOut);
 
   return response;
 }

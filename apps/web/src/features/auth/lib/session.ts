@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { encrypt, decrypt } from "./crypto";
-
-const SESSION_COOKIE = "bookshare_session";
-const TOKEN_COOKIE = "bookshare_token";
+import {
+  WEB_SESSION_COOKIE,
+  WEB_TOKEN_COOKIE,
+} from "./cookie-names";
 
 export interface SessionData {
   idToken?: string;
@@ -37,7 +38,7 @@ export async function setSession(
   const encryptedSession = await encrypt(JSON.stringify(data));
   const encryptedToken = await encrypt(tokenForApi);
 
-  cookieStore.set(SESSION_COOKIE, encryptedSession, {
+  cookieStore.set(WEB_SESSION_COOKIE, encryptedSession, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -45,7 +46,7 @@ export async function setSession(
     maxAge: 60 * 60 * 24,
   });
 
-  cookieStore.set(TOKEN_COOKIE, encryptedToken, {
+  cookieStore.set(WEB_TOKEN_COOKIE, encryptedToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -56,7 +57,7 @@ export async function setSession(
 
 export async function getSession(): Promise<SessionData | null> {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE);
+  const sessionCookie = cookieStore.get(WEB_SESSION_COOKIE);
 
   if (!sessionCookie?.value) return null;
 
@@ -77,7 +78,7 @@ export async function getSession(): Promise<SessionData | null> {
 
 export async function getAccessToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  const tokenCookie = cookieStore.get(TOKEN_COOKIE)?.value ?? null;
+  const tokenCookie = cookieStore.get(WEB_TOKEN_COOKIE)?.value ?? null;
 
   if (tokenCookie) {
     try {
@@ -88,7 +89,7 @@ export async function getAccessToken(): Promise<string | null> {
     }
   }
 
-  const sessionCookie = cookieStore.get(SESSION_COOKIE)?.value;
+  const sessionCookie = cookieStore.get(WEB_SESSION_COOKIE)?.value;
   if (!sessionCookie) return null;
 
   try {
@@ -104,6 +105,6 @@ export async function getAccessToken(): Promise<string | null> {
 
 export async function clearSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
-  cookieStore.delete(TOKEN_COOKIE);
+  cookieStore.delete(WEB_SESSION_COOKIE);
+  cookieStore.delete(WEB_TOKEN_COOKIE);
 }

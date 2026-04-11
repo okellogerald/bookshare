@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  clearOIDCClientCookies,
+  clearOIDCTransactionCookies,
+  readOIDCTransaction,
+} from "@bookshare/shared";
 import * as client from "openid-client";
 import { decrypt } from "@/features/auth/lib/crypto";
 import { getOIDCConfig } from "@/features/auth/lib/oidc";
 import { setSession } from "@/features/auth/lib/session";
-import { buildAuthPortalVerificationUrl, sanitizeReturnTo } from "@/features/auth/lib/auth-portal";
+import { buildAuthPortalVerificationUrl } from "@/features/auth/lib/auth-portal";
 import {
-  ADMIN_CODE_VERIFIER_COOKIE,
-  ADMIN_RETURN_TO_COOKIE,
-  ADMIN_STATE_COOKIE,
-  ADMIN_TOKEN_COOKIE,
-  ADMIN_SESSION_COOKIE,
+  ADMIN_OIDC_COOKIE_NAMES,
 } from "@/features/auth/lib/cookie-names";
 
 function toBoolean(value: unknown): boolean {
@@ -35,32 +36,26 @@ function extractRoles(claims: Record<string, unknown>): string[] {
   return [];
 }
 
-function clearAuthCookies(response: NextResponse) {
-  response.cookies.delete(ADMIN_SESSION_COOKIE);
-  response.cookies.delete(ADMIN_TOKEN_COOKIE);
-  response.cookies.delete(ADMIN_CODE_VERIFIER_COOKIE);
-  response.cookies.delete(ADMIN_STATE_COOKIE);
-  response.cookies.delete(ADMIN_RETURN_TO_COOKIE);
-}
-
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
-  const verifierCookie = request.cookies.get(ADMIN_CODE_VERIFIER_COOKIE)?.value;
-  const stateCookie = request.cookies.get(ADMIN_STATE_COOKIE)?.value;
+  const transaction = await readOIDCTransaction({
+    cookies: request.cookies,
+    decrypt,
+    cookieNames: ADMIN_OIDC_COOKIE_NAMES,
+    defaultReturnTo: "/catalog",
+  });
 
-  if (!verifierCookie || !stateCookie) {
+  if (!transaction) {
     return NextResponse.redirect(new URL("/api/auth/login", request.url));
   }
 
   try {
-    const codeVerifier = await decrypt(verifierCookie);
-    const expectedState = await decrypt(stateCookie);
     const tokens = await client.authorizationCodeGrant(
       config,
       new URL(request.url),
       {
-        pkceCodeVerifier: codeVerifier,
-        expectedState,
+        pkceCodeVerifier: transaction.codeVerifier,
+        expectedState: transaction.expectedState,
         idTokenExpected: true,
       }
     );
@@ -69,25 +64,15 @@ export async function GET(request: NextRequest) {
     const emailVerified = toBoolean(claims.email_verified);
     const roles = extractRoles(claims as Record<string, unknown>);
 
-    const encryptedReturnTo = request.cookies.get(ADMIN_RETURN_TO_COOKIE)?.value;
-    let returnToRaw: string | null = null;
-    if (encryptedReturnTo) {
-      try {
-        returnToRaw = await decrypt(encryptedReturnTo);
-      } catch {
-        returnToRaw = null;
-      }
-    }
-
     if (!emailVerified) {
       const response = NextResponse.redirect(buildAuthPortalVerificationUrl());
-      clearAuthCookies(response);
+      clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;
     }
 
     if (roles.length === 0) {
       const response = NextResponse.redirect(new URL("/?error=forbidden", request.url));
-      clearAuthCookies(response);
+      clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;
     }
 
@@ -108,15 +93,13 @@ export async function GET(request: NextRequest) {
     );
 
     const response = NextResponse.redirect(
-      new URL(sanitizeReturnTo(returnToRaw), request.url)
+      new URL(transaction.returnTo, request.url)
     );
-    response.cookies.delete(ADMIN_CODE_VERIFIER_COOKIE);
-    response.cookies.delete(ADMIN_STATE_COOKIE);
-    response.cookies.delete(ADMIN_RETURN_TO_COOKIE);
+    clearOIDCTransactionCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
     return response;
   } catch (error) {
     const response = NextResponse.redirect(new URL("/?error=auth_failed", request.url));
-    clearAuthCookies(response);
+    clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
     return response;
   }
 }

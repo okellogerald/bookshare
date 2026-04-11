@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decrypt } from "@/features/auth/lib/crypto";
+import {
+  WEB_LOGGED_OUT_COOKIE,
+  WEB_SESSION_COOKIE,
+  WEB_TOKEN_COOKIE,
+} from "@/features/auth/lib/cookie-names";
 
 /**
  * Auth-gated app routes. Keep this aligned with pages under `app/(app)`.
@@ -42,8 +47,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protected route — require session
-  const session = request.cookies.get("bookshare_session");
-  const loggedOutMarker = request.cookies.get("bookshare_logged_out")?.value === "1";
+  const session = request.cookies.get(WEB_SESSION_COOKIE);
+  const loggedOutMarker =
+    request.cookies.get(WEB_LOGGED_OUT_COOKIE)?.value === "1";
   const loginUrl = new URL("/api/auth/login", request.url);
   loginUrl.searchParams.set(
     "returnTo",
@@ -72,8 +78,8 @@ export async function middleware(request: NextRequest) {
 
     if (isSessionExpired(sessionData.expiresAt)) {
       const response = NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);
-      response.cookies.delete("bookshare_session");
-      response.cookies.delete("bookshare_token");
+      response.cookies.delete(WEB_SESSION_COOKIE);
+      response.cookies.delete(WEB_TOKEN_COOKIE);
       return response;
     }
 

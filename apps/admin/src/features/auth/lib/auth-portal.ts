@@ -1,3 +1,5 @@
+import { sanitizeRelativeReturnTo } from "@bookshare/shared";
+
 const DEFAULT_AUTH_PORTAL_URL = "http://localhost:3337";
 const DEFAULT_APP_URL = "http://localhost:3338";
 
@@ -14,11 +16,7 @@ function getAppBaseUrl(): string {
 }
 
 export function sanitizeReturnTo(value: string | null | undefined): string {
-  if (!value) return "/catalog";
-  if (!value.startsWith("/")) return "/catalog";
-  if (value.startsWith("//")) return "/catalog";
-  if (value.startsWith("/api/auth")) return "/catalog";
-  return value;
+  return sanitizeRelativeReturnTo(value, "/catalog");
 }
 
 export function buildAuthPortalVerificationUrl(): string {

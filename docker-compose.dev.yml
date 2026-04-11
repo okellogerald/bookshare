@@ -331,7 +331,7 @@ services:
       context: .
       dockerfile: apps/admin/Dockerfile.dev
     restart: unless-stopped
-    command: ["/bin/sh", "-lc", "bun install --frozen-lockfile && bun run dev"]
+    command: ["/bin/sh", "-lc", "cd /app && bun install --frozen-lockfile && bun run --cwd apps/admin dev"]
     environment:
       PORT: 3338
       NEXT_PUBLIC_APP_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}

@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  clearOIDCClientCookies,
+  clearOIDCTransactionCookies,
+  readOIDCTransaction,
+} from "@bookshare/shared";
 import * as client from "openid-client";
 import { getOIDCConfig } from "@/features/auth/lib/oidc";
 import { setSession } from "@/features/auth/lib/session";
@@ -9,19 +14,12 @@ import {
   createDPoPProof,
   tokenHasDpopBinding,
 } from "@/features/auth/lib/dpop";
+import { WEB_OIDC_COOKIE_NAMES } from "@/features/auth/lib/cookie-names";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "http://api:3333/api";
-
-function sanitizeReturnTo(value: string | null): string {
-  if (!value) return "/browse";
-  if (!value.startsWith("/")) return "/browse";
-  if (value.startsWith("//")) return "/browse";
-  if (value.startsWith("/api/auth")) return "/browse";
-  return value;
-}
 
 function isJwtLike(token?: string | null): token is string {
   return !!token && token.split(".").length === 3;
@@ -44,20 +42,20 @@ function toBoolean(value: unknown): boolean {
 
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
+  const transaction = await readOIDCTransaction({
+    cookies: request.cookies,
+    decrypt,
+    cookieNames: WEB_OIDC_COOKIE_NAMES,
+    defaultReturnTo: "/browse",
+  });
 
-  const encryptedVerifier = request.cookies.get("oidc_code_verifier")?.value;
-  const encryptedState = request.cookies.get("oidc_state")?.value;
-
-  if (!encryptedVerifier || !encryptedState) {
+  if (!transaction) {
     return NextResponse.redirect(
       new URL("/api/auth/login", request.url)
     );
   }
 
   try {
-    const codeVerifier = await decrypt(encryptedVerifier);
-    const expectedState = await decrypt(encryptedState);
-
     // Generate DPoP keypair for token binding
     const dpopKeyPair = await generateDPoPKeyPair();
     const dpopHandle = client.getDPoPHandle(config, dpopKeyPair);
@@ -67,8 +65,8 @@ export async function GET(request: NextRequest) {
       config,
       currentUrl,
       {
-        pkceCodeVerifier: codeVerifier,
-        expectedState,
+        pkceCodeVerifier: transaction.codeVerifier,
+        expectedState: transaction.expectedState,
         idTokenExpected: true,
       },
       undefined,
@@ -80,24 +78,9 @@ export async function GET(request: NextRequest) {
     const accessTokenIsDpopBound =
       !!tokens.access_token && tokenHasDpopBinding(tokens.access_token);
 
-    const encryptedReturnTo = request.cookies.get("oidc_return_to")?.value;
-    let returnToRaw: string | null = null;
-    if (encryptedReturnTo) {
-      try {
-        returnToRaw = await decrypt(encryptedReturnTo);
-      } catch {
-        returnToRaw = null;
-      }
-    }
-    const returnTo = sanitizeReturnTo(returnToRaw);
-
     if (!emailVerified) {
       const response = NextResponse.redirect(new URL("/auth/verification", request.url));
-      response.cookies.delete("bookshare_session");
-      response.cookies.delete("bookshare_token");
-      response.cookies.delete("oidc_code_verifier");
-      response.cookies.delete("oidc_state");
-      response.cookies.delete("oidc_return_to");
+      clearOIDCClientCookies(response.cookies, WEB_OIDC_COOKIE_NAMES);
       return response;
     }
 
@@ -158,11 +141,7 @@ export async function GET(request: NextRequest) {
             const blockedResponse = NextResponse.redirect(
               new URL("/?error=account_deactivated", request.url)
             );
-            blockedResponse.cookies.delete("bookshare_session");
-            blockedResponse.cookies.delete("bookshare_token");
-            blockedResponse.cookies.delete("oidc_code_verifier");
-            blockedResponse.cookies.delete("oidc_state");
-            blockedResponse.cookies.delete("oidc_return_to");
+            clearOIDCClientCookies(blockedResponse.cookies, WEB_OIDC_COOKIE_NAMES);
             return blockedResponse;
           }
 
@@ -176,16 +155,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Clean up OIDC cookies and redirect back to requested route
-    const response = NextResponse.redirect(new URL(returnTo, request.url));
-    response.cookies.delete("oidc_code_verifier");
-    response.cookies.delete("oidc_state");
-    response.cookies.delete("oidc_return_to");
+    const response = NextResponse.redirect(new URL(transaction.returnTo, request.url));
+    clearOIDCTransactionCookies(response.cookies, WEB_OIDC_COOKIE_NAMES);
 
     return response;
   } catch (error) {
     console.error("OIDC callback error:", error);
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL("/?error=auth_failed", request.url)
     );
+    clearOIDCClientCookies(response.cookies, WEB_OIDC_COOKIE_NAMES);
+    return response;
   }
 }
