@@ -1,3 +1,12 @@
+/**
+ * Cookie Names — Admin Client
+ *
+ * Same structure as the Web app but with `bookshare_admin_` prefixed names
+ * to avoid cookie collisions when both apps run on the same domain during
+ * development (both on localhost, different ports).
+ *
+ * @see `apps/web/src/features/auth/lib/cookie-names.ts` — Web app equivalent
+ */
 export const ADMIN_SESSION_COOKIE = "bookshare_admin_session";
 export const ADMIN_TOKEN_COOKIE = "bookshare_admin_token";
 export const ADMIN_LOGGED_OUT_COOKIE = "bookshare_admin_logged_out";

@@ -1,3 +1,25 @@
+/**
+ * DPoP (Demonstration of Proof-of-Possession) — RFC 9449
+ *
+ * Implements sender-constrained access tokens for the Web app's API calls.
+ * When DPoP is active, a stolen access token is useless without the private
+ * key that was used to bind it during the token exchange.
+ *
+ * Lifecycle:
+ * 1. During `/api/auth/callback`, a fresh ECDSA P-256 keypair is generated.
+ * 2. A DPoP proof is attached to the token exchange request, so Hydra can
+ *    bind the access token to the public key (via the `cnf.jkt` claim).
+ * 3. The private key JWK is stored in the encrypted session cookie.
+ * 4. For each API call, `apiFetch` imports the private key, creates a fresh
+ *    DPoP proof (with jti, htm, htu, iat, ath), and sends it alongside
+ *    the `Authorization: DPoP <token>` header.
+ *
+ * The proof is single-use: `jti` (random UUID) prevents replay, `iat`
+ * prevents old proofs, and `ath` (access token hash) binds proof to token.
+ *
+ * @see `api-client.ts` — where DPoP proofs are attached to API requests
+ * @see `/api/auth/callback` — where the keypair is generated and stored
+ */
 import * as client from "openid-client";
 
 const ALGORITHM: EcKeyGenParams = { name: "ECDSA", namedCurve: "P-256" };
@@ -21,6 +43,11 @@ export async function exportPrivateKeyJwk(
   return crypto.subtle.exportKey("jwk", keyPair.privateKey);
 }
 
+/**
+ * Strip the private key component (d) from a JWK, leaving only the public
+ * key (kty, crv, x, y). Used in the DPoP proof header so the verifier can
+ * confirm possession without seeing the private key.
+ */
 function getPublicJwk(jwk: JsonWebKey): JsonWebKey {
   return {
     kty: jwk.kty,
@@ -77,6 +104,11 @@ function fromBase64Url(value: string): string {
   return atob(padded);
 }
 
+/**
+ * Check if a JWT access token has a DPoP binding confirmation (cnf.jkt claim).
+ * When present, the resource server requires a matching DPoP proof for every
+ * request. When absent, the token should be sent as a plain Bearer token.
+ */
 export function tokenHasDpopBinding(token: string): boolean {
   const parts = token.split(".");
   if (parts.length !== 3) return false;

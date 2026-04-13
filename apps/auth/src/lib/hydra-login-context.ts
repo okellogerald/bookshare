@@ -1,3 +1,19 @@
+/**
+ * Hydra Login Challenge Persistence — Auth-Portal
+ *
+ * When Hydra redirects to the Auth-Portal with a `login_challenge`, the user
+ * may need to navigate through several Kratos pages (login form, verification,
+ * profile settings) before returning to the challenge handler. The challenge
+ * ID would be lost during these navigations because Kratos's return_to URL
+ * cannot carry arbitrary parameters.
+ *
+ * This module solves that by persisting the challenge as an httpOnly cookie
+ * (15-minute TTL). The login challenge handler checks this cookie when no
+ * `login_challenge` query parameter is present, allowing the flow to resume
+ * after Kratos operations complete.
+ *
+ * @see `/oauth/login/route.ts` — reads and writes the challenge cookie
+ */
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 

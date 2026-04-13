@@ -1,3 +1,24 @@
+/**
+ * Kratos Session Logout — Auth-Portal
+ *
+ * Phase 3 (final phase) of the logout flow. By this point:
+ * - Phase 1: client app cleared its cookies
+ * - Phase 2: Hydra invalidated its OAuth session
+ *
+ * This handler clears the Kratos session cookie (`ory_kratos_session`) by:
+ * 1. Calling Kratos's `/self-service/logout/browser` endpoint with the
+ *    browser's cookies to get a logout confirmation URL.
+ * 2. Redirecting the browser to that URL, which clears the cookie.
+ * 3. Kratos then redirects to the `return_to` URL (the client app's landing page).
+ *
+ * After this, all three layers are logged out:
+ * - Client app cookies: cleared (Phase 1)
+ * - Hydra OAuth session: invalidated (Phase 2)
+ * - Kratos identity session: cleared (Phase 3)
+ *
+ * @see `apps/web/src/app/api/auth/post-logout/route.ts` — what redirects here
+ * @see `apps/auth/src/app/oauth/logout/route.ts` — Phase 2
+ */
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthPortalPublicUrl,
@@ -6,6 +27,10 @@ import {
   getKratosInternalPublicUrl,
 } from "@/lib/config";
 
+/**
+ * Sanitize the return_to URL against a whitelist of allowed origins.
+ * Prevents open redirect attacks via the logout flow.
+ */
 function sanitizeReturnTo(value: string | null): string {
   const fallback = getBookshareAppPublicUrl();
   if (!value) return fallback;
@@ -27,6 +52,11 @@ function sanitizeReturnTo(value: string | null): string {
   }
 }
 
+/**
+ * Convert an internal Kratos URL (or relative path) to a browser-facing URL.
+ * Kratos may return redirect URLs relative to its internal address — this
+ * rewrites them to the public-facing Kratos URL that the browser can reach.
+ */
 function toKratosBrowserUrl(value: string): URL {
   return new URL(value, getKratosBrowserUrl());
 }

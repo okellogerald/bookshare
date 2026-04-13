@@ -361,6 +361,8 @@ services:
       - ./apps/admin/src:/app/apps/admin/src
       - ./packages/shared/src:/app/packages/shared/src
     depends_on:
+      api:
+        condition: service_started
       auth:
         condition: service_started
       postgrest:

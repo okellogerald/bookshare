@@ -1,9 +1,36 @@
+/**
+ * Kratos Identity API Client — Auth-Portal
+ *
+ * Provides the Auth-Portal's interface to Ory Kratos (the identity provider).
+ * Handles two main concerns:
+ *
+ * 1. **Session validation**: `getKratosSession()` calls Kratos's `/sessions/whoami`
+ *    to check if the browser has a valid `ory_kratos_session` cookie and returns
+ *    the identity (id, traits, verifiable_addresses). This is how the login
+ *    challenge handler knows WHO the user is.
+ *
+ * 2. **Flow management**: `initBrowserFlow()` and `getBrowserFlow()` create and
+ *    retrieve Kratos self-service flows (login, registration, verification,
+ *    recovery, settings). These flows are rendered by Auth-Portal's UI pages.
+ *
+ * Auth policy helpers:
+ * - `isKratosEmailVerified()`: checks verifiable_addresses for a verified entry
+ * - `isKratosProfileComplete()`: checks traits.name.first and traits.name.last
+ *
+ * Network note: all calls go to `KRATOS_PUBLIC_INTERNAL_URL` (internal Docker
+ * address like http://kratos:4433), while browser-facing URLs use
+ * `KRATOS_BROWSER_URL` (like http://localhost:4433).
+ *
+ * @see `/oauth/login/route.ts` — uses getKratosSession and policy helpers
+ * @see `/oauth/consent/route.ts` — uses getKratosSession for fresh traits
+ */
 import { cookies } from "next/headers";
 import {
   getKratosBrowserUrl,
   getKratosInternalPublicUrl,
 } from "./config";
 
+/** The self-service flow types supported by Kratos. */
 export type KratosFlowKind =
   | "login"
   | "registration"
@@ -85,6 +112,11 @@ export interface KratosSession {
   };
 }
 
+/**
+ * Forward all browser cookies to Kratos for session validation.
+ * Kratos uses the `ory_kratos_session` cookie to identify the user.
+ * We forward ALL cookies because Kratos may also use CSRF cookies.
+ */
 async function createCookieHeader(): Promise<string> {
   const store = await cookies();
 
@@ -94,6 +126,7 @@ async function createCookieHeader(): Promise<string> {
     .join("; ");
 }
 
+/** Append a return_to param to a Kratos flow URL so the user comes back here. */
 export function withOptionalReturnTo(url: URL, returnTo?: string): string {
   if (returnTo && returnTo.trim().length > 0) {
     url.searchParams.set("return_to", returnTo);
@@ -102,6 +135,7 @@ export function withOptionalReturnTo(url: URL, returnTo?: string): string {
   return url.toString();
 }
 
+/** Build the public-facing URL that the browser uses to start a Kratos flow. */
 export function createBrowserFlowUrl(kind: KratosFlowKind, returnTo?: string): string {
   const baseUrl = new URL(
     `/self-service/${kind}/browser`,
@@ -110,6 +144,7 @@ export function createBrowserFlowUrl(kind: KratosFlowKind, returnTo?: string): s
   return withOptionalReturnTo(baseUrl, returnTo);
 }
 
+/** Extract the flow ID from a Kratos redirect Location header. */
 function extractFlowIdFromLocation(location: string): string | null {
   if (!location || location.trim().length === 0) return null;
 
@@ -121,6 +156,16 @@ function extractFlowIdFromLocation(location: string): string | null {
   }
 }
 
+/**
+ * Initialize a Kratos self-service browser flow (server-side).
+ *
+ * Calls Kratos's internal URL with `redirect: "manual"` to capture the
+ * redirect Location header, which contains the flow ID. This avoids a
+ * full browser redirect cycle — the Auth-Portal can render the flow's UI
+ * directly using the flow ID.
+ *
+ * @returns The flow ID, or null if initialization failed.
+ */
 export async function initBrowserFlow(
   kind: KratosFlowKind,
   returnTo?: string
@@ -171,6 +216,11 @@ export async function initBrowserFlow(
   }
 }
 
+/**
+ * Fetch the state of an existing Kratos flow by ID.
+ * Returns the flow's UI metadata: form fields (nodes), action URL, method,
+ * validation messages, and current state. Used to render Auth-Portal pages.
+ */
 export async function getBrowserFlow(
   kind: KratosFlowKind,
   flowId: string
@@ -204,6 +254,7 @@ export async function getBrowserFlow(
   }
 }
 
+/** Fetch a Kratos flow error by ID — used to display error details to the user. */
 export async function getFlowErrorById(
   errorId: string
 ): Promise<KratosFlowError | null> {
@@ -224,6 +275,20 @@ export async function getFlowErrorById(
   }
 }
 
+/**
+ * Check if the browser has a valid Kratos session.
+ *
+ * Calls `/sessions/whoami` on Kratos's internal URL, forwarding the browser's
+ * cookies (specifically `ory_kratos_session`). If valid, returns the full
+ * session with identity traits and verifiable addresses.
+ *
+ * Used by:
+ * - Login challenge handler: to decide if the user needs to authenticate
+ * - Consent handler: to get fresh traits for building token claims
+ *
+ * @param cookieHeader - Raw Cookie header from the browser request.
+ *   Falls back to Next.js `cookies()` if not provided.
+ */
 export async function getKratosSession(
   cookieHeader?: string
 ): Promise<KratosSession | null> {
@@ -262,6 +327,15 @@ function normalizeText(value: unknown): string {
   return value.trim();
 }
 
+/**
+ * Auth policy step 2: Is the user's email verified?
+ *
+ * Checks Kratos's verifiable_addresses for a verified entry matching the
+ * identity's email trait. If no email trait exists, any verified address counts.
+ *
+ * This is one of three gates in the login challenge handler's authorization
+ * policy. Unverified users are redirected to the verification page.
+ */
 export function isKratosEmailVerified(
   session: KratosSession | null
 ): boolean {
@@ -285,6 +359,15 @@ export function isKratosEmailVerified(
   });
 }
 
+/**
+ * Auth policy step 3: Is the user's profile complete?
+ *
+ * Checks that `traits.name.first` and `traits.name.last` are both non-empty.
+ * This ensures the user has provided their real name, which is required for
+ * the BookShare community features.
+ *
+ * Incomplete profiles are redirected to the settings page.
+ */
 export function isKratosProfileComplete(
   session: KratosSession | null
 ): boolean {
@@ -304,6 +387,7 @@ export function isKratosProfileComplete(
   return firstName.length > 0 && lastName.length > 0;
 }
 
+/** Check if the session was authenticated via a specific method (e.g., "password"). */
 export function hasKratosAuthenticationMethod(
   session: KratosSession | null,
   method: string
@@ -317,6 +401,7 @@ export function hasKratosAuthenticationMethod(
   );
 }
 
+/** Extract top-level UI messages from a flow (errors, success notifications). */
 export function getFlowMessages(flow: KratosBrowserFlow): KratosUiMessage[] {
   return flow.ui.messages ?? [];
 }

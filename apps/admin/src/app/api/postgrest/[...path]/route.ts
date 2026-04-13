@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken, getSession } from "@/features/auth/lib/session";
+import {
+  buildProxyBaseUrlCandidates,
+  buildProxyRequestUrl,
+} from "@/shared/lib/proxy-targets";
 
-const POSTGREST_URL =
-  process.env.POSTGREST_INTERNAL_URL ||
-  process.env.NEXT_PUBLIC_POSTGREST_URL ||
-  "http://postgrest:3000";
+const POSTGREST_URL_CANDIDATES = buildProxyBaseUrlCandidates(
+  process.env.POSTGREST_INTERNAL_URL,
+  process.env.NEXT_PUBLIC_POSTGREST_URL,
+  "http://localhost:3336",
+  "http://postgrest:3000"
+);
 
 const PUBLIC_POSTGREST_PATHS = new Set([
   "books_with_authors",
@@ -42,10 +48,7 @@ export async function GET(
     }
   }
 
-  const url = new URL(`/${tablePath}`, POSTGREST_URL);
-  request.nextUrl.searchParams.forEach((value, key) => {
-    url.searchParams.set(key, value);
-  });
+  const search = request.nextUrl.searchParams.toString();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -55,37 +58,52 @@ export async function GET(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  try {
-    const response = await fetch(url.toString(), { headers });
+  let lastError: unknown = null;
+  let lastUrl: string | null = null;
 
-    if (!response.ok) {
-      const error = await response.text();
-      return NextResponse.json(
-        { error: "PostgREST query failed", detail: error },
-        { status: response.status }
-      );
-    }
+  for (const baseUrl of POSTGREST_URL_CANDIDATES) {
+    const url = buildProxyRequestUrl(baseUrl, tablePath, search);
+    lastUrl = url;
 
-    const data = await response.json();
-    const responseBody: Record<string, unknown> = { data };
-    const contentRange = response.headers.get("Content-Range");
+    try {
+      const response = await fetch(url, { headers });
 
-    if (contentRange) {
-      const total = contentRange.split("/")[1];
-      if (total && total !== "*") {
-        responseBody.count = parseInt(total, 10);
+      if (!response.ok) {
+        const error = await response.text();
+        return NextResponse.json(
+          { error: "PostgREST query failed", detail: error },
+          { status: response.status }
+        );
       }
-    }
 
-    if (responseBody.count === undefined && Array.isArray(data)) {
-      responseBody.count = data.length;
-    }
+      const data = await response.json();
+      const responseBody: Record<string, unknown> = { data };
+      const contentRange = response.headers.get("Content-Range");
 
-    return NextResponse.json(responseBody);
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to reach PostgREST" },
-      { status: 502 }
-    );
+      if (contentRange) {
+        const total = contentRange.split("/")[1];
+        if (total && total !== "*") {
+          responseBody.count = parseInt(total, 10);
+        }
+      }
+
+      if (responseBody.count === undefined && Array.isArray(data)) {
+        responseBody.count = data.length;
+      }
+
+      return NextResponse.json(responseBody);
+    } catch (error) {
+      lastError = error;
+    }
   }
+
+  const detail =
+    lastError instanceof Error
+      ? lastError.message
+      : "No reachable PostgREST upstream configured.";
+
+  return NextResponse.json(
+    { error: "Failed to reach PostgREST", detail, upstream: lastUrl },
+    { status: 502 }
+  );
 }

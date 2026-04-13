@@ -1,3 +1,32 @@
+/**
+ * Hydra Consent Challenge Handler — Auth-Portal
+ *
+ * After the login challenge is accepted (user is authenticated), Hydra creates
+ * a consent challenge asking: "What data should be included in the tokens?"
+ *
+ * For first-party apps, consent is auto-accepted — the user never sees a
+ * consent screen. But this handler still does important work:
+ *
+ * 1. Fetches the latest Kratos session to get current user traits (not stale
+ *    data from the login context — the user might have changed their name).
+ *
+ * 2. Resolves staff roles from two sources:
+ *    - BOOTSTRAP_ADMIN_EMAILS env var (for initial admin bootstrapping)
+ *    - staff_roles database table (for dynamic role management)
+ *
+ * 3. Builds the claims that will appear in the ID and access tokens:
+ *    - ID token: email, name, email_verified, roles (for client identity)
+ *    - Access token: sub, roles, realm_access, email_verified (for API auth)
+ *
+ * 4. Accepts the consent with `remember: true` so Hydra caches the decision.
+ *
+ * The token claims built here are what the client apps extract during their
+ * callback phase to build the user session.
+ *
+ * @see `/oauth/login` — the preceding step
+ * @see `staff-roles.ts` — role resolution logic
+ * @see `apps/web/src/app/api/auth/callback/route.ts` — where these claims are consumed
+ */
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthPortalPublicUrl,
@@ -11,11 +40,13 @@ interface HydraConsentRequest {
   subject: string;
   requested_scope?: string[];
   requested_access_token_audience?: string[];
+  /** Login context passed from the login challenge acceptance. */
   context?: {
     traits?: Record<string, unknown>;
   };
 }
 
+/** Extract name claims from Kratos identity traits. */
 function getNameClaims(traits: Record<string, unknown>) {
   const nameObj =
     typeof traits.name === "object" && traits.name !== null
@@ -31,6 +62,11 @@ function getNameClaims(traits: Record<string, unknown>) {
   return { firstName, lastName, fullName };
 }
 
+/**
+ * Build the claims that Hydra will embed in the ID token.
+ * These claims are consumed by the client apps during their callback phase
+ * and stored in the encrypted session cookie.
+ */
 function buildIdTokenClaims(
   traits: Record<string, unknown>,
   emailVerified: boolean,
@@ -71,13 +107,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Fetch the consent challenge details from Hydra — contains the subject,
+    // requested scopes, and the login context (traits) from the login step.
     const consentRequest = await hydraAdminRequest<HydraConsentRequest>(
       `/admin/oauth2/auth/requests/consent?consent_challenge=${encodeURIComponent(challenge)}`,
       { method: "GET" }
     );
 
+    // Fetch the LATEST Kratos session — not the cached traits from login context.
+    // The user might have updated their profile between login and consent.
     const session = await getKratosSession(request.headers.get("cookie") ?? "");
 
+    // Prefer fresh session traits; fall back to login context traits.
     const traits =
       session?.identity?.traits || consentRequest.context?.traits || {};
 
@@ -92,6 +133,12 @@ export async function GET(request: NextRequest) {
       typeof normalizedTraits.email === "string"
         ? normalizedTraits.email.trim().toLowerCase()
         : null;
+
+    // Resolve staff roles from bootstrap config + database.
+    // These roles end up in both the ID and access tokens, enabling:
+    // - Admin app's callback to gate access (no roles → forbidden)
+    // - Admin middleware to enforce role-based route protection
+    // - Resource server to authorize admin-level API operations
     const roles = subject
       ? await resolveStaffRoles({
           userId: subject,
@@ -99,18 +146,23 @@ export async function GET(request: NextRequest) {
         })
       : [];
 
+    // Accept consent — auto-approved for first-party apps.
+    // The `session` field defines what claims appear in each token type.
     const accepted = await hydraAdminRequest<{ redirect_to: string }>(
       `/admin/oauth2/auth/requests/consent/accept?consent_challenge=${encodeURIComponent(challenge)}`,
       {
         method: "PUT",
         body: JSON.stringify({
+          // Grant all requested scopes (first-party — no user approval needed).
           grant_scope: consentRequest.requested_scope || [],
           grant_access_token_audience:
             consentRequest.requested_access_token_audience || [],
           remember: true,
           remember_for: getHydraRememberFor(),
           session: {
+            // Claims embedded in the ID token (consumed by client apps).
             id_token: buildIdTokenClaims(normalizedTraits, emailVerified, roles),
+            // Claims embedded in the access token (consumed by resource server).
             access_token: {
               sub: subject,
               roles,

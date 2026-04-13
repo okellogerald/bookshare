@@ -1,3 +1,18 @@
+/**
+ * Admin App Middleware — Route Protection with Role Enforcement
+ *
+ * Similar to the Web middleware but with an additional authorization layer:
+ * after verifying the session is valid and email is verified, it checks that
+ * the user has at least one recognized staff role (owner, manager, staff,
+ * or viewer). Users without roles are redirected to the landing page.
+ *
+ * This provides defense-in-depth: the callback route already rejects
+ * non-staff users, but the middleware catches edge cases like sessions
+ * created before role revocation.
+ *
+ * @see `apps/web/src/middleware.ts` — Web app equivalent (no role check)
+ * @see `/api/auth/callback` — where roles are first validated at login time
+ */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decrypt } from "@/features/auth/lib/crypto";
@@ -8,10 +23,14 @@ import {
 } from "@/features/auth/lib/cookie-names";
 import { buildAuthPortalVerificationUrl } from "@/features/auth/lib/auth-portal";
 
+/** Admin route prefixes that require a valid session with staff roles. */
 const protectedPrefixes = ["/catalog", "/batches", "/staff"];
+/** Auth API routes that must always be accessible mid-flow. */
 const authPaths = ["/api/auth/login", "/api/auth/callback", "/api/auth/logout"];
+/** Set of roles that grant access to the admin app. */
 const allowedRoles = new Set(["owner", "manager", "staff", "viewer"]);
 
+/** Session expiresAt is a Unix timestamp (seconds). Compare against wall clock. */
 function isSessionExpired(value: unknown): boolean {
   if (typeof value !== "number") return true;
   return Date.now() > value * 1000;
@@ -62,14 +81,19 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
+    // Email verification gate — same as Web middleware.
     if (session.user?.emailVerified !== true) {
       return NextResponse.redirect(buildAuthPortalVerificationUrl());
     }
 
+    // Role gate — unique to Admin middleware.
+    // Extract roles from the session (populated during callback from ID token
+    // claims, which were injected by Auth-Portal's consent handler).
     const roles = Array.isArray(session.user?.roles)
       ? session.user.roles.filter((value): value is string => typeof value === "string")
       : [];
 
+    // Reject users without any recognized staff role.
     if (!roles.some((role) => allowedRoles.has(role))) {
       const response = NextResponse.redirect(landingUrl);
       response.cookies.delete(ADMIN_SESSION_COOKIE);
