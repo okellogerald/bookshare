@@ -178,12 +178,19 @@ export async function parseZipBuffer(
 
   for (const [fileName, entry] of csvFilesByName.entries()) {
     const content = await entry.async("string");
-    parsedFiles[fileName] = {
-      fileName,
-      present: true,
-      headers: parseCsvHeaders(content),
-      rows: parseCsvRows(content),
-    };
+    try {
+      parsedFiles[fileName] = {
+        fileName,
+        present: true,
+        headers: parseCsvHeaders(content),
+        rows: parseCsvRows(content),
+      };
+    } catch (error) {
+      console.error(error)
+      console.log("fileName: ", fileName)
+      console.log("content: ", content)
+      throw error
+    }
   }
 
   return {
