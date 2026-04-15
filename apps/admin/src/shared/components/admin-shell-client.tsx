@@ -43,7 +43,7 @@ function getCompactName({
   const last = lastName?.trim();
 
   if (first && last) {
-    return `${first} ${last[0].toUpperCase()}`;
+    return `${first} ${last[0].toUpperCase()}.`;
   }
 
   if (first) {
@@ -52,7 +52,7 @@ function getCompactName({
 
   const words = fallback.trim().split(/\s+/).filter(Boolean);
   if (words.length >= 2) {
-    return `${words[0]} ${words[1][0].toUpperCase()}`;
+    return `${words[0]} ${words[1][0].toUpperCase()}.`;
   }
 
   return fallback;
