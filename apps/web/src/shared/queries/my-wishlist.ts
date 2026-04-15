@@ -8,6 +8,7 @@ import type {
   WishResponse,
   WishSearchResult,
 } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
 import { nestjsFetch } from "./fetch";
 
 // ─── Queries ────────────────────────────────────────────────
@@ -37,7 +38,7 @@ async function fetchWishSearchResults(query: string): Promise<WishSearchResult[]
     `/api/nestjs/wishes/search?q=${encodeURIComponent(query.trim())}`
   );
   if (!response.ok) throw new Error("Failed to search books for wishes");
-  return response.json();
+  return normalizeLocalMinioUrls(await response.json()) as WishSearchResult[];
 }
 
 export function useWantSearchResults(query: string) {

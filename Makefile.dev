@@ -64,7 +64,7 @@ db-studio: ## Open Drizzle Studio GUI
 
 .PHONY: db-post-migrate
 db-post-migrate: ## Reapply PostgREST RLS, views, grants, and cache reload
-	psql "$(DB_URL)" -f packages/db/src/migrations/0002_postgrest_read_api.sql
+	psql -v ON_ERROR_STOP=1 "$(DB_URL)" -f packages/db/src/migrations/0002_postgrest_read_api.sql
 
 .PHONY: db-reset-user-data
 db-reset-user-data: ## Reset app state, keep catalog tables + member profiles

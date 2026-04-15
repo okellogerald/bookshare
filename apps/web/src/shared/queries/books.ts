@@ -7,6 +7,7 @@ import type {
   PgEdition,
   PgBrowseListing,
 } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
 
 // ─── Book detail (with authors) ─────────────────────────────
 
@@ -60,7 +61,7 @@ async function fetchEditionsByBook(bookId: string): Promise<PgEdition[]> {
   const response = await fetch(`/api/postgrest/editions?${params}`);
   if (!response.ok) throw new Error("Failed to fetch editions");
   const json = await response.json();
-  return json.data;
+  return normalizeLocalMinioUrls(json.data as PgEdition[]);
 }
 
 export function useEditionsByBook(bookId: string) {
@@ -84,7 +85,7 @@ async function fetchListingsByBook(
   const response = await fetch(`/api/postgrest/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
-  return json.data as PgBrowseListing[];
+  return normalizeLocalMinioUrls(json.data as PgBrowseListing[]);
 }
 
 export function useListingsByBook(bookId: string) {

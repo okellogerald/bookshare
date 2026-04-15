@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { PgBrowseListing } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
 
 export interface BrowseEditionListing {
   id: string;
@@ -57,7 +58,7 @@ async function fetchBrowseListings(
   const response = await fetch(`/api/postgrest/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
-  return json.data as PgBrowseListing[];
+  return normalizeLocalMinioUrls(json.data as PgBrowseListing[]);
 }
 
 export function groupBrowseListingsByEdition(

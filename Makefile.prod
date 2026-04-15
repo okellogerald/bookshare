@@ -46,7 +46,7 @@ build: ## Build all images without starting services
 
 .PHONY: db-post-migrate
 db-post-migrate: ## Reapply PostgREST RLS, views, grants, and cache reload
-	$(COMPOSE) exec -T postgres psql -U $${POSTGRES_USER:-bookshare} -d $(DB_NAME) < packages/db/src/migrations/0002_postgrest_read_api.sql
+	$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U $${POSTGRES_USER:-bookshare} -d $(DB_NAME) < packages/db/src/migrations/0002_postgrest_read_api.sql
 
 .PHONY: db-psql
 db-psql: ## Open an interactive psql shell inside the postgres container

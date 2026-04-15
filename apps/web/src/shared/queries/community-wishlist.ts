@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { PgBrowseWish } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
 
 interface CommunityWishlistFilters {
   search?: string;
@@ -10,7 +11,8 @@ interface CommunityWishlistFilters {
 function normalizeBrowseWants(wishes: PgBrowseWish[]): PgBrowseWish[] {
   const mergedByBookId = new Map<string, PgBrowseWish>();
 
-  for (const wish of wishes) {
+  for (const rawWish of wishes) {
+    const wish = normalizeLocalMinioUrls(rawWish);
     const existing = mergedByBookId.get(wish.book_id);
 
     if (!existing) {

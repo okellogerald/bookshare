@@ -197,13 +197,13 @@ SELECT
   b.*,
   COALESCE(
     json_agg(
-      json_build_object('id', c.id, 'name', c.name, 'slug', c.slug)
-    ) FILTER (WHERE c.id IS NOT NULL),
+      json_build_object('thema_code', c.thema_code, 'name', c.name)
+    ) FILTER (WHERE c.thema_code IS NOT NULL),
     '[]'::json
   ) AS categories
 FROM books b
 LEFT JOIN book_categories bc ON bc.book_id = b.id
-LEFT JOIN categories c ON c.id = bc.category_id
+LEFT JOIN categories c ON c.thema_code = bc.thema_code
 GROUP BY b.id;
 
 -- Editions with book info
@@ -236,14 +236,14 @@ JOIN books b ON b.id = e.book_id;
 -- Apply RLS to the copies_detail view (scopes to current user)
 ALTER VIEW copies_detail SET (security_invoker = on);
 
--- Category tree (parent + children)
-CREATE OR REPLACE VIEW category_tree AS
+-- Category passthrough. Thema hierarchy is stored in source metadata, not in SQL.
+DROP VIEW IF EXISTS category_tree;
+CREATE VIEW category_tree AS
 SELECT
   c.*,
-  p.name AS parent_name,
-  p.slug AS parent_slug
-FROM categories c
-LEFT JOIN categories p ON p.id = c.parent_id;
+  NULL::varchar(255) AS parent_name,
+  NULL::varchar(20) AS parent_thema_code
+FROM categories c;
 
 -- ─── Browse Listings View ───────────────────────────────────
 -- Cross-user view of all available/lent copies with owner and borrower profile info.

@@ -260,7 +260,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bookshare}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-bookshare_dev}
       MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
-      PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
+      PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://127.0.0.1:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
       WORKFLOWS_URL: ${WORKFLOWS_URL:-http://workflows:3335}
       SMTP_HOST: ${SMTP_HOST:-}
@@ -320,7 +320,7 @@ services:
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
-      NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://localhost:9002}
+      NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://127.0.0.1:9002}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
     ports:
       - "3334:3334"

@@ -29,6 +29,7 @@ import type {
   AuthorResponse,
   WishSearchResult,
 } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
 import { nestjsFetch } from "./fetch";
 
 // ─── Queries ────────────────────────────────────────────────
@@ -85,13 +86,13 @@ async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const response = await fetch(`/api/postgrest/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch copies");
   const json = await response.json();
-  return json.data;
+  return normalizeLocalMinioUrls(json.data as PgCopyDetail[]);
 }
 
 async function fetchMyCopyDetail(id: string): Promise<MyCopyDialogDetail> {
   const response = await fetch(`/api/nestjs/copies/${id}`);
   if (!response.ok) throw new Error("Failed to fetch copy details");
-  return response.json();
+  return normalizeLocalMinioUrls(await response.json()) as MyCopyDialogDetail;
 }
 
 async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
@@ -120,7 +121,7 @@ async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
   const response = await fetch(`/api/postgrest/editions?${params}`);
   if (!response.ok) throw new Error("Failed to search editions");
   const json = await response.json();
-  return json.data?.[0] ?? null;
+  return normalizeLocalMinioUrls((json.data?.[0] as PgEdition | undefined) ?? null);
 }
 
 async function fetchCopySearchResults(query: string): Promise<WishSearchResult[]> {
@@ -128,7 +129,7 @@ async function fetchCopySearchResults(query: string): Promise<WishSearchResult[]
     `/api/nestjs/wishes/search?q=${encodeURIComponent(query.trim())}`
   );
   if (!response.ok) throw new Error("Failed to search catalog");
-  return response.json();
+  return normalizeLocalMinioUrls(await response.json()) as WishSearchResult[];
 }
 
 async function fetchAllCategories(): Promise<PgCategory[]> {

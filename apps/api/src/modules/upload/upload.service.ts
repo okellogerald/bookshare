@@ -31,7 +31,7 @@ export class UploadService {
     this.secretKey = this.configService.getOrThrow("MINIO_SECRET_KEY");
     this.bucket = this.configService.getOrThrow("MINIO_BUCKET");
     this.publicBaseUrl =
-      this.configService.get("PUBLIC_MINIO_URL") ?? "http://localhost:9002";
+      this.configService.get("PUBLIC_MINIO_URL") ?? "http://127.0.0.1:9002";
 
     this.s3Client = new S3Client({
       endpoint: this.publicBaseUrl,

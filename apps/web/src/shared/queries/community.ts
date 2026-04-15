@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { PgMemberProfile } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
 
 interface CommunityFilters {
   search?: string;
@@ -24,7 +25,7 @@ async function fetchCommunityMembers(
   const response = await fetch(`/api/postgrest/member_profiles?${params}`);
   if (!response.ok) throw new Error("Failed to fetch community members");
   const json = await response.json();
-  return json.data as PgMemberProfile[];
+  return normalizeLocalMinioUrls(json.data as PgMemberProfile[]);
 }
 
 export function useCommunityMembers(

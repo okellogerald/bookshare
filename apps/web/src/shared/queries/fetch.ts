@@ -1,3 +1,5 @@
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
+
 export async function nestjsFetch<T>(
   path: string,
   method: string,
@@ -28,5 +30,5 @@ export async function nestjsFetch<T>(
     throw new Error(`API error (${res.status}): ${message}`);
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  return normalizeLocalMinioUrls(await res.json()) as T;
 }
