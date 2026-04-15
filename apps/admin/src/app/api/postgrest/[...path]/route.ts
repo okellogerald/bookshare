@@ -53,9 +53,14 @@ export async function GET(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+  const preferHeader = request.headers.get("prefer");
 
   if (!isPublicPath && token) {
     headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (preferHeader) {
+    headers.Prefer = preferHeader;
   }
 
   let lastError: unknown = null;

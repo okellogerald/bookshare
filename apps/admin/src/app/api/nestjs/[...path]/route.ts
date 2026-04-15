@@ -104,6 +104,14 @@ export async function POST(
   return proxyToNestJS(request, path);
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  const { path } = await params;
+  return proxyToNestJS(request, path);
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }

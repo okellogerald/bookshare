@@ -24,6 +24,23 @@ const stepItems: Array<{ step: BatchStep; label: string }> = [
   { step: 3, label: "Review" },
 ];
 
+const runTypeOptions: Array<{
+  value: "catalog" | "inventory_only";
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "catalog",
+    label: "Catalog ZIP",
+    description: "Use this when the archive adds or updates catalog records.",
+  },
+  {
+    value: "inventory_only",
+    label: "Inventory-only ZIP",
+    description: "Use this when the run should affect inventory state without catalog changes.",
+  },
+];
+
 function formatStatus(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
@@ -154,26 +171,48 @@ export function BatchIngestionWorkbench() {
           <section className="space-y-5">
             <h2 className="text-lg font-semibold text-foreground">Choose the run type</h2>
 
-            <div className="flex flex-wrap gap-3">
-              {[
-                { value: "catalog", label: "Catalog ZIP" },
-                { value: "inventory_only", label: "Inventory-only ZIP" },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={cn(
-                    "rounded-full border px-4 py-2 text-sm transition",
-                    mode === option.value
-                      ? "border-primary/30 bg-primary/10 font-medium text-primary"
-                      : "border-border bg-white text-muted-foreground hover:border-primary/20"
-                  )}
-                  onClick={() => handleModeChange(option.value as "catalog" | "inventory_only")}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium text-muted-foreground">Run type</legend>
+
+              <div className="space-y-3">
+                {runTypeOptions.map((option) => {
+                  const checked = mode === option.value;
+
+                  return (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
+                        checked
+                          ? "border-primary/30 bg-primary/5"
+                          : "border-border/75 hover:border-primary/20"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="batch-run-type"
+                        value={option.value}
+                        checked={checked}
+                        onChange={() => handleModeChange(option.value)}
+                        className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-primary"
+                      />
+
+                      <div className="space-y-1">
+                        <p
+                          className={cn(
+                            "text-sm",
+                            checked ? "font-medium text-foreground" : "text-foreground"
+                          )}
+                        >
+                          {option.label}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{option.description}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
 
             <div className="flex justify-end border-t pt-5">
               <Button

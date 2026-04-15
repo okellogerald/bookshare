@@ -1,6 +1,7 @@
 import {
   BookCopy,
   FolderKanban,
+  Inbox,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -28,17 +29,19 @@ export const adminNavItems: AdminNavItem[] = [
     href: "/catalog",
     label: "Catalog",
     icon: BookCopy,
-    description: "Search, inspect, and extend the live catalog.",
+    description: "Review current titles and extend the catalog with new editions.",
   },
   {
     href: "/batches",
-    label: "Batches",
+    label: "Imports",
     icon: FolderKanban,
-    description: "Validate importer ZIPs and review recent run history.",
-    children: [
-      { href: "/batches", label: "Validate" },
-      { href: "/batches/runs", label: "Recent runs" },
-    ],
+    description: "Run batch imports, validate issues, and review recent import history.",
+  },
+  {
+    href: "/requests",
+    label: "Requests",
+    icon: Inbox,
+    description: "Track member-submitted requests that need staff follow-up.",
   },
   {
     href: "/staff",
@@ -53,12 +56,16 @@ const adminPageMetaByPath: Record<string, AdminPageMeta> = {
     section: "Catalog",
     title: "Catalog workbench",
   },
+  "/requests": {
+    section: "Requests",
+    title: "Requests",
+  },
   "/batches": {
-    section: "Batches",
-    title: "Validate imports",
+    section: "Imports",
+    title: "Imports",
   },
   "/batches/runs": {
-    section: "Batches",
+    section: "Imports",
     title: "Recent runs",
   },
   "/staff": {

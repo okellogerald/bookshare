@@ -1,10 +1,13 @@
 "use client";
 
 import { useDeferredValue, useState } from "react";
-import { ArrowRight, Search } from "lucide-react";
-import { useCatalogBookSearch } from "@/shared/queries/catalog";
+import { Search } from "lucide-react";
+import {
+  useCatalogBookSearch,
+  useCatalogSummaryCounts,
+} from "@/shared/queries/catalog";
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
+import { Card, CardContent } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
   Table,
@@ -20,30 +23,64 @@ function formatAuthors(authors: Array<{ id: string; name: string }>) {
   return authors.map((author) => author.name).join(", ");
 }
 
+function formatSummaryValue(value: number | null | undefined, loading: boolean) {
+  if (typeof value === "number") {
+    return new Intl.NumberFormat().format(value);
+  }
+
+  return loading ? "..." : "—";
+}
+
 export function CatalogWorkbench() {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
+  const summaryQuery = useCatalogSummaryCounts();
   const booksQuery = useCatalogBookSearch(deferredQuery);
   const results = booksQuery.data ?? [];
   const showPrompt = deferredQuery.trim().length < 2;
+  const summaryItems = [
+    {
+      label: "Titles",
+      value: summaryQuery.data?.titles,
+      detail: "Book records in the catalog.",
+    },
+    {
+      label: "Editions",
+      value: summaryQuery.data?.editions,
+      detail: "Cataloged release records.",
+    },
+    {
+      label: "Copies",
+      value: summaryQuery.data?.copies,
+      detail: "Inventory rows currently stored.",
+    },
+  ];
 
   return (
     <div className="space-y-8">
+      <section className="grid gap-4 md:grid-cols-3">
+        {summaryItems.map((item) => (
+          <Card key={item.label}>
+            <CardContent className="p-5">
+              <p className="text-sm text-muted-foreground">{item.label}</p>
+              <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
+                {formatSummaryValue(item.value, summaryQuery.isLoading)}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">{item.detail}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
       <section>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by title or subtitle"
-              className="pl-11"
-            />
-          </div>
-          <Button type="button" variant="secondary" className="rounded-full px-5">
-            New Book
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search titles by title or subtitle"
+            className="pl-11"
+          />
         </div>
 
         {showPrompt ? (
@@ -72,7 +109,7 @@ export function CatalogWorkbench() {
               variant="secondary"
               className="border border-border/75 bg-background px-3 py-1 text-muted-foreground"
             >
-              {booksQuery.isLoading ? "Searching" : `${results.length} visible`}
+              {booksQuery.isLoading ? "Searching" : `${results.length} titles`}
             </Badge>
           </div>
 
