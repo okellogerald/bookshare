@@ -88,10 +88,7 @@ export function RecentImportRunsPanel() {
             {runList.map((run) => (
               <TableRow key={run.runId}>
                 <TableCell>
-                  <div className="space-y-1">
-                    <p className="font-medium text-foreground">{run.sourceZipName}</p>
-                    <p className="text-xs text-muted-foreground">{run.runId}</p>
-                  </div>
+                  <p className="font-medium text-foreground">{run.sourceZipName}</p>
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={run.status} />

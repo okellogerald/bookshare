@@ -9,7 +9,6 @@ export default async function StaffPage() {
   return (
     <section className="space-y-6">
       <PageIntro
-        eyebrow="Staff"
         title="Staff management"
         description="Keep access narrow and explicit. Search existing staff assignments, then grant the smallest useful role to the right identity."
       />

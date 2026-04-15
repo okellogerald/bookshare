@@ -8,12 +8,11 @@ export default async function ProfilePage() {
   return (
     <section className="space-y-6">
       <PageIntro
-        eyebrow="Account"
         title="Profile"
         description="Basic account details for the staff user currently signed into the admin console."
       />
 
-      <div className="divide-y border-y">
+      <div className="divide-y border-b">
         <div className="grid gap-2 py-4 sm:grid-cols-[180px_minmax(0,1fr)]">
           <p className="text-sm font-medium text-muted-foreground">Name</p>
           <p className="text-sm text-foreground">

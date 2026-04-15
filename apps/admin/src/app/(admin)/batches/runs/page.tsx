@@ -5,7 +5,6 @@ export default function BatchRunsPage() {
   return (
     <section className="space-y-6">
       <PageIntro
-        eyebrow="Batches"
         title="Recent runs"
         description="Keep historical import activity nearby, but separate from the step-by-step validation flow."
       />

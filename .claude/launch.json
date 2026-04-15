@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8901", "--directory", "docs/auth-flows/http-traces"],
       "port": 8901
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "apps/admin"],
+      "port": 3338
     }
   ]
 }

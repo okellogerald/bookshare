@@ -112,7 +112,7 @@ export function BatchIngestionWorkbench() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex gap-3 overflow-x-auto border-y py-4">
+        <div className="flex gap-3 overflow-x-auto border-b py-4">
           {stepItems.map((item) => {
             const isCurrent = activeStep === item.step;
             const isComplete =
@@ -152,13 +152,7 @@ export function BatchIngestionWorkbench() {
 
         {activeStep === 1 ? (
           <section className="space-y-5">
-            <div>
-              <p className="text-sm font-medium text-foreground">Step 1</p>
-              <h2 className="mt-1 text-lg font-semibold text-foreground">Choose the run type</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                Select the ZIP mode before anything is uploaded.
-              </p>
-            </div>
+            <h2 className="text-lg font-semibold text-foreground">Choose the run type</h2>
 
             <div className="flex flex-wrap gap-3">
               {[
@@ -169,10 +163,10 @@ export function BatchIngestionWorkbench() {
                   key={option.value}
                   type="button"
                   className={cn(
-                    "rounded-full border px-4 py-2 text-sm font-medium transition",
+                    "rounded-full border px-4 py-2 text-sm transition",
                     mode === option.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border/75 bg-background text-foreground hover:border-primary/20"
+                      ? "border-primary/30 bg-primary/10 font-medium text-primary"
+                      : "border-border bg-white text-muted-foreground hover:border-primary/20"
                   )}
                   onClick={() => handleModeChange(option.value as "catalog" | "inventory_only")}
                 >
@@ -180,12 +174,6 @@ export function BatchIngestionWorkbench() {
                 </button>
               ))}
             </div>
-
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              <code>catalog</code> expects <code>books.csv</code> and <code>editions.csv</code>,
-              with optional inventory files and covers. <code>inventory_only</code> accepts
-              <code> copies.csv</code> and/or <code>wishes.csv</code>.
-            </p>
 
             <div className="flex justify-end border-t pt-5">
               <Button
@@ -202,13 +190,7 @@ export function BatchIngestionWorkbench() {
 
         {activeStep === 2 ? (
           <section className="space-y-5">
-            <div>
-              <p className="text-sm font-medium text-foreground">Step 2</p>
-              <h2 className="mt-1 text-lg font-semibold text-foreground">Upload and validate</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                Upload one ZIP and validate it. Review appears only after a run exists.
-              </p>
-            </div>
+            <h2 className="text-lg font-semibold text-foreground">Upload and validate</h2>
 
             <label
               htmlFor={fileInputId}
@@ -288,13 +270,7 @@ export function BatchIngestionWorkbench() {
         {activeStep === 3 && latestRun && currentSummary ? (
           <section className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-foreground">Step 3</p>
-                <h2 className="mt-1 text-lg font-semibold text-foreground">Review and commit</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Review the run summary, open issues only if needed, then commit when ready.
-                </p>
-              </div>
+              <h2 className="text-lg font-semibold text-foreground">Review and commit</h2>
               <StatusBadge status={latestRun.status} />
             </div>
 

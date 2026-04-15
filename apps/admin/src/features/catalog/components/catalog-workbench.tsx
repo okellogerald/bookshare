@@ -29,7 +29,7 @@ export function CatalogWorkbench() {
 
   return (
     <div className="space-y-8">
-      <section className="border-b pb-8">
+      <section>
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -89,21 +89,13 @@ export function CatalogWorkbench() {
                   <TableHead>Title</TableHead>
                   <TableHead>Authors</TableHead>
                   <TableHead>Language</TableHead>
-                  <TableHead>Contributors</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {results.map((book) => (
                   <TableRow key={book.id}>
                     <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">{book.title}</p>
-                        {book.subtitle ? (
-                          <p className="text-xs text-muted-foreground">
-                            {book.subtitle}
-                          </p>
-                        ) : null}
-                      </div>
+                      <p className="font-medium">{book.title}</p>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatAuthors(book.authors)}
@@ -111,11 +103,6 @@ export function CatalogWorkbench() {
                     <TableCell>
                       <Badge variant="secondary">
                         {book.language || "Unknown"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {book.authors.length} author{book.authors.length === 1 ? "" : "s"}
                       </Badge>
                     </TableCell>
                   </TableRow>

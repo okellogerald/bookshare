@@ -7,7 +7,6 @@ export default function BatchesPage() {
   return (
     <section className="space-y-6">
       <PageIntro
-        eyebrow="Batches"
         title="Validate imports"
         description="Move through the import flow step by step: configure the run, upload the archive, review issues only when needed, and commit when the batch is ready."
         actions={

@@ -5,7 +5,6 @@ export default function CatalogPage() {
   return (
     <section className="space-y-6">
       <PageIntro
-        eyebrow="Catalog"
         title="Catalog workbench"
         description="Search current records before creating anything new, then inspect the best match in a clean, low-noise workspace."
       />

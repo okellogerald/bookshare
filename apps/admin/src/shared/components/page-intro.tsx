@@ -1,13 +1,12 @@
 import { cn } from "@/shared/lib/utils";
 
 export function PageIntro({
-  eyebrow,
   title,
   description,
   actions,
   className,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   actions?: React.ReactNode;
@@ -21,13 +20,10 @@ export function PageIntro({
       )}
     >
       <div className="max-w-3xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-          {eyebrow}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           {title}
         </h1>
-        <p className="mt-3 text-sm leading-7 text-muted-foreground sm:text-base">
+        <p className="mt-2 text-sm leading-7 text-muted-foreground">
           {description}
         </p>
       </div>

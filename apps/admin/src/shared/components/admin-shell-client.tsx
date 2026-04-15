@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronDown, LogOut, User } from "lucide-react";
+import { BookOpen, LogOut, MoreVertical, User } from "lucide-react";
 import { adminNavItems, isActiveAdminPath } from "@/shared/lib/admin-shell";
 import { useMyProfile, useSyncMyProfile } from "@/shared/queries/profile";
 import { cn } from "@/shared/lib/utils";
@@ -124,7 +124,7 @@ export function AdminShellClient({
         <div className="flex h-14 items-center border-b px-5">
           <Link href="/catalog" className="flex items-center gap-3 text-foreground">
             <BookOpen className="h-5 w-5" />
-            <span className="text-sm font-semibold">BookShare Admin</span>
+            <span className="text-sm font-semibold">BookShare</span>
           </Link>
         </div>
 
@@ -151,21 +151,44 @@ export function AdminShellClient({
                 </Link>
 
                 {item.children && showChildren ? (
-                  <div className="ml-8 mt-1 border-l pl-3">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className={cn(
-                          "block rounded-md px-2 py-2 text-sm transition",
-                          pathname === child.href
-                            ? "font-medium text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        {child.label}
-                      </Link>
-                    ))}
+                  <div className="ml-[1.625rem] mt-0.5">
+                    {item.children.map((child, childIndex) => {
+                      const isLast = childIndex === (item.children?.length ?? 0) - 1;
+                      return (
+                        <div key={child.href} className="flex items-stretch">
+                          <div className="relative w-4 shrink-0" aria-hidden="true">
+                            {isLast ? (
+                              <div
+                                className="absolute inset-0"
+                                style={{
+                                  borderLeft: "1px solid hsl(var(--border))",
+                                  borderBottom: "1px solid hsl(var(--border))",
+                                  borderBottomLeftRadius: "6px",
+                                  height: "50%",
+                                  width: "100%",
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <div className="absolute inset-y-0 left-0 w-px bg-border" />
+                                <div className="absolute left-0 top-1/2 h-px w-full bg-border" />
+                              </>
+                            )}
+                          </div>
+                          <Link
+                            href={child.href}
+                            className={cn(
+                              "block rounded-md px-2 py-2 text-sm transition",
+                              pathname === child.href
+                                ? "font-medium text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
@@ -178,38 +201,26 @@ export function AdminShellClient({
         <header className="flex h-14 items-center justify-between border-b bg-card px-4 sm:px-6">
           <div className="flex items-center gap-3 lg:hidden">
             <BookOpen className="h-5 w-5" />
-            <span className="text-sm font-semibold">BookShare Admin</span>
+            <span className="text-sm font-semibold">BookShare</span>
           </div>
 
-          <div ref={accountMenuRef} className="relative ml-auto">
+          <div ref={accountMenuRef} className="relative ml-auto flex items-center gap-3">
+            <span className="max-w-[10rem] truncate text-sm font-medium text-foreground">
+              {displayName}
+            </span>
             <button
               type="button"
               onClick={() => setAccountMenuOpen((value) => !value)}
-              className="flex items-center gap-3 rounded-full border bg-background px-2 py-1.5 text-left transition hover:bg-muted/60"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
-              {avatarUrl && !avatarLoadFailed ? (
-                <img
-                  src={avatarUrl}
-                  alt="Profile avatar"
-                  className="h-8 w-8 rounded-full object-cover"
-                  onError={() => setAvatarLoadFailed(true)}
-                />
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-full border bg-card text-xs font-semibold text-foreground">
-                  {initials}
-                </span>
-              )}
-              <span className="max-w-[10rem] truncate text-sm font-medium text-foreground">
-                {displayName}
-              </span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <MoreVertical className="h-4 w-4" />
             </button>
 
             {accountMenuOpen ? (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 overflow-hidden rounded-xl border bg-card shadow-md">
-                <div className="px-3 py-3">
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-xl border bg-card shadow-md">
+                <div className="px-3 py-2.5">
                   <p className="text-sm font-medium text-foreground">{displayName}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{email}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>
                 </div>
                 <div className="h-px bg-border" />
                 <Link

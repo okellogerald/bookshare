@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Search, ShieldCheck, UserPlus } from "lucide-react";
+import { Search } from "lucide-react";
 import {
   useGrantStaffRole,
   useRevokeStaffRole,
@@ -99,9 +99,6 @@ function IdentityResultCard({
           <p className="mt-1 text-sm text-muted-foreground">
             {formatIdentitySubtitle(candidate)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {candidate.emailVerified ? "Email verified" : "Email not verified"}
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {candidate.existingRoles.map((role) => (
@@ -171,249 +168,182 @@ export function StaffManagement({ actorRoles }: { actorRoles: string[] }) {
   };
 
   return (
-    <div className="space-y-8">
-      <section className="flex flex-wrap gap-3 border-b pb-6">
-        <Badge variant="secondary" className="border border-border/75 bg-background px-3 py-1 text-foreground">
-          {directory.isLoading
-            ? "Loading directory"
-            : `${directoryEntries.length} visible assignment${directoryEntries.length === 1 ? "" : "s"}`}
-        </Badge>
-        <Badge variant="secondary" className="border border-border/75 bg-background px-3 py-1 text-foreground">
-          {canManage ? manageableRoles.map(formatRole).join(", ") : "Read-only access"}
-        </Badge>
-      </section>
+    <div className="space-y-6">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={directoryQuery}
+          onChange={(event) => setDirectoryQuery(event.target.value)}
+          placeholder="Search staff by name, email, or role"
+          className="pl-11"
+        />
+      </div>
 
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Current staff access</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Search the staff directory and remove roles where your access level allows it.
-            </p>
-          </div>
+      {directory.isError ? (
+        <p className="text-sm text-red-700">
+          {directory.error instanceof Error
+            ? directory.error.message
+            : "Failed to load the staff directory."}
+        </p>
+      ) : directory.isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading staff directory...</p>
+      ) : directoryEntries.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No staff assignments match the current search.
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Roles</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {directoryEntries.map((entry) => (
+              <TableRow key={entry.userId}>
+                <TableCell>
+                  <p className="font-medium text-foreground">{entry.displayName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatIdentitySubtitle(entry)}
+                  </p>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-2">
+                    {entry.roles.map((assignment) => (
+                      <RoleBadge
+                        key={`${entry.userId}-${assignment.role}`}
+                        role={assignment.role}
+                        onRemove={
+                          canManage && canManageRole(actorRoles, assignment.role)
+                            ? () =>
+                                revokeRole.mutate({
+                                  userId: entry.userId,
+                                  role: assignment.role,
+                                })
+                            : undefined
+                        }
+                        disabled={revokeRole.isPending}
+                      />
+                    ))}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      {revokeRole.isError ? (
+        <p className="text-sm text-red-700">
+          {revokeRole.error instanceof Error
+            ? revokeRole.error.message
+            : "Failed to revoke role."}
+        </p>
+      ) : null}
+
+      {canManage ? (
+        <section className="space-y-4 border-t pt-6">
+          <h2 className="text-lg font-semibold text-foreground">Grant access</h2>
 
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              value={directoryQuery}
-              onChange={(event) => setDirectoryQuery(event.target.value)}
-              placeholder="Search current staff by name, email, role, or user ID"
+              value={identityQuery}
+              onChange={(event) => setIdentityQuery(event.target.value)}
+              placeholder="Search identities by email or name"
               className="pl-11"
             />
           </div>
 
-          {directory.isError ? (
-            <p className="text-sm text-red-700">
-              {directory.error instanceof Error
-                ? directory.error.message
-                : "Failed to load the staff directory."}
-            </p>
-          ) : directory.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading staff directory...</p>
-          ) : directoryEntries.length === 0 ? (
+          {deferredIdentityQuery.trim().length < 2 ? (
             <p className="text-sm text-muted-foreground">
-              No staff assignments match the current search.
+              Type at least two characters to search identities.
+            </p>
+          ) : identitySearch.isError ? (
+            <p className="text-sm text-red-700">
+              {identitySearch.error instanceof Error
+                ? identitySearch.error.message
+                : "Identity search failed."}
+            </p>
+          ) : identitySearch.isLoading ? (
+            <p className="text-sm text-muted-foreground">Searching identities...</p>
+          ) : candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No identities matched the current search.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Identity</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {directoryEntries.map((entry) => (
-                  <TableRow key={entry.userId}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium text-foreground">{entry.displayName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatIdentitySubtitle(entry)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{entry.userId}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-2">
-                        {entry.roles.map((assignment) => (
-                          <RoleBadge
-                            key={`${entry.userId}-${assignment.role}`}
-                            role={assignment.role}
-                            onRemove={
-                              canManage && canManageRole(actorRoles, assignment.role)
-                                ? () =>
-                                    revokeRole.mutate({
-                                      userId: entry.userId,
-                                      role: assignment.role,
-                                    })
-                                : undefined
-                            }
-                            disabled={revokeRole.isPending}
-                          />
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
-                        <Badge variant="outline">
-                          {entry.emailVerified ? "Verified" : "Unverified"}
-                        </Badge>
-                        {entry.state ? (
-                          <p className="text-xs text-muted-foreground">State: {entry.state}</p>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="divide-y border-y">
+              {candidates.map((candidate) => (
+                <IdentityResultCard
+                  key={candidate.userId}
+                  candidate={candidate}
+                  selected={candidate.userId === selectedCandidate?.userId}
+                  onSelect={() => setSelectedCandidateId(candidate.userId)}
+                />
+              ))}
+            </div>
           )}
 
-          {revokeRole.isError ? (
+          {selectedCandidate ? (
+            <div className="space-y-4 pt-2">
+              <div>
+                <p className="font-medium text-foreground">{selectedCandidate.displayName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatIdentitySubtitle(selectedCandidate)}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {manageableRoles.map((role) => {
+                  const alreadyAssigned = selectedCandidate.existingRoles.includes(role);
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setSelectedRole(role)}
+                      className={cn(
+                        "rounded-full border px-3 py-2 text-sm transition",
+                        selectedRole === role
+                          ? "border-primary/30 bg-primary/10 font-medium text-primary"
+                          : "border-border bg-white text-muted-foreground hover:border-primary/20"
+                      )}
+                    >
+                      {formatRole(role)}
+                      {alreadyAssigned ? " (current)" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleGrant}
+                disabled={
+                  grantRole.isPending ||
+                  !selectedRole ||
+                  selectedCandidate.existingRoles.includes(selectedRole)
+                }
+                className="rounded-full px-5"
+              >
+                {selectedCandidate.existingRoles.includes(selectedRole)
+                  ? `${formatRole(selectedRole)} already assigned`
+                  : grantRole.isPending
+                    ? "Granting role..."
+                    : `Grant ${formatRole(selectedRole)}`}
+              </Button>
+            </div>
+          ) : null}
+
+          {grantRole.isError ? (
             <p className="text-sm text-red-700">
-              {revokeRole.error instanceof Error
-                ? revokeRole.error.message
-                : "Failed to revoke role."}
+              {grantRole.error instanceof Error
+                ? grantRole.error.message
+                : "Failed to grant role."}
             </p>
           ) : null}
         </section>
-
-        <section className="space-y-4 border-t pt-8 xl:border-l xl:border-t-0 xl:pl-8 xl:pt-0">
-          <div className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-primary" />
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Grant access</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Search identities, choose a role, then assign access.
-              </p>
-            </div>
-          </div>
-
-          {!canManage ? (
-            <p className="text-sm leading-6 text-muted-foreground">
-              Your current admin role is read-only for staff management. Owners and managers can
-              grant or revoke platform access here.
-            </p>
-          ) : (
-            <>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={identityQuery}
-                  onChange={(event) => setIdentityQuery(event.target.value)}
-                  placeholder="Search identities by email, name, or user ID"
-                  className="pl-11"
-                />
-              </div>
-
-              {deferredIdentityQuery.trim().length < 2 ? (
-                <p className="text-sm text-muted-foreground">
-                  Type at least two characters to search identities.
-                </p>
-              ) : identitySearch.isError ? (
-                <p className="text-sm text-red-700">
-                  {identitySearch.error instanceof Error
-                    ? identitySearch.error.message
-                    : "Identity search failed."}
-                </p>
-              ) : identitySearch.isLoading ? (
-                <p className="text-sm text-muted-foreground">Searching identities...</p>
-              ) : candidates.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No identities matched the current search.
-                </p>
-              ) : (
-                <div className="divide-y border-y">
-                  {candidates.map((candidate) => (
-                    <IdentityResultCard
-                      key={candidate.userId}
-                      candidate={candidate}
-                      selected={candidate.userId === selectedCandidate?.userId}
-                      onSelect={() => setSelectedCandidateId(candidate.userId)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-medium text-foreground">Selected identity</p>
-                </div>
-
-                {selectedCandidate ? (
-                  <>
-                    <div>
-                      <p className="font-medium text-foreground">{selectedCandidate.displayName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatIdentitySubtitle(selectedCandidate)}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {manageableRoles.map((role) => {
-                        const alreadyAssigned = selectedCandidate.existingRoles.includes(role);
-                        return (
-                          <button
-                            key={role}
-                            type="button"
-                            onClick={() => setSelectedRole(role)}
-                            className={cn(
-                              "rounded-full border px-3 py-2 text-sm font-medium transition",
-                              selectedRole === role
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border/75 bg-background text-foreground hover:border-primary/20"
-                            )}
-                          >
-                            {formatRole(role)}
-                            {alreadyAssigned ? " (current)" : ""}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <Button
-                      type="button"
-                      onClick={handleGrant}
-                      disabled={
-                        grantRole.isPending ||
-                        !selectedRole ||
-                        selectedCandidate.existingRoles.includes(selectedRole)
-                      }
-                      className="rounded-full px-5"
-                    >
-                      {selectedCandidate.existingRoles.includes(selectedRole)
-                        ? `${formatRole(selectedRole)} already assigned`
-                        : grantRole.isPending
-                          ? "Granting role..."
-                          : `Grant ${formatRole(selectedRole)}`}
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Pick a search result to assign a staff role.
-                  </p>
-                )}
-              </div>
-
-              {grantRole.isError ? (
-                <p className="text-sm text-red-700">
-                  {grantRole.error instanceof Error
-                    ? grantRole.error.message
-                    : "Failed to grant role."}
-                </p>
-              ) : null}
-
-              <p className="text-xs leading-5 text-muted-foreground">
-                Backend permissions update from the live staff-role store. Full admin shell access
-                still refreshes on the next sign-in because the app keeps its own session snapshot.
-              </p>
-            </>
-          )}
-        </section>
-      </div>
+      ) : null}
     </div>
   );
 }
