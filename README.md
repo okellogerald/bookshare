@@ -99,6 +99,17 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    This now applies schema changes and the PostgREST read API setup
    (RLS policies, views, grants, and schema-cache reload).
 
+8. **Seed categories before imports**
+   ```sh
+   make -f Makefile.dev db-seed CATEGORIES_FILE=/absolute/path/to/categories.csv
+   ```
+
+   - Book imports require every `category_slugs` value to already exist in `categories`.
+   - The seed accepts custom `.csv` / `.tsv` taxonomy files using `name,slug,parent_slug`.
+   - The recommended default is Thema: use `CATEGORIES_FORMAT=thema` with an official public Thema `.csv` / `.xlsx` export to generate slugs like `thema-umz`.
+   - BISAC remains supported as `CATEGORIES_FORMAT=bisac`, but BISG’s current guidance requires a licensed file download for internal database use of the full list.
+   - Templates live at `packages/db/examples/categories.template.csv` and `packages/db/examples/thema.template.csv`.
+
 The app is available at `http://localhost:3334`.
 
 ## Auth Compose Jobs (Why They Exist)

@@ -8,24 +8,18 @@ import {
 import { relations } from "drizzle-orm";
 import { books } from "./books";
 
-// Hierarchical taxonomy for books.
+// Thema subject classification for books.
+// Hierarchy, breadcrumbs, and display names live in the Thema JSON;
+// the database only stores code assignments.
 export const categories = pgTable("categories", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  themaCode: varchar("thema_code", { length: 20 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  slug: varchar("slug", { length: 255 }).notNull().unique(),
-  parentId: uuid("parent_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
 
-export const categoriesRelations = relations(categories, ({ one, many }) => ({
-  parent: one(categories, {
-    fields: [categories.parentId],
-    references: [categories.id],
-    relationName: "categoryHierarchy",
-  }),
-  children: many(categories, { relationName: "categoryHierarchy" }),
+export const categoriesRelations = relations(categories, ({ many }) => ({
   bookCategories: many(bookCategories),
 }));
 
@@ -36,11 +30,11 @@ export const bookCategories = pgTable(
     bookId: uuid("book_id")
       .notNull()
       .references(() => books.id, { onDelete: "cascade" }),
-    categoryId: uuid("category_id")
+    themaCode: varchar("thema_code", { length: 20 })
       .notNull()
-      .references(() => categories.id, { onDelete: "cascade" }),
+      .references(() => categories.themaCode, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.bookId, table.categoryId] })]
+  (table) => [primaryKey({ columns: [table.bookId, table.themaCode] })]
 );
 
 export const bookCategoriesRelations = relations(
@@ -51,8 +45,8 @@ export const bookCategoriesRelations = relations(
       references: [books.id],
     }),
     category: one(categories, {
-      fields: [bookCategories.categoryId],
-      references: [categories.id],
+      fields: [bookCategories.themaCode],
+      references: [categories.themaCode],
     }),
   })
 );

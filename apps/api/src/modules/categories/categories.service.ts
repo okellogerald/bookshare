@@ -13,15 +13,15 @@ export class CategoriesService {
     return category;
   }
 
-  async update(id: string, dto: UpdateCategoryDto) {
-    const [category] = await this.db.update(categories).set(dto).where(eq(categories.id, id)).returning();
-    if (!category) throw new NotFoundException(`Category with ID ${id} not found`);
+  async update(themaCode: string, dto: UpdateCategoryDto) {
+    const [category] = await this.db.update(categories).set(dto).where(eq(categories.themaCode, themaCode)).returning();
+    if (!category) throw new NotFoundException(`Category with code ${themaCode} not found`);
     return category;
   }
 
-  async remove(id: string) {
-    const [deleted] = await this.db.delete(categories).where(eq(categories.id, id)).returning({ id: categories.id });
-    if (!deleted) throw new NotFoundException(`Category with ID ${id} not found`);
+  async remove(themaCode: string) {
+    const [deleted] = await this.db.delete(categories).where(eq(categories.themaCode, themaCode)).returning({ themaCode: categories.themaCode });
+    if (!deleted) throw new NotFoundException(`Category with code ${themaCode} not found`);
     return { deleted: true };
   }
 }

@@ -21,12 +21,12 @@ export function parseDelimitedUniqueList(value: string | undefined): string[] {
   return [...deduped];
 }
 
-export function parseCategorySlugs(value: string | undefined): string[] {
+export function parseThemaCodes(value: string | undefined): string[] {
   const raw = parseDelimitedUniqueList(value);
   const deduped = new Set<string>();
 
-  for (const slug of raw) {
-    deduped.add(slug.toLowerCase());
+  for (const code of raw) {
+    deduped.add(code.toUpperCase());
   }
 
   return [...deduped];

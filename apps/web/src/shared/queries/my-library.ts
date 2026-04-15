@@ -133,7 +133,7 @@ async function fetchCopySearchResults(query: string): Promise<WishSearchResult[]
 
 async function fetchAllCategories(): Promise<PgCategory[]> {
   const params = new URLSearchParams();
-  params.set("select", "id,name,slug,parent_id");
+  params.set("select", "thema_code,name");
   params.set("order", "name.asc");
 
   const response = await fetch(`/api/postgrest/categories?${params}`);

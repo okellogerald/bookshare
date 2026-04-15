@@ -24,8 +24,8 @@ export class CreateBookDto {
   @IsString({ each: true })
   authorIds?: string[];
 
-  @ApiPropertyOptional({ description: "Array of category IDs to link", type: [String] })
+  @ApiPropertyOptional({ description: "Array of Thema codes to link", type: [String] })
   @IsOptional()
   @IsString({ each: true })
-  categoryIds?: string[];
+  themaCodes?: string[];
 }

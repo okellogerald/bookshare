@@ -363,7 +363,7 @@ export async function commitImportRun(params: {
 
       const bookIdBySourceRef = new Map<string, string>();
       const authorIdByName = new Map<string, string>();
-      const categoryIdBySlug = new Map<string, string>();
+      const validThemaCodes = new Set<string>();
 
       const authorNames = new Set<string>();
       for (const row of payloads.books) {
@@ -382,26 +382,26 @@ export async function commitImportRun(params: {
         }
       }
 
-      const categorySlugs = new Set<string>();
+      const themaCodes = new Set<string>();
       for (const row of payloads.books) {
-        for (const slug of row.categorySlugs) {
-          categorySlugs.add(slug);
+        for (const code of row.themaCodes) {
+          themaCodes.add(code);
         }
       }
-      if (categorySlugs.size > 0) {
+      if (themaCodes.size > 0) {
         const existingCategories = await tx
-          .select({ id: categories.id, slug: categories.slug })
+          .select({ themaCode: categories.themaCode })
           .from(categories)
-          .where(inArray(categories.slug, [...categorySlugs]));
+          .where(inArray(categories.themaCode, [...themaCodes]));
 
         for (const existingCategory of existingCategories) {
-          categoryIdBySlug.set(existingCategory.slug, existingCategory.id);
+          validThemaCodes.add(existingCategory.themaCode);
         }
 
-        for (const slug of categorySlugs) {
-          if (!categoryIdBySlug.has(slug)) {
+        for (const code of themaCodes) {
+          if (!validThemaCodes.has(code)) {
             throw new Error(
-              `Category slug '${slug}' could not be resolved at commit time`
+              `Thema code '${code}' could not be resolved at commit time`
             );
           }
         }
@@ -498,21 +498,15 @@ export async function commitImportRun(params: {
         editionIdBySourceRef.set(row.sourceRef, createdEdition.id);
       }
 
-      const bookCategoryRows: Array<{ bookId: string; categoryId: string }> = [];
+      const bookCategoryRows: Array<{ bookId: string; themaCode: string }> = [];
       for (const row of payloads.books) {
         const bookId = bookIdBySourceRef.get(row.sourceRef);
         if (!bookId) {
           throw new Error(`Missing committed ID for book '${row.sourceRef}'`);
         }
 
-        for (const slug of row.categorySlugs) {
-          const categoryId = categoryIdBySlug.get(slug);
-          if (!categoryId) {
-            throw new Error(
-              `Category slug '${slug}' could not be resolved for book '${row.sourceRef}'`
-            );
-          }
-          bookCategoryRows.push({ bookId, categoryId });
+        for (const themaCode of row.themaCodes) {
+          bookCategoryRows.push({ bookId, themaCode });
         }
       }
       if (bookCategoryRows.length > 0) {

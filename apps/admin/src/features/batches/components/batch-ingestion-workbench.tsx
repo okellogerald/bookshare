@@ -1,22 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { FileArchive, Upload, Waypoints } from "lucide-react";
-import {
-  useCommitImportRun,
-  useRecentImportRuns,
-  useValidateImportZip,
-} from "@/shared/queries/imports";
+import { useId, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, Upload, Waypoints, X } from "lucide-react";
+import { useCommitImportRun, useValidateImportZip } from "@/shared/queries/imports";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/shared/components/ui/card";
-import { Input } from "@/shared/components/ui/input";
 import {
   Table,
   TableBody,
@@ -28,24 +16,44 @@ import {
 import type { ImportRunValidationResult } from "@/shared/api";
 import { cn } from "@/shared/lib/utils";
 
+type BatchStep = 1 | 2 | 3;
+
+const stepItems: Array<{ step: BatchStep; label: string }> = [
+  { step: 1, label: "Type" },
+  { step: 2, label: "Upload" },
+  { step: 3, label: "Review" },
+];
+
 function formatStatus(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+function StatusBadge({ status }: { status: string }) {
+  const isCommitted = status === "committed";
+
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(
+        "border px-3 py-1",
+        isCommitted
+          ? "border-primary/[0.15] bg-primary/10 text-primary"
+          : "border-border/75 bg-background px-3 py-1 text-muted-foreground"
+      )}
+    >
+      {formatStatus(status)}
+    </Badge>
+  );
 }
 
 export function BatchIngestionWorkbench() {
+  const [activeStep, setActiveStep] = useState<BatchStep>(1);
   const [mode, setMode] = useState<"catalog" | "inventory_only">("catalog");
   const [replaceInventory, setReplaceInventory] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [latestRun, setLatestRun] = useState<ImportRunValidationResult | null>(null);
-  const recentRuns = useRecentImportRuns();
+  const [issuesDialogOpen, setIssuesDialogOpen] = useState(false);
+  const fileInputId = useId();
   const validateImport = useValidateImportZip();
   const commitImport = useCommitImportRun();
 
@@ -54,6 +62,28 @@ export function BatchIngestionWorkbench() {
     () => Object.entries(currentSummary?.files ?? {}),
     [currentSummary]
   );
+
+  const canOpenStep = (step: BatchStep) => {
+    if (step === 1 || step === 2) {
+      return true;
+    }
+
+    return !!latestRun;
+  };
+
+  const handleModeChange = (nextMode: "catalog" | "inventory_only") => {
+    setMode(nextMode);
+    setReplaceInventory(false);
+    setSelectedFile(null);
+    setLatestRun(null);
+    setIssuesDialogOpen(false);
+  };
+
+  const handleFileChange = (file: File | null) => {
+    setSelectedFile(file);
+    setLatestRun(null);
+    setIssuesDialogOpen(false);
+  };
 
   const handleValidate = async () => {
     if (!selectedFile) return;
@@ -65,6 +95,7 @@ export function BatchIngestionWorkbench() {
     });
 
     setLatestRun(result);
+    setActiveStep(3);
   };
 
   const handleCommit = async () => {
@@ -79,17 +110,56 @@ export function BatchIngestionWorkbench() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-        <Card className="border-border/80 bg-card/95">
-          <CardHeader>
-            <CardTitle>Validate a batch ZIP</CardTitle>
-            <CardDescription>
-              Upload the same ZIP structure used by the importer CLI, review issues in
-              the browser, then commit the validated run.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
+    <>
+      <div className="space-y-6">
+        <div className="flex gap-3 overflow-x-auto border-y py-4">
+          {stepItems.map((item) => {
+            const isCurrent = activeStep === item.step;
+            const isComplete =
+              (item.step === 1 && activeStep > 1) ||
+              (item.step === 2 && !!latestRun) ||
+              (item.step === 3 && latestRun?.status === "committed");
+            const isAvailable = canOpenStep(item.step);
+
+            return (
+              <button
+                key={item.step}
+                type="button"
+                disabled={!isAvailable}
+                onClick={() => isAvailable && setActiveStep(item.step)}
+                className={cn(
+                  "flex min-w-max items-center gap-3 rounded-full px-1 py-1 text-sm transition disabled:cursor-not-allowed disabled:opacity-50",
+                  isCurrent ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
+                    isCurrent
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : isComplete
+                        ? "border-border/75 bg-muted text-foreground"
+                        : "border-border/75 bg-background"
+                  )}
+                >
+                  {item.step}
+                </span>
+                <span className={cn(isCurrent ? "font-medium" : "")}>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeStep === 1 ? (
+          <section className="space-y-5">
+            <div>
+              <p className="text-sm font-medium text-foreground">Step 1</p>
+              <h2 className="mt-1 text-lg font-semibold text-foreground">Choose the run type</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Select the ZIP mode before anything is uploaded.
+              </p>
+            </div>
+
             <div className="flex flex-wrap gap-3">
               {[
                 { value: "catalog", label: "Catalog ZIP" },
@@ -102,85 +172,165 @@ export function BatchIngestionWorkbench() {
                     "rounded-full border px-4 py-2 text-sm font-medium transition",
                     mode === option.value
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background hover:border-primary/30"
+                      : "border-border/75 bg-background text-foreground hover:border-primary/20"
                   )}
-                  onClick={() =>
-                    setMode(option.value as "catalog" | "inventory_only")
-                  }
+                  onClick={() => handleModeChange(option.value as "catalog" | "inventory_only")}
                 >
                   {option.label}
                 </button>
               ))}
             </div>
 
-            <div className="rounded-[1.25rem] border border-border/80 bg-background/75 p-4">
-              <div className="flex items-center gap-2">
-                <FileArchive className="h-4 w-4 text-primary" />
-                <p className="font-semibold">ZIP contents</p>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                <code>catalog</code> mode expects <code>books.csv</code> plus{" "}
-                <code>editions.csv</code>, optional <code>copies.csv</code> and{" "}
-                <code>wishes.csv</code>, and cover files in{" "}
-                <code>covers/&lt;isbn&gt;.&lt;ext&gt;</code>.{" "}
-                <code>inventory_only</code> mode accepts only <code>copies.csv</code>{" "}
-                and/or <code>wishes.csv</code>.
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              <code>catalog</code> expects <code>books.csv</code> and <code>editions.csv</code>,
+              with optional inventory files and covers. <code>inventory_only</code> accepts
+              <code> copies.csv</code> and/or <code>wishes.csv</code>.
+            </p>
+
+            <div className="flex justify-end border-t pt-5">
+              <Button
+                type="button"
+                onClick={() => setActiveStep(2)}
+                className="rounded-full px-5"
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        {activeStep === 2 ? (
+          <section className="space-y-5">
+            <div>
+              <p className="text-sm font-medium text-foreground">Step 2</p>
+              <h2 className="mt-1 text-lg font-semibold text-foreground">Upload and validate</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Upload one ZIP and validate it. Review appears only after a run exists.
               </p>
             </div>
 
-            <div className="space-y-3">
-              <Input
-                type="file"
-                accept=".zip,application/zip"
-                onChange={(event) =>
-                  setSelectedFile(event.target.files?.[0] ?? null)
-                }
-                className="h-auto rounded-[1.25rem] py-4"
-              />
+            <label
+              htmlFor={fileInputId}
+              className="block cursor-pointer rounded-xl border border-dashed border-border/80 px-5 py-5 transition hover:border-primary/20"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {selectedFile ? selectedFile.name : "Choose a ZIP file"}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {selectedFile
+                      ? `${Math.round(selectedFile.size / 1024)} KB selected`
+                      : "Select the archive to validate."}
+                  </p>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className="w-fit border border-border/75 bg-background text-muted-foreground"
+                >
+                  .zip
+                </Badge>
+              </div>
+            </label>
+            <input
+              id={fileInputId}
+              type="file"
+              accept=".zip,application/zip"
+              onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
 
-              {mode === "inventory_only" ? (
-                <label className="flex items-center gap-3 rounded-[1rem] border border-border/80 bg-background/75 px-4 py-3 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={replaceInventory}
-                    onChange={(event) => setReplaceInventory(event.target.checked)}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  Replace existing inventory state before commit
-                </label>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                onClick={() => void handleValidate()}
-                disabled={!selectedFile || validateImport.isPending}
-              >
-                <Upload className="h-4 w-4" />
-                {validateImport.isPending ? "Validating..." : "Validate ZIP"}
-              </Button>
-
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => void handleCommit()}
-                disabled={
-                  !latestRun ||
-                  latestRun.status !== "validated" ||
-                  commitImport.isPending
-                }
-              >
-                <Waypoints className="h-4 w-4" />
-                {commitImport.isPending ? "Committing..." : "Commit Run"}
-              </Button>
-            </div>
+            {mode === "inventory_only" ? (
+              <label className="flex items-center gap-3 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={replaceInventory}
+                  onChange={(event) => setReplaceInventory(event.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Replace existing inventory state before commit
+              </label>
+            ) : null}
 
             {validateImport.isError ? (
               <p className="text-sm text-red-700">
                 {validateImport.error instanceof Error
                   ? validateImport.error.message
                   : "Batch validation failed."}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap justify-between gap-3 border-t pt-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setActiveStep(1)}
+                className="rounded-full px-5"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => void handleValidate()}
+                disabled={!selectedFile || validateImport.isPending}
+                className="rounded-full px-5"
+              >
+                <Upload className="h-4 w-4" />
+                {validateImport.isPending ? "Validating..." : "Validate ZIP"}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        {activeStep === 3 && latestRun && currentSummary ? (
+          <section className="space-y-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Step 3</p>
+                <h2 className="mt-1 text-lg font-semibold text-foreground">Review and commit</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Review the run summary, open issues only if needed, then commit when ready.
+                </p>
+              </div>
+              <StatusBadge status={latestRun.status} />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <span>
+                Run <span className="font-mono text-foreground">{latestRun.runId}</span>
+              </span>
+              <span>{currentSummary.totalRows} rows</span>
+              <span>{currentSummary.issueCount} issues</span>
+            </div>
+
+            {filesBreakdown.length > 0 ? (
+              <div className="overflow-x-auto">
+                <div className="min-w-[480px] divide-y border-y">
+                  {filesBreakdown.map(([fileName, fileSummary]) => (
+                    <div
+                      key={fileName}
+                      className="flex items-center justify-between gap-4 py-3 text-sm"
+                    >
+                      <span className="text-foreground">{fileName}</span>
+                      <span className="text-muted-foreground">{fileSummary.rowCount} rows</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {latestRun.status === "invalid" ? (
+              <p className="text-sm text-muted-foreground">
+                This run has blocking issues and cannot be committed yet.
+              </p>
+            ) : null}
+
+            {currentSummary.issueCount === 0 ? (
+              <p className="text-sm text-primary">
+                No validation issues found. This run is ready to commit.
               </p>
             ) : null}
 
@@ -191,165 +341,98 @@ export function BatchIngestionWorkbench() {
                   : "Batch commit failed."}
               </p>
             ) : null}
-          </CardContent>
-        </Card>
 
-        <Card className="border-border/80 bg-background/75">
-          <CardHeader>
-            <CardTitle>Latest result</CardTitle>
-            <CardDescription>
-              The most recent validated run stays here so you can inspect issues or
-              commit immediately.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!latestRun || !currentSummary ? (
-              <p className="text-sm text-muted-foreground">
-                Validate a ZIP to see its run ID, row counts, and issues.
-              </p>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge>{formatStatus(latestRun.status)}</Badge>
-                  <p className="text-sm text-slate-600">
-                    Run <span className="font-mono">{latestRun.runId}</span>
-                  </p>
-                </div>
+            <div className="flex flex-wrap justify-between gap-3 border-t pt-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setActiveStep(2)}
+                className="rounded-full px-5"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-[1rem] border border-border/80 bg-card/90 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                      Total Rows
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold">
-                      {currentSummary.totalRows}
-                    </p>
-                  </div>
-                  <div className="rounded-[1rem] border border-border/80 bg-card/90 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                      Issues
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold">
-                      {currentSummary.issueCount}
-                    </p>
-                  </div>
-                </div>
+              <div className="flex flex-wrap gap-3">
+                {currentSummary.issues.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIssuesDialogOpen(true)}
+                    className="rounded-full px-5"
+                  >
+                    View issues
+                  </Button>
+                ) : null}
 
-                <div className="space-y-2">
-                  {filesBreakdown.map(([fileName, fileSummary]) => (
-                    <div
-                      key={fileName}
-                      className="flex items-center justify-between rounded-[1rem] border border-border/70 bg-card/85 px-4 py-3 text-sm"
-                    >
-                      <span>{fileName}</span>
-                      <span className="font-semibold">{fileSummary.rowCount} rows</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                <Button
+                  type="button"
+                  onClick={() => void handleCommit()}
+                  disabled={latestRun.status !== "validated" || commitImport.isPending}
+                  className="rounded-full px-5"
+                >
+                  <Waypoints className="h-4 w-4" />
+                  {commitImport.isPending ? "Committing..." : "Commit run"}
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </div>
 
-      <Card className="border-border/80 bg-card/95">
-        <CardHeader>
-          <CardTitle>Validation issues</CardTitle>
-          <CardDescription>
-            Issues are persisted in the run summary before commit. A validated run can
-            be committed directly from this page.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!currentSummary ? (
-            <p className="text-sm text-muted-foreground">
-              No validation output yet.
-            </p>
-          ) : currentSummary.issues.length === 0 ? (
-            <p className="text-sm text-green-700">
-              No issues found. This run is ready to commit.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>File</TableHead>
-                  <TableHead>Row</TableHead>
-                  <TableHead>Column</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Message</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentSummary.issues.slice(0, 120).map((issue, index) => (
-                  <TableRow key={`${issue.code}-${issue.file}-${index}`}>
-                    <TableCell>{issue.file}</TableCell>
-                    <TableCell>{issue.rowNumber ?? "—"}</TableCell>
-                    <TableCell>{issue.column ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{issue.code}</TableCell>
-                    <TableCell>{issue.message}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {issuesDialogOpen && currentSummary ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-8">
+          <div className="flex max-h-[80vh] w-full max-w-6xl flex-col rounded-[1.25rem] border bg-card">
+            <div className="flex items-start justify-between gap-4 border-b px-6 py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Validation issues
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {currentSummary.issues.length} issue
+                  {currentSummary.issues.length === 1 ? "" : "s"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Full issue detail for run {latestRun?.runId}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIssuesDialogOpen(false)}
+                className="rounded-full border bg-background p-2 text-muted-foreground transition hover:text-foreground"
+                aria-label="Close issues dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-      <Card className="border-border/80 bg-background/75">
-        <CardHeader>
-          <CardTitle>Recent runs</CardTitle>
-          <CardDescription>
-            The browser flow writes the same import run records used by the current CLI
-            workflow.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentRuns.isError ? (
-            <p className="text-sm text-red-700">
-              {recentRuns.error instanceof Error
-                ? recentRuns.error.message
-                : "Failed to load recent runs."}
-            </p>
-          ) : recentRuns.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading recent runs...</p>
-          ) : (recentRuns.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No import runs yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ZIP</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Rows</TableHead>
-                  <TableHead>Issues</TableHead>
-                  <TableHead>Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(recentRuns.data ?? []).map((run) => (
-                  <TableRow key={run.runId}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="font-medium">{run.sourceZipName}</p>
-                        <p className="text-xs text-slate-500">{run.runId}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={run.status === "committed" ? "default" : "secondary"}>
-                        {formatStatus(run.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{run.rowCount}</TableCell>
-                    <TableCell>{run.issueCount}</TableCell>
-                    <TableCell>{formatDate(run.createdAt)}</TableCell>
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File</TableHead>
+                    <TableHead>Row</TableHead>
+                    <TableHead>Column</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Message</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                </TableHeader>
+                <TableBody>
+                  {currentSummary.issues.map((issue, index) => (
+                    <TableRow key={`${issue.code}-${issue.file}-${index}`}>
+                      <TableCell>{issue.file}</TableCell>
+                      <TableCell>{issue.rowNumber ?? "—"}</TableCell>
+                      <TableCell>{issue.column ?? "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{issue.code}</TableCell>
+                      <TableCell>{issue.message}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

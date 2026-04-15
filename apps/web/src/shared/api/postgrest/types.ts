@@ -53,13 +53,9 @@ export interface PgBookQuoteWithBook extends PgBookQuote {
 }
 
 export interface PgCategory {
-  id: string;
+  thema_code: string;
   name: string;
-  slug: string;
-  description: string | null;
-  parent_id: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface PgCopy {
@@ -154,7 +150,7 @@ export interface PgBookWithAuthorsView extends PgBook {
 
 /** books_with_categories SQL view — flat categories JSON array */
 export interface PgBookWithCategoriesView extends PgBook {
-  categories: Array<{ id: string; name: string; slug: string }>;
+  categories: Array<{ thema_code: string; name: string }>;
 }
 
 export interface PgBookWithCategories extends PgBook {
@@ -211,9 +207,7 @@ export interface PgBrowseListing {
   authors: Array<{ id: string; name: string }>;
 }
 
-export interface PgCategoryTree extends PgCategory {
-  parent_name: string | null;
-}
+export interface PgCategoryTree extends PgCategory {}
 
 /** wishes table — user-scoped via RLS */
 export interface PgWish {

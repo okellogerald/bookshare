@@ -17,6 +17,7 @@
     "db:migrate": "bun --filter @bookshare/db run migrate",
     "db:push": "bun --filter @bookshare/db run push",
     "db:studio": "bun --filter @bookshare/db run studio",
+    "db:seed": "bun --filter @bookshare/db run seed",
     "import:validate": "bun run --cwd packages/importer src/cli.ts validate",
     "import:commit": "bun run --cwd packages/importer src/cli.ts commit",
     "import:report": "bun run --cwd packages/importer src/cli.ts report"

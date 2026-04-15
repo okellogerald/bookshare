@@ -27,9 +27,11 @@ export async function setSession(
   accessToken?: string | null
 ): Promise<void> {
   const cookieStore = await cookies();
-  const tokenForApi = isJwtLike(accessToken)
-    ? accessToken
-    : data.idToken ?? accessToken;
+  // Admin API authorization depends on the staff-role claims we inject into
+  // the ID token during Hydra consent. Prefer that token consistently here
+  // instead of the access token, whose claim shape can lag during remembered
+  // consent flows.
+  const tokenForApi = data.idToken ?? accessToken;
 
   if (!tokenForApi) {
     throw new Error("Cannot persist an admin session without an API token");

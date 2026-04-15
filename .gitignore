@@ -44,6 +44,6 @@ coverage/
 .turbo/
 packages/importer/input/
 
-
-
 *.local
+
+*.claude/

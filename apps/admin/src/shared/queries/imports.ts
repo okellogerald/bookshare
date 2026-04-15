@@ -72,8 +72,8 @@ export function useValidateImportZip() {
         body: formData,
       });
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-import-runs"] });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-import-runs"] });
     },
   });
 }
@@ -86,8 +86,8 @@ export function useCommitImportRun() {
       requestJson<CommitImportRunResult>(`/api/nestjs/imports/${runId}/commit`, {
         method: "POST",
       }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-import-runs"] });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-import-runs"] });
     },
   });
 }

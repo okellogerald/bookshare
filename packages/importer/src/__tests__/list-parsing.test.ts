@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseCategorySlugs, parseDelimitedUniqueList } from "../list-parsing";
+import { parseThemaCodes, parseDelimitedUniqueList } from "../list-parsing";
 
 describe("list parsing helpers", () => {
   test("parses and deduplicates delimited list values", () => {
@@ -11,10 +11,10 @@ describe("list parsing helpers", () => {
     expect(parseDelimitedUniqueList("a,b,a")).toEqual(["a", "b"]);
   });
 
-  test("normalizes and deduplicates category slugs", () => {
-    expect(parseCategorySlugs("Fiction;Classics;fiction")).toEqual([
-      "fiction",
-      "classics",
+  test("normalizes and deduplicates Thema codes", () => {
+    expect(parseThemaCodes("fba;FBA;jn")).toEqual([
+      "FBA",
+      "JN",
     ]);
   });
 });

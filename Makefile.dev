@@ -72,8 +72,8 @@ db-reset-user-data: ## Reset app state, keep catalog tables + member profiles
 		./scripts/dev-reset-state.sh
 
 .PHONY: db-seed
-db-seed: ## Insert test data (books, authors, copies, etc.)
-	DATABASE_URL=$(DB_URL) bun run --cwd packages/db seed
+db-seed: ## Seed categories from CATEGORIES_FILE (generic CSV/TSV, Thema CSV/XLSX, or licensed BISAC CSV/XLSX)
+	DATABASE_URL=$(DB_URL) CATEGORIES_FILE="$(CATEGORIES_FILE)" CATEGORIES_FORMAT="$(CATEGORIES_FORMAT)" bun run --cwd packages/db seed
 
 .PHONY: db-psql
 db-psql: ## Open an interactive psql shell

@@ -17,13 +17,13 @@ export class CategoriesController {
     return this.categoriesService.create(dto);
   }
 
-  @Put(":id")
-  update(@Param("id") id: string, @Body() dto: UpdateCategoryDto) {
-    return this.categoriesService.update(id, dto);
+  @Put(":themaCode")
+  update(@Param("themaCode") themaCode: string, @Body() dto: UpdateCategoryDto) {
+    return this.categoriesService.update(themaCode, dto);
   }
 
-  @Delete(":id")
-  remove(@Param("id") id: string) {
-    return this.categoriesService.remove(id);
+  @Delete(":themaCode")
+  remove(@Param("themaCode") themaCode: string) {
+    return this.categoriesService.remove(themaCode);
   }
 }

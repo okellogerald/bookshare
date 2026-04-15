@@ -25,9 +25,9 @@ export class BooksService {
         );
       }
 
-      if (dto.categoryIds?.length) {
+      if (dto.themaCodes?.length) {
         await tx.insert(bookCategories).values(
-          dto.categoryIds.map((categoryId) => ({ bookId: book.id, categoryId }))
+          dto.themaCodes.map((themaCode) => ({ bookId: book.id, themaCode }))
         );
       }
 
@@ -36,7 +36,7 @@ export class BooksService {
   }
 
   async update(id: string, dto: UpdateBookDto) {
-    const { authorIds, categoryIds, ...bookData } = dto;
+    const { authorIds, themaCodes, ...bookData } = dto;
 
     return this.db.transaction(async (tx) => {
       if (Object.keys(bookData).length > 0) {
@@ -53,11 +53,11 @@ export class BooksService {
         }
       }
 
-      if (categoryIds !== undefined) {
+      if (themaCodes !== undefined) {
         await tx.delete(bookCategories).where(eq(bookCategories.bookId, id));
-        if (categoryIds.length) {
+        if (themaCodes.length) {
           await tx.insert(bookCategories).values(
-            categoryIds.map((categoryId) => ({ bookId: id, categoryId }))
+            themaCodes.map((themaCode) => ({ bookId: id, themaCode }))
           );
         }
       }

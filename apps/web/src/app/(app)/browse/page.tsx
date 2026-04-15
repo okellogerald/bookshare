@@ -33,14 +33,6 @@ type BrowseSortOption =
   | "copies_desc"
   | "confirmed_desc";
 
-function getCategoryDisplayName(name: string) {
-  const segments = name
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  return segments[segments.length - 1] ?? name.trim();
-}
-
 function getListingFreshnessValue(listing: BrowseEditionListing) {
   return listing.last_confirmed_at ?? listing.created_at;
 }
@@ -50,7 +42,7 @@ export default function BrowsePage() {
   const [shareType, setShareType] = useState<string>("");
   const [condition, setCondition] = useState<string>("");
   const [format, setFormat] = useState<string>("");
-  const [categoryId, setCategoryId] = useState<string>("");
+  const [themaCode, setThemaCode] = useState<string>("");
   const [sortBy, setSortBy] = useState<BrowseSortOption>("listed_desc");
   const [includeOwnListings, setIncludeOwnListings] = useState(false);
   const [page, setPage] = useState(1);
@@ -119,38 +111,31 @@ export default function BrowsePage() {
   } = useBrowseBookCategoryIndex(browseBookIds);
   const categoryOptionRows = useMemo(() => {
     const categories = allCategories ?? [];
-    const parentIds = new Set(
-      categories
-        .map((category) => category.parent_id)
-        .filter((parentId): parentId is string => !!parentId)
-    );
-
     return categories
-      .filter((category) => !parentIds.has(category.id))
       .map((category) => ({
-        id: category.id,
-        name: getCategoryDisplayName(category.name),
+        themaCode: category.thema_code,
+        name: category.name,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allCategories]);
-  const selectedCategoryIds = useMemo(() => {
-    if (!categoryId) return null;
-    return new Set<string>([categoryId]);
-  }, [categoryId]);
+  const selectedThemaCodes = useMemo(() => {
+    if (!themaCode) return null;
+    return new Set<string>([themaCode]);
+  }, [themaCode]);
   const filteredListings = useMemo(() => {
-    if (!selectedCategoryIds) return ownershipFilteredListings;
+    if (!selectedThemaCodes) return ownershipFilteredListings;
     const categoryIndex = browseBookCategoryIndex ?? new Map<string, Set<string>>();
 
     return ownershipFilteredListings.filter((listing) => {
-      const categoryIdsForBook = categoryIndex.get(listing.book_id);
-      if (!categoryIdsForBook) return false;
+      const codesForBook = categoryIndex.get(listing.book_id);
+      if (!codesForBook) return false;
 
-      for (const selectedId of selectedCategoryIds) {
-        if (categoryIdsForBook.has(selectedId)) return true;
+      for (const code of selectedThemaCodes) {
+        if (codesForBook.has(code)) return true;
       }
       return false;
     });
-  }, [browseBookCategoryIndex, ownershipFilteredListings, selectedCategoryIds]);
+  }, [browseBookCategoryIndex, ownershipFilteredListings, selectedThemaCodes]);
   const sortedListings = useMemo(() => {
     const items = [...filteredListings];
     items.sort((left, right) => {
@@ -185,7 +170,7 @@ export default function BrowsePage() {
     });
     return items;
   }, [filteredListings, sortBy]);
-  const isLoadingListings = isLoading || (Boolean(categoryId) && browseBookCategoryIndexLoading);
+  const isLoadingListings = isLoading || (Boolean(themaCode) && browseBookCategoryIndexLoading);
   const totalPages = Math.max(1, Math.ceil(sortedListings.length / pageSize));
   const pagedListings = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -194,7 +179,7 @@ export default function BrowsePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, shareType, condition, format, categoryId, includeOwnListings, sortBy]);
+  }, [search, shareType, condition, format, themaCode, includeOwnListings, sortBy]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -345,8 +330,8 @@ export default function BrowsePage() {
           </SelectContent>
         </Select>
         <Select
-          value={categoryId || "all"}
-          onValueChange={(value) => setCategoryId(value === "all" ? "" : value)}
+          value={themaCode || "all"}
+          onValueChange={(value) => setThemaCode(value === "all" ? "" : value)}
         >
           <SelectTrigger className="w-[280px]">
             <SelectValue placeholder="Category" />
@@ -354,7 +339,7 @@ export default function BrowsePage() {
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
             {categoryOptionRows.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
+              <SelectItem key={category.themaCode} value={category.themaCode}>
                 {category.name}
               </SelectItem>
             ))}

@@ -1,0 +1,1603 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookShare Verification Flow Trace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #f8f9fb;
+        --surface: #ffffff;
+        --surface-raised: #f3f5f8;
+        --surface-sunken: #eef1f5;
+        --ink: #1a1d23;
+        --ink-secondary: #5c6370;
+        --ink-tertiary: #8b929e;
+        --border: #e2e5ea;
+        --border-light: #eef1f5;
+        --accent: #2563eb;
+        --accent-soft: #eff4ff;
+        --accent-muted: #93b4f5;
+        --success: #16a34a;
+        --success-soft: #ecfdf3;
+        --warning: #d97706;
+        --warning-soft: #fffbeb;
+        --danger: #dc2626;
+        --danger-soft: #fef2f2;
+        --info: #7c3aed;
+        --info-soft: #f5f0ff;
+        --redirect: #0891b2;
+        --redirect-soft: #ecfeff;
+        --code-bg: #1e2028;
+        --code-surface: #262830;
+        --code-ink: #d4d7e0;
+        --code-comment: #6b7280;
+        --code-keyword: #c084fc;
+        --code-string: #86efac;
+        --code-number: #fbbf24;
+        --code-header-name: #93c5fd;
+        --code-header-value: #d4d7e0;
+        --code-method-get: #34d399;
+        --code-method-post: #fbbf24;
+        --code-status: #f9a8d4;
+        --code-key: #93c5fd;
+        --actor-browser: #dbeafe;
+        --actor-auth: #dcfce7;
+        --actor-kratos: #fef3c7;
+        --actor-mail: #ffe4e6;
+        --sidebar-w: 260px;
+        --font-sans: "Avenir Medium", "Avenir-Medium", "Avenir", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-xs: 6px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+      }
+
+      [data-theme="dark"] {
+        --bg: #111318;
+        --surface: #1a1d24;
+        --surface-raised: #22252e;
+        --surface-sunken: #15171d;
+        --ink: #e4e7ed;
+        --ink-secondary: #9ca3b0;
+        --ink-tertiary: #6b7280;
+        --border: #2d3140;
+        --border-light: #22252e;
+        --accent: #60a5fa;
+        --accent-soft: #1e293b;
+        --accent-muted: #3b5998;
+        --success: #4ade80;
+        --success-soft: #14271e;
+        --warning: #fbbf24;
+        --warning-soft: #271f0f;
+        --danger: #f87171;
+        --danger-soft: #2a1515;
+        --info: #a78bfa;
+        --info-soft: #1e1533;
+        --redirect: #22d3ee;
+        --redirect-soft: #0f2a30;
+        --code-bg: #13151a;
+        --code-surface: #1a1d24;
+        --actor-browser: #1e3a5f;
+        --actor-auth: #14331e;
+        --actor-kratos: #33290f;
+        --actor-mail: #331519;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ── Layout ── */
+      .layout {
+        display: grid;
+        grid-template-columns: var(--sidebar-w) 1fr;
+        min-height: 100vh;
+      }
+
+      /* ── Sidebar ── */
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 24px 0;
+        z-index: 100;
+      }
+
+      .sidebar-brand {
+        padding: 0 20px 20px;
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .sidebar-brand h1 {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .sidebar-brand .badge {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 6px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .sidebar-section {
+        padding: 16px 12px 8px;
+      }
+
+      .sidebar-section-title {
+        padding: 0 8px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+      }
+
+      .nav-list {
+        list-style: none;
+        margin-top: 6px;
+      }
+
+      .nav-item a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 8px;
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        color: var(--ink-secondary);
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+
+      .nav-item a:hover {
+        color: var(--ink);
+        background: var(--surface-raised);
+      }
+
+      .nav-item.active a {
+        color: var(--accent);
+        background: var(--accent-soft);
+        font-weight: 600;
+      }
+
+      .nav-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: var(--surface-raised);
+        color: var(--ink-tertiary);
+        font-size: 11px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .nav-item.active .nav-num {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .nav-item.error .nav-num {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .nav-item.warning .nav-num {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .sidebar-footer {
+        padding: 16px 20px;
+        border-top: 1px solid var(--border-light);
+        margin-top: auto;
+      }
+
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        color: var(--ink-secondary);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        transition: all 0.15s;
+      }
+
+      .theme-toggle:hover {
+        background: var(--surface);
+        color: var(--ink);
+        border-color: var(--accent-muted);
+      }
+
+      /* ── Main Content ── */
+      .main {
+        padding: 32px 40px 80px;
+        max-width: 1100px;
+      }
+
+      /* ── Header ── */
+      .header {
+        margin-bottom: 32px;
+      }
+
+      .header h2 {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+
+      .header-sub {
+        margin-top: 6px;
+        color: var(--ink-secondary);
+        font-size: 14px;
+      }
+
+      /* ── Env & Overview cards ── */
+      .overview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .card-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 14px;
+      }
+
+      .meta-table {
+        display: grid;
+        gap: 8px;
+      }
+
+      .meta-row {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        gap: 12px;
+        align-items: baseline;
+      }
+
+      .meta-key {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-tertiary);
+      }
+
+      .meta-val {
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .meta-val code {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--surface-raised);
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      /* ── Actors ── */
+      .actor-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .actor {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .actor-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      .actor.browser { background: var(--actor-browser); }
+      .actor.browser .actor-dot { background: #3b82f6; }
+      .actor.auth { background: var(--actor-auth); }
+      .actor.auth .actor-dot { background: #22c55e; }
+      .actor.kratos { background: var(--actor-kratos); }
+      .actor.kratos .actor-dot { background: #f59e0b; }
+      .actor.mail { background: var(--actor-mail); }
+      .actor.mail .actor-dot { background: #ef4444; }
+
+      /* ── Sequence Diagram ── */
+      .sequence {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin-bottom: 32px;
+        box-shadow: var(--shadow-sm);
+        overflow-x: auto;
+      }
+
+      .sequence-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 16px;
+      }
+
+      .seq-diagram {
+        display: grid;
+        grid-template-columns: 80px 1fr;
+        gap: 0;
+        min-width: 700px;
+      }
+
+      .seq-actors {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        grid-column: 1 / -1;
+        margin-bottom: 8px;
+      }
+
+      .seq-actor {
+        text-align: center;
+        padding: 8px 4px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .seq-row {
+        display: contents;
+      }
+
+      .seq-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-tertiary);
+        padding: 6px 8px 6px 0;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .seq-arrows {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        position: relative;
+        padding: 4px 0;
+      }
+
+      .seq-arrows::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        height: 1px;
+        background: var(--border);
+      }
+
+      .seq-cell {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 28px;
+      }
+
+      .seq-cell .seq-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--border);
+      }
+
+      /* ── Flow Path Summary ── */
+      .flow-path {
+        display: flex;
+        align-items: center;
+        gap: 6px 0;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      .flow-step {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .flow-step code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      .flow-arrow {
+        color: var(--ink-tertiary);
+        font-size: 16px;
+        padding: 0 4px;
+      }
+
+      /* ── Timeline ── */
+      .timeline-section {
+        margin-bottom: 8px;
+      }
+
+      .timeline-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 16px;
+        padding-left: 4px;
+      }
+
+      /* ── Stage ── */
+      .stage {
+        position: relative;
+        padding-left: 40px;
+        padding-bottom: 28px;
+        scroll-margin-top: 20px;
+      }
+
+      .stage::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 36px;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+      }
+
+      .stage:last-child::before {
+        display: none;
+      }
+
+      .stage-dot {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        box-shadow: 0 0 0 3px var(--bg);
+      }
+
+      .stage-dot.error-dot {
+        background: var(--danger);
+      }
+
+      .stage-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .stage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border-light);
+        flex-wrap: wrap;
+      }
+
+      .stage-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .stage-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .direction-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--surface-raised);
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-secondary);
+        white-space: nowrap;
+      }
+
+      .source-badge {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .source-badge.captured {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+
+      .source-badge.derived {
+        background: var(--warning-soft);
+        color: var(--warning);
+      }
+
+      .source-badge.route {
+        background: var(--info-soft);
+        color: var(--info);
+      }
+
+      /* ── Request / Response Grid ── */
+      .http-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        overflow: hidden;
+      }
+
+      .http-panel {
+        padding: 16px 20px;
+        min-width: 0;
+        overflow-x: auto;
+      }
+
+      .http-panel + .http-panel {
+        border-left: 1px solid var(--border-light);
+      }
+
+      .http-panel-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 8px;
+      }
+
+      .http-panel-desc {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--ink-secondary);
+        margin-bottom: 10px;
+        padding: 0 2px;
+      }
+
+      .http-panel-desc strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .note-box {
+        background: var(--info-soft);
+        border-left: 3px solid var(--info);
+        border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+        padding: 10px 14px;
+        margin: 12px 20px 16px;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--ink-secondary);
+      }
+
+      .note-box + .note-box {
+        margin-top: 0;
+      }
+
+      .note-box strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .note-box code {
+        background: var(--surface-sunken);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11.5px;
+      }
+
+      .note-box-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--info);
+        margin-bottom: 4px;
+      }
+
+      .json-explainer {
+        margin: 12px 20px 16px;
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+      }
+
+      .json-explainer-title {
+        background: var(--surface-raised);
+        padding: 8px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .json-explainer-body {
+        padding: 10px 14px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--ink-secondary);
+      }
+
+      .json-explainer-body dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+      }
+
+      .json-explainer-body dt {
+        font-weight: 600;
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+      }
+
+      .json-explainer-body dd {
+        margin: 0;
+      }
+
+      .json-explainer-body dd code {
+        background: var(--surface-sunken);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+
+      /* ── Code Blocks ── */
+      .code-block {
+        background: var(--code-bg);
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        line-height: 1.65;
+        color: var(--code-ink);
+        white-space: pre;
+        margin: 0;
+      }
+
+      .code-block + .code-block {
+        margin-top: 8px;
+      }
+
+      /* Syntax tokens */
+      .hl-method-get { color: var(--code-method-get); font-weight: 700; }
+      .hl-method-post { color: var(--code-method-post); font-weight: 700; }
+      .hl-path { color: #e2e8f0; }
+      .hl-proto { color: var(--code-comment); }
+      .hl-status-2xx { color: var(--code-method-get); font-weight: 600; }
+      .hl-status-3xx { color: #22d3ee; font-weight: 600; }
+      .hl-status-4xx { color: #f87171; font-weight: 600; }
+      .hl-header-name { color: var(--code-header-name); }
+      .hl-header-value { color: var(--code-header-value); }
+      .hl-json-key { color: var(--code-key); }
+      .hl-json-string { color: var(--code-string); }
+      .hl-json-number { color: var(--code-number); }
+      .hl-json-bool { color: var(--code-keyword); }
+      .hl-json-null { color: var(--code-keyword); }
+      .hl-json-brace { color: #9ca3af; }
+      .hl-comment { color: var(--code-comment); font-style: italic; }
+      .hl-form-key { color: var(--code-key); }
+      .hl-form-value { color: var(--code-string); }
+
+      /* ── Method + Status Badges ── */
+      .method-badge {
+        display: inline-flex;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .method-badge.get { background: #064e3b; color: #6ee7b7; }
+      .method-badge.post { background: #78350f; color: #fde68a; }
+
+      .status-badge {
+        display: inline-flex;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .status-badge.s2xx { background: #064e3b; color: #6ee7b7; }
+      .status-badge.s3xx { background: #164e63; color: #67e8f9; }
+      .status-badge.s4xx { background: #7f1d1d; color: #fca5a5; }
+
+      /* ── Result Section ── */
+      .result-section {
+        padding: 12px 20px 14px;
+        margin: 0 20px;
+        border-top: 1px solid var(--border-light);
+        background: var(--surface-raised);
+        border-radius: var(--radius-xs);
+      }
+
+      .result-section .http-panel-label {
+        margin-bottom: 8px;
+      }
+
+      .result-table {
+        display: grid;
+        gap: 0;
+      }
+
+      .result-row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 12px;
+        align-items: baseline;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--border-light);
+      }
+
+      .result-row:last-child {
+        border-bottom: none;
+      }
+
+      .result-key {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ink-tertiary);
+        white-space: nowrap;
+      }
+
+      .result-val {
+        font-size: 13px;
+        font-weight: 500;
+        word-break: break-all;
+      }
+
+      .result-val code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--code-bg);
+        color: var(--code-ink);
+      }
+
+      .result-val strong {
+        font-weight: 700;
+      }
+
+      /* ── Chip List ── */
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .chip code {
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      /* ── Collapsible ── */
+      .collapsible {
+        margin-top: 8px;
+      }
+
+      .collapsible-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: var(--radius-xs);
+        background: rgba(255,255,255,0.05);
+        color: var(--code-comment);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .collapsible-toggle:hover {
+        background: rgba(255,255,255,0.1);
+        color: var(--code-ink);
+      }
+
+      .collapsible-toggle .arrow {
+        transition: transform 0.2s;
+      }
+
+      .collapsible-toggle.open .arrow {
+        transform: rotate(90deg);
+      }
+
+      .collapsible-body {
+        display: none;
+      }
+
+      .collapsible-body.open {
+        display: block;
+      }
+
+      /* ── Branch ── */
+      .branch-section {
+        margin-top: 40px;
+        padding-top: 32px;
+        border-top: 2px solid var(--warning-soft);
+      }
+
+      .branch-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        background: var(--warning-soft);
+        color: var(--warning);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+
+      .branch-title {
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+      }
+
+      .branch-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .branch-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .branch-card-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 10px;
+      }
+
+      /* ── Responsive ── */
+      @media (max-width: 1024px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: fixed;
+          left: -280px;
+          width: 280px;
+          transition: left 0.25s ease;
+          box-shadow: var(--shadow-md);
+        }
+        .sidebar.open {
+          left: 0;
+        }
+        .mobile-nav-toggle {
+          display: flex;
+        }
+        .main {
+          padding: 20px;
+        }
+      }
+
+      @media (min-width: 1025px) {
+        .mobile-nav-toggle, .mobile-overlay {
+          display: none !important;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .overview-grid {
+          grid-template-columns: 1fr;
+        }
+        .http-grid {
+          grid-template-columns: 1fr;
+        }
+        .http-panel + .http-panel {
+          border-left: none;
+          border-top: 1px solid var(--border-light);
+        }
+        .branch-cards {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .mobile-nav-toggle {
+        display: none;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 200;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--ink);
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 99;
+      }
+
+      .mobile-overlay.open {
+        display: block;
+      }
+
+      /* ── Print ── */
+      @media print {
+        .sidebar, .mobile-nav-toggle, .mobile-overlay, .theme-toggle, .collapsible-toggle { display: none !important; }
+        .layout { grid-template-columns: 1fr; }
+        .collapsible-body { display: block !important; }
+        .stage-card { break-inside: avoid; }
+        .code-block { white-space: pre-wrap; }
+        body { background: #fff; }
+      }
+    </style>
+  </head>
+  <body>
+    <button class="mobile-nav-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">&#9776;</button>
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="layout">
+      <!-- ── Sidebar ── -->
+      <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+          <h1>BookShare</h1>
+          <div class="badge">Verification Trace</div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Overview</div>
+          <ul class="nav-list">
+            <li class="nav-item"><a href="#env"><span class="nav-num">&#8505;</span> Environment</a></li>
+            <li class="nav-item"><a href="#sequence"><span class="nav-num">&#8634;</span> Flow Diagram</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Main Path</div>
+          <ul class="nav-list" id="mainNav">
+            <li class="nav-item" data-stage="0"><a href="#stage-0"><span class="nav-num">0</span> Session check</a></li>
+            <li class="nav-item" data-stage="1"><a href="#stage-1"><span class="nav-num">1</span> Load flow</a></li>
+            <li class="nav-item" data-stage="2"><a href="#stage-2"><span class="nav-num">2</span> Submit code</a></li>
+            <li class="nav-item" data-stage="3"><a href="#stage-3"><span class="nav-num">3</span> Exit to login</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Branches</div>
+          <ul class="nav-list">
+            <li class="nav-item warning"><a href="#login-gate"><span class="nav-num">&#8617;</span> Login gate entry</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-footer">
+          <button class="theme-toggle" onclick="toggleTheme()">
+            <span id="themeIcon">&#9789;</span>
+            <span id="themeLabel">Dark mode</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- ── Main ── -->
+      <main class="main">
+        <!-- Header -->
+        <div class="header" id="env">
+          <h2>Verification Flow</h2>
+          <div class="header-sub">HTTP trace of every request, redirect, header, and cookie through the email verification path.</div>
+        </div>
+
+        <!-- Environment + Actors + Entry Points -->
+        <div class="overview-grid">
+          <div class="card">
+            <div class="card-title">Environment</div>
+            <div class="meta-table">
+              <div class="meta-row"><div class="meta-key">Captured</div><div class="meta-val">2026-04-09</div></div>
+              <div class="meta-row"><div class="meta-key">Auth Portal</div><div class="meta-val"><code>localhost:3337</code></div></div>
+              <div class="meta-row"><div class="meta-key">Kratos</div><div class="meta-val"><code>localhost:4433</code> &middot; v26.2.0</div></div>
+              <div class="meta-row"><div class="meta-key">Mailpit</div><div class="meta-val"><code>localhost:4436</code></div></div>
+              <div class="meta-row"><div class="meta-key">Identity</div><div class="meta-val"><code>trace.1775718679@example.com</code></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Actors</div>
+            <div class="actor-list">
+              <div class="actor browser"><span class="actor-dot"></span>Browser</div>
+              <div class="actor auth"><span class="actor-dot"></span>Auth Portal</div>
+              <div class="actor kratos"><span class="actor-dot"></span>Kratos</div>
+              <div class="actor mail"><span class="actor-dot"></span>Mailpit</div>
+            </div>
+
+            <div class="flow-path" style="margin-top:16px">
+              <div class="flow-step"><code>/verification</code> Code Entry</div>
+              <span class="flow-arrow">&rarr;</span>
+              <div class="flow-step"><code>/login</code></div>
+            </div>
+          </div>
+
+          <div class="card" style="grid-column: 1 / -1">
+            <div class="card-title">Entry Points</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+              <div>
+                <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">Entry Point 1: After Registration</div>
+                <div style="font-size:13px;line-height:1.55;color:var(--ink-secondary)">Kratos redirects to <code style="padding:1px 5px;border-radius:3px;background:var(--surface-raised);font-family:var(--font-mono);font-size:12px">/verification?flow=46d2420a...</code> with a flow ID and code already sent.</div>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">Entry Point 2: Login Gate</div>
+                <div style="font-size:13px;line-height:1.55;color:var(--ink-secondary)">Auth Portal redirects unverified user to <code style="padding:1px 5px;border-radius:3px;background:var(--surface-raised);font-family:var(--font-mono);font-size:12px">/verification</code> (no flow ID). Auth Portal must bootstrap a new flow.</div>
+              </div>
+            </div>
+            <div class="note-box" style="margin:12px 0 0">
+              <div class="note-box-label">Note</div>
+              This trace uses <strong>Entry Point 1</strong> data &mdash; the post-registration path where the verification flow ID is already present in the URL and the code has already been sent.
+            </div>
+          </div>
+        </div>
+
+        <!-- Sequence Diagram -->
+        <div class="sequence" id="sequence">
+          <div class="sequence-title">Message Sequence</div>
+          <svg viewBox="0 0 800 300" style="width:100%;height:auto;font-family:var(--font-sans)">
+            <!-- Lifelines -->
+            <line x1="100" y1="50" x2="100" y2="290" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="300" y1="50" x2="300" y2="290" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="500" y1="50" x2="500" y2="290" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="700" y1="50" x2="700" y2="290" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+            <!-- Actor boxes -->
+            <rect x="40" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
+            <text x="100" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Browser</text>
+
+            <rect x="230" y="10" width="140" height="32" rx="8" fill="var(--actor-auth)" stroke="var(--border)" stroke-width="1"/>
+            <text x="300" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Auth Portal</text>
+
+            <rect x="445" y="10" width="110" height="32" rx="8" fill="var(--actor-kratos)" stroke="var(--border)" stroke-width="1"/>
+            <text x="500" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Kratos</text>
+
+            <rect x="645" y="10" width="110" height="32" rx="8" fill="var(--actor-mail)" stroke="var(--border)" stroke-width="1"/>
+            <text x="700" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Mailpit</text>
+
+            <!-- Arrows with numbered circles -->
+            <defs>
+              <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--accent)"/></marker>
+              <marker id="arrowL" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6" fill="var(--ink-tertiary)"/></marker>
+            </defs>
+
+            <!-- 0: Auth Portal -> Kratos (whoami) -->
+            <line x1="304" y1="70" x2="496" y2="70" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="70" r="10" fill="var(--accent)"/><text x="400" y="74" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">0</text>
+            <text x="404" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /sessions/whoami</text>
+
+            <!-- 0: Kratos -> Auth Portal (401) -->
+            <line x1="496" y1="90" x2="304" y2="90" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="85" text-anchor="middle" font-size="10" fill="var(--danger)" font-weight="500">401 Unauthorized</text>
+
+            <!-- 1: Auth Portal -> Kratos (GET /flows) -->
+            <line x1="304" y1="115" x2="496" y2="115" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="115" r="10" fill="var(--accent)"/><text x="400" y="119" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
+            <text x="404" y="108" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /verification/flows?id=...</text>
+
+            <!-- 1: Kratos -> Auth Portal (200) -->
+            <line x1="496" y1="135" x2="304" y2="135" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="130" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 verification nodes</text>
+
+            <!-- Dashed: Kratos -> Mailpit (email already sent) -->
+            <line x1="504" y1="155" x2="696" y2="155" stroke="var(--warning)" stroke-width="1.5" stroke-dasharray="5,3"/>
+            <text x="600" y="150" text-anchor="middle" font-size="10" fill="var(--warning)" font-weight="600" font-style="italic">email already sent</text>
+
+            <!-- 2: Browser -> Kratos (POST code) -->
+            <line x1="104" y1="185" x2="496" y2="185" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="185" r="10" fill="var(--accent)"/><text x="300" y="189" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
+            <text x="304" y="178" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST code=834642</text>
+
+            <!-- 2: Kratos -> Browser (303) -->
+            <line x1="496" y1="205" x2="104" y2="205" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="300" y="200" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /verification?flow=...</text>
+
+            <!-- 3: Auth Portal -> Browser (307 /login) -->
+            <line x1="296" y1="235" x2="104" y2="235" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
+            <circle cx="200" cy="235" r="10" fill="var(--success)"/><text x="200" y="239" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
+            <text x="204" y="228" font-size="10" fill="var(--success)" font-weight="600">307 /login</text>
+
+            <!-- Bottom bar -->
+            <rect x="40" y="260" width="520" height="18" rx="4" fill="var(--danger-soft)" opacity="0.5"/>
+            <text x="300" y="273" text-anchor="middle" font-size="10" fill="var(--danger)" font-weight="600">Verification does not create a session &mdash; user must log in</text>
+          </svg>
+        </div>
+
+        <!-- ── Timeline ── -->
+        <div class="timeline-section" id="timeline">
+          <div class="timeline-label">Main Path</div>
+
+          <!-- Stage 0 -->
+          <div class="stage" id="stage-0">
+            <div class="stage-dot">0</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Session check</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Auth Portal</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> (server-side) checks <strong>Kratos</strong> for an active session to determine which entry point applies.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/sessions/whoami</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns 401 &mdash; no session. Confirms post-registration path.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-4xx">401 Unauthorized</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span>
+
+<span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"error"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"code"</span>: <span class="hl-json-number">401</span>,
+    <span class="hl-json-key">"status"</span>: <span class="hl-json-string">"Unauthorized"</span>,
+    <span class="hl-json-key">"message"</span>: <span class="hl-json-string">"No valid session cookie found."</span>
+  <span class="hl-json-brace">}</span>
+<span class="hl-json-brace">}</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--danger)">none &mdash; 401</div></div>
+                  <div class="result-row"><div class="result-key">Entry Point</div><div class="result-val">post-registration</div></div>
+                </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Entry point detection</div>
+                Session check distinguishes entry points. After registration (no session), user has a flow ID in the URL. After login gate (session exists), user has no flow ID &mdash; Auth Portal must bootstrap a new flow.
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 1 -->
+          <div class="stage" id="stage-1">
+            <div class="stage-dot">1</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal loads the verification flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> fetches the verification flow from <strong>Kratos</strong> using the flow ID from the URL. The CSRF cookie authenticates the request.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/verification/flows?id=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns the verification flow. State is <code>"sent_email"</code> &mdash; code already sent during registration.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
+
+                  <div class="collapsible">
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
+                    <div class="collapsible-body">
+                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"46d2420a-22c6-4cee-bf5e-88457ac6ca3f"</span>,
+  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"sent_email"</span>,
+  <span class="hl-json-key">"active"</span>: <span class="hl-json-string">"code"</span>,
+  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"action"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/verification?flow=46d2420a..."</span>,
+    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"default"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"csrf_token"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"email"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>
+      <span class="hl-json-brace">}</span>
+    <span class="hl-json-brace">]</span>,
+    <span class="hl-json-key">"messages"</span>: <span class="hl-json-brace">[</span><span class="hl-json-brace">{</span>
+      <span class="hl-json-key">"id"</span>: <span class="hl-json-number">1080003</span>,
+      <span class="hl-json-key">"text"</span>: <span class="hl-json-string">"An email containing a verification code has been sent to the email address you provided. If you have not received an email, check the spelling of the address and make sure to use the address you registered with."</span>
+    <span class="hl-json-brace">}</span><span class="hl-json-brace">]</span>
+  <span class="hl-json-brace">}</span>
+<span class="hl-json-brace">}</span></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Verification &middot; Code Entry</div></div>
+                  <div class="result-row"><div class="result-key">Email Sent</div><div class="result-val"><code>Use code 834642 to verify your account</code></div></div>
+                  <div class="result-row"><div class="result-key">Code</div><div class="result-val"><code>834642</code></div></div>
+                </div>
+              </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the verification JSON</div>
+                <div class="json-explainer-body">
+                  <dl>
+                    <dt>"state"</dt>
+                    <dd><code>"sent_email"</code> &mdash; Already past initialization. Kratos sent email during registration's password step.</dd>
+                    <dt>"active"</dt>
+                    <dd><code>"code"</code> &mdash; BookShare uses the <code>code</code> method (6-digit email codes).</dd>
+                    <dt>hidden method=code</dt>
+                    <dd>Tells Kratos which verification method on submit.</dd>
+                    <dt>name: "code" (text)</dt>
+                    <dd>Visible input for the 6-digit code.</dd>
+                    <dt>submit method=code</dt>
+                    <dd>Submit button to validate the code.</dd>
+                    <dt>submit email=...</dt>
+                    <dd>Resend action. Clicking re-sends a new code. Auth Portal renders as "Resend code" link.</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 2 -->
+          <div class="stage" id="stage-2">
+            <div class="stage-dot">2</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Browser submits the verification code</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Browser</strong> submits the code to <strong>Kratos</strong>. The hidden <code>method=code</code> field is included.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_82b1...=CLqlnMNJ...</span>
+
+<span class="hl-form-key">csrf_token</span>=<span class="hl-comment">...</span>
+<span class="hl-form-key">method</span>=<span class="hl-form-value">code</span>
+<span class="hl-form-key">code</span>=<span class="hl-form-value">834642</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates the code, marks the email as verified, and redirects back to the Auth Portal.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span>
+<span class="hl-header-name">Vary:</span> <span class="hl-header-value">Cookie</span></pre>
+
+                  <div class="collapsible">
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body &mdash; identity after verification</button>
+                    <div class="collapsible-body">
+                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"dfc0f507-4e36-4d69-9d8a-dd02b08b825d"</span>,
+  <span class="hl-json-key">"traits"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"email"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>,
+    <span class="hl-json-key">"name"</span>: <span class="hl-json-brace">{</span>
+      <span class="hl-json-key">"first"</span>: <span class="hl-json-string">"Trace"</span>,
+      <span class="hl-json-key">"last"</span>: <span class="hl-json-string">"Runner"</span>
+    <span class="hl-json-brace">}</span>,
+    <span class="hl-json-key">"gender"</span>: <span class="hl-json-string">"prefer_not_to_say"</span>
+  <span class="hl-json-brace">}</span>,
+  <span class="hl-json-key">"verifiable_addresses"</span>: <span class="hl-json-brace">[</span><span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>,
+    <span class="hl-json-key">"verified"</span>: <span class="hl-json-bool">true</span>,
+    <span class="hl-json-key">"status"</span>: <span class="hl-json-string">"completed"</span>,
+    <span class="hl-json-key">"verified_at"</span>: <span class="hl-json-string">"2026-04-09T07:11:21.260996007Z"</span>
+  <span class="hl-json-brace">}</span><span class="hl-json-brace">]</span>
+<span class="hl-json-brace">}</span></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Address</div><div class="result-val"><code>trace.1775718679@example.com</code> verified</div></div>
+                  <div class="result-row"><div class="result-key">Status</div><div class="result-val" style="color:var(--success);font-weight:700">completed</div></div>
+                  <div class="result-row"><div class="result-key">Identity ID</div><div class="result-val"><code>dfc0f507-4e36-4d69-9d8a-dd02b08b825d</code></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 3 -->
+          <div class="stage" id="stage-3">
+            <div class="stage-dot" style="background:var(--success)">3</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal exits to login</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
+                  <span class="source-badge route">Auth Route</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Browser</strong> follows the redirect, lands on <strong>Auth Portal</strong> verification route. Auth Portal re-fetches flow, sees <code>state: "passed_challenge"</code>, decides complete.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/verification?flow=46d2420a-22c6-4cee-bf5e-88457ac6ca3f</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> redirects to <code>/login</code>.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">/login</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/login</code></div></div>
+                  <div class="result-row"><div class="result-key">Verification</div><div class="result-val" style="color:var(--success);font-weight:700">completed</div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val" style="color:var(--danger)">none &mdash; user must log in</div></div>
+                </div>
+              </div>
+              <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
+                <div class="note-box-label" style="color:var(--success)">Note &mdash; Verification complete</div>
+                Verification only changes identity state. No session is created. The user must log in with their credentials to obtain a session.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Login Gate Branch ── -->
+        <div class="branch-section" id="login-gate" style="border-top: 2px solid var(--warning-soft)">
+          <div class="branch-label" style="background: var(--warning-soft); color: var(--warning)">&#8617; Alternate Path</div>
+          <div class="branch-title">Login Gate Entry</div>
+
+          <div class="branch-cards">
+            <div class="branch-card">
+              <div class="branch-card-title">Login Succeeds</div>
+              <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/oauth/login</span>
+<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax</span></pre>
+            </div>
+
+            <div class="branch-card">
+              <div class="branch-card-title">Auth Portal Gate</div>
+              <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">/verification</span></pre>
+            </div>
+
+            <div class="branch-card">
+              <div class="branch-card-title">Bootstrap</div>
+              <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4433/self-service/verification/browser</span></pre>
+            </div>
+
+            <div class="branch-card">
+              <div class="branch-card-title">Result</div>
+              <div class="result-table">
+                <div class="result-row"><div class="result-key">Entry</div><div class="result-val">Login gate</div></div>
+                <div class="result-row"><div class="result-key">Session</div><div class="result-val">exists</div></div>
+                <div class="result-row"><div class="result-key">Difference</div><div class="result-val">Auth Portal bootstraps a <strong>new</strong> flow. After success, redirects to <code>/oauth/login</code> (not <code>/login</code>) to resume Hydra.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <script>
+      // Theme toggle
+      function toggleTheme() {
+        const html = document.documentElement;
+        const isDark = html.getAttribute('data-theme') === 'dark';
+        html.setAttribute('data-theme', isDark ? '' : 'dark');
+        document.getElementById('themeIcon').textContent = isDark ? '\u263D' : '\u2600';
+        document.getElementById('themeLabel').textContent = isDark ? 'Dark mode' : 'Light mode';
+        localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      }
+
+      // Restore theme
+      if (localStorage.getItem('theme') === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.getElementById('themeIcon').textContent = '\u2600';
+        document.getElementById('themeLabel').textContent = 'Light mode';
+      }
+
+      // Collapsible
+      function toggleCollapsible(btn) {
+        btn.classList.toggle('open');
+        btn.nextElementSibling.classList.toggle('open');
+      }
+
+      // Mobile sidebar
+      function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('mobileOverlay').classList.toggle('open');
+      }
+
+      // Active nav on scroll
+      const stages = document.querySelectorAll('.stage, .branch-section');
+      const navItems = document.querySelectorAll('.nav-item');
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            navItems.forEach(item => {
+              const link = item.querySelector('a');
+              item.classList.toggle('active', link.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      stages.forEach(s => observer.observe(s));
+
+      // Close sidebar on nav click (mobile)
+      document.querySelectorAll('.nav-item a').forEach(a => {
+        a.addEventListener('click', () => {
+          if (window.innerWidth <= 1024) {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('mobileOverlay').classList.remove('open');
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

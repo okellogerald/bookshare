@@ -26,7 +26,7 @@ describe("importer commit integration", () => {
     const ownerUserId = `it_owner_${suffix}`;
     const actorEmail = `${actorUserId}@bookshare.local`;
     const ownerEmail = `${ownerUserId}@bookshare.local`;
-    const categorySlug = `it_category_${suffix}`;
+    const themaCode = `XT${suffix.slice(0, 3).toUpperCase()}`;
 
     const newBookTitle = `Rollback New ${suffix}`;
     const newEditionIsbn = "9780306406157";
@@ -45,8 +45,8 @@ describe("importer commit integration", () => {
         },
       ]);
       await db.insert(categories).values({
+        themaCode,
         name: `IT Category ${suffix}`,
-        slug: categorySlug,
       });
 
       const [run] = await db
@@ -89,7 +89,7 @@ describe("importer commit integration", () => {
             subtitle: null,
             language: "en",
             authorNames: [],
-            categorySlugs: [categorySlug],
+            themaCodes: [themaCode],
           },
         },
         {
@@ -142,7 +142,7 @@ describe("importer commit integration", () => {
       if (runId) {
         await db.delete(importRuns).where(eq(importRuns.id, runId));
       }
-      await db.delete(categories).where(eq(categories.slug, categorySlug));
+      await db.delete(categories).where(eq(categories.themaCode, themaCode));
       await db.delete(memberProfiles).where(eq(memberProfiles.userId, ownerUserId));
       await db.delete(memberProfiles).where(eq(memberProfiles.userId, actorUserId));
     }

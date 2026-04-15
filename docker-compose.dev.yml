@@ -272,6 +272,18 @@ services:
       SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-}
     ports:
       - "3333:3333"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:3333/api/docs').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
     volumes:
       - ./apps/api/src:/app/apps/api/src
       - ./packages/shared/src:/app/packages/shared/src
@@ -362,7 +374,7 @@ services:
       - ./packages/shared/src:/app/packages/shared/src
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
       auth:
         condition: service_started
       postgrest:

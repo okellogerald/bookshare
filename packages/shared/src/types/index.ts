@@ -107,10 +107,8 @@ export interface CopyLoan {
 
 // ─── Category ────────────────────────────────────────────────
 export interface Category {
-  id: string;
+  themaCode: string;
   name: string;
-  slug: string;
-  parentId: string | null;
   createdAt: Date;
 }
 

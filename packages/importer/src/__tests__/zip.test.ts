@@ -35,7 +35,7 @@ describe("parseZipFile", () => {
       {
         path: "seed/books.csv",
         content:
-          "id,title,subtitle,language,author_names,category_slugs\nbook_1,Book One,,en,Author One,fiction",
+          "id,title,subtitle,language,author_names,thema_codes\nbook_1,Book One,,en,Author One,fiction",
       },
       {
         path: "seed/editions.csv",
@@ -82,7 +82,7 @@ describe("parseZipFile", () => {
     const zipPath = await writeZip([
       {
         path: "books.csv",
-        content: "id,title,subtitle,language,author_names,category_slugs\n",
+        content: "id,title,subtitle,language,author_names,thema_codes\n",
       },
     ]);
 
@@ -128,7 +128,7 @@ describe("parseZipFile", () => {
 
   test("rejects inventory-only zip when books.csv is included", async () => {
     const zipPath = await writeZip([
-      { path: "books.csv", content: "id,title,subtitle,language,author_names,category_slugs\n" },
+      { path: "books.csv", content: "id,title,subtitle,language,author_names,thema_codes\n" },
       {
         path: "copies.csv",
         content:

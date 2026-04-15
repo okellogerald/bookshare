@@ -36,7 +36,7 @@ function isbn13FromPrefix12(prefix12: string): string {
 }
 
 function parsedInputFor(params: {
-  categorySlugs: string;
+  themaCodes: string;
   includeCover: boolean;
 }): ParsedZipInput {
   const pngBytes = Buffer.from(
@@ -58,7 +58,7 @@ function parsedInputFor(params: {
           "subtitle",
           "language",
           "author_names",
-          "category_slugs",
+          "thema_codes",
         ],
         rows: [
           {
@@ -67,7 +67,7 @@ function parsedInputFor(params: {
             subtitle: "",
             language: "en",
             author_names: "Author One",
-            category_slugs: params.categorySlugs,
+            thema_codes: params.themaCodes,
           },
         ],
       },
@@ -353,7 +353,7 @@ describe("importer validation integration", () => {
     }
   );
 
-  integrationTest("fails unknown category slug and skips cover upload side effects", async () => {
+  integrationTest("fails unknown Thema code and skips cover upload side effects", async () => {
     if (!databaseUrl) return;
     const db = createDb(databaseUrl);
     const suffix = randomUUID().slice(0, 8);
@@ -369,7 +369,7 @@ describe("importer validation integration", () => {
       const result = await validateParsedInput(
         db,
         parsedInputFor({
-          categorySlugs: "missing-category",
+          themaCodes: "ZZZZZZ",
           includeCover: true,
         }),
         actorEmail,
@@ -378,7 +378,7 @@ describe("importer validation integration", () => {
 
       expect(result.status).toBe("invalid");
       expect(
-        result.summary.issues.some((issue) => issue.code === "unknown_category_slug")
+        result.summary.issues.some((issue) => issue.code === "unknown_thema_code")
       ).toBe(true);
       expect(
         result.summary.issues.some(
@@ -398,7 +398,7 @@ describe("importer validation integration", () => {
     const suffix = randomUUID().slice(0, 8);
     const actorUserId = `it_validate_actor_${suffix}`;
     const actorEmail = `${actorUserId}@bookshare.local`;
-    const categorySlug = `it-validate-category-${suffix}`;
+    const themaCode = `XT${suffix.slice(0, 3).toUpperCase()}`;
 
     try {
       await db.insert(memberProfiles).values({
@@ -406,14 +406,14 @@ describe("importer validation integration", () => {
         email: actorEmail,
       });
       await db.insert(categories).values({
+        themaCode,
         name: `Validate Category ${suffix}`,
-        slug: categorySlug,
       });
 
       const result = await validateParsedInput(
         db,
         parsedInputFor({
-          categorySlugs: categorySlug,
+          themaCodes: themaCode,
           includeCover: false,
         }),
         actorEmail,
@@ -432,7 +432,7 @@ describe("importer validation integration", () => {
         )
       ).toBe(false);
     } finally {
-      await db.delete(categories).where(eq(categories.slug, categorySlug));
+      await db.delete(categories).where(eq(categories.themaCode, themaCode));
       await db
         .delete(memberProfiles)
         .where(eq(memberProfiles.userId, actorUserId));
@@ -447,7 +447,7 @@ describe("importer validation integration", () => {
       const suffix = randomUUID().slice(0, 8);
       const actorUserId = `it_validate_actor_${suffix}`;
       const actorEmail = `${actorUserId}@bookshare.local`;
-      const categorySlug = `it-validate-category-${suffix}`;
+      const themaCode = `XT${suffix.slice(0, 3).toUpperCase()}`;
 
       try {
         await db.insert(memberProfiles).values({
@@ -455,14 +455,14 @@ describe("importer validation integration", () => {
           email: actorEmail,
         });
         await db.insert(categories).values({
+          themaCode,
           name: `Validate Category ${suffix}`,
-          slug: categorySlug,
         });
 
         const result = await validateParsedInput(
           db,
           parsedInputFor({
-            categorySlugs: categorySlug,
+            themaCodes: themaCode,
             includeCover: true,
           }),
           actorEmail,
@@ -475,7 +475,7 @@ describe("importer validation integration", () => {
           "/edition-covers/9780306406157.png"
         );
       } finally {
-        await db.delete(categories).where(eq(categories.slug, categorySlug));
+        await db.delete(categories).where(eq(categories.themaCode, themaCode));
         await db
           .delete(memberProfiles)
           .where(eq(memberProfiles.userId, actorUserId));

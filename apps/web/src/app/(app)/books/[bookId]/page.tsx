@@ -18,7 +18,6 @@ import {
   useEditionsByBook,
   useListingsByBook,
 } from "@/shared/queries/books";
-import { useAllCategories } from "@/shared/queries/my-library";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -40,14 +39,6 @@ const conditionLabels: Record<string, string> = {
   poor: "Poor",
 };
 
-function getCategoryDisplayName(name: string) {
-  const segments = name
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  return segments[segments.length - 1] ?? name.trim();
-}
-
 function getMemberName(firstName: string | null, lastName: string | null) {
   const fullName = [firstName, lastName]
     .filter((value): value is string => !!value && value.trim().length > 0)
@@ -63,7 +54,6 @@ export default function BookDetailPage() {
   const { data: bookWithCategories } = useBookCategories(bookId);
   const { data: editions } = useEditionsByBook(bookId);
   const { data: listings } = useListingsByBook(bookId);
-  const { data: allCategories } = useAllCategories();
   const editionCount = editions?.length ?? 0;
   const editionDescription =
     editions?.find((edition) => edition.description)?.description ?? null;
@@ -71,35 +61,20 @@ export default function BookDetailPage() {
     const categories = bookWithCategories?.categories ?? [];
     if (categories.length === 0) return [];
 
-    const categoryIds = new Set(categories.map((category) => category.id));
-    const parentByCategoryId = new Map(
-      (allCategories ?? []).map((category) => [category.id, category.parent_id])
-    );
-    const parentIdsToHide = new Set<string>();
-
-    for (const category of categories) {
-      const parentId = parentByCategoryId.get(category.id) ?? null;
-      if (parentId && categoryIds.has(parentId)) {
-        parentIdsToHide.add(parentId);
-      }
-    }
-
     const seenLabels = new Set<string>();
-    const normalized = categories
-      .filter((category) => !parentIdsToHide.has(category.id))
+    return categories
       .map((category) => ({
         ...category,
-        displayName: getCategoryDisplayName(category.name),
+        displayName: category.name,
       }))
       .filter((category) => {
         const key = category.displayName.toLowerCase();
         if (seenLabels.has(key)) return false;
         seenLabels.add(key);
         return true;
-      });
-
-    return normalized.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allCategories, bookWithCategories?.categories]);
+      })
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [bookWithCategories?.categories]);
 
   if (bookLoading) {
     return (
@@ -154,7 +129,7 @@ export default function BookDetailPage() {
         {visibleCategoryBadges.length ? (
           <div className="flex flex-wrap gap-1.5">
             {visibleCategoryBadges.map((category) => (
-              <Badge key={category.id} variant="secondary">
+              <Badge key={category.thema_code} variant="secondary">
                 {category.displayName}
               </Badge>
             ))}

@@ -27,7 +27,7 @@ export const REQUIRED_HEADERS: Record<CsvFileName, readonly string[]> = {
     "subtitle",
     "language",
     "author_names",
-    "category_slugs",
+    "thema_codes",
   ],
   "editions.csv": [
     "id",
@@ -101,7 +101,7 @@ export interface NormalizedBookRow {
   subtitle: string | null;
   language: string;
   authorNames: string[];
-  categorySlugs: string[];
+  themaCodes: string[];
 }
 
 export interface NormalizedEditionRow {

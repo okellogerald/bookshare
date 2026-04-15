@@ -18,7 +18,6 @@ import {
   useEditionsByBook,
   useListingsByBook,
 } from "@/shared/queries/books";
-import { useAllCategories } from "@/shared/queries/my-library";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",
@@ -53,14 +52,6 @@ function getMemberName(firstName: string | null, lastName: string | null) {
   return fullName || "Community member";
 }
 
-function getCategoryDisplayName(name: string) {
-  const segments = name
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  return segments[segments.length - 1] ?? name.trim();
-}
-
 interface BookDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -92,7 +83,6 @@ export function BookDetailsDialog({
   const { data: book, isLoading: bookLoading } = useBookDetail(queryBookId);
   const { data: bookWithCategories, isLoading: bookCategoriesLoading } =
     useBookCategories(queryBookId);
-  const { data: allCategories } = useAllCategories();
   const { data: editions, isLoading: editionsLoading } = useEditionsByBook(queryBookId);
   const { data: listings, isLoading: listingsLoading } = useListingsByBook(queryBookId);
 
@@ -122,35 +112,20 @@ export function BookDetailsDialog({
     const categories = bookWithCategories?.categories ?? [];
     if (categories.length === 0) return [];
 
-    const categoryIds = new Set(categories.map((category) => category.id));
-    const parentByCategoryId = new Map(
-      (allCategories ?? []).map((category) => [category.id, category.parent_id])
-    );
-    const parentIdsToHide = new Set<string>();
-
-    for (const category of categories) {
-      const parentId = parentByCategoryId.get(category.id) ?? null;
-      if (parentId && categoryIds.has(parentId)) {
-        parentIdsToHide.add(parentId);
-      }
-    }
-
     const seenLabels = new Set<string>();
-    const normalized = categories
-      .filter((category) => !parentIdsToHide.has(category.id))
+    return categories
       .map((category) => ({
         ...category,
-        displayName: getCategoryDisplayName(category.name),
+        displayName: category.name,
       }))
       .filter((category) => {
         const key = category.displayName.toLowerCase();
         if (seenLabels.has(key)) return false;
         seenLabels.add(key);
         return true;
-      });
-
-    return normalized.sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allCategories, bookWithCategories?.categories]);
+      })
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [bookWithCategories?.categories]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -219,7 +194,7 @@ export function BookDetailsDialog({
                   ) : visibleCategoryBadges.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
                       {visibleCategoryBadges.map((category) => (
-                        <Badge key={category.id} variant="secondary">
+                        <Badge key={category.thema_code} variant="secondary">
                           {category.displayName}
                         </Badge>
                       ))}

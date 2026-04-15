@@ -213,24 +213,18 @@ export interface EventResponse {
 
 // Categories
 export interface CreateCategoryBody {
+  themaCode: string;
   name: string;
-  description?: string;
-  parentId?: string;
 }
 
 export interface UpdateCategoryBody {
   name?: string;
-  description?: string;
-  parentId?: string;
 }
 
 export interface CategoryResponse {
-  id: string;
+  themaCode: string;
   name: string;
-  description: string | null;
-  parentId: string | null;
   createdAt: string;
-  updatedAt: string;
 }
 
 // Notifications
@@ -448,13 +442,13 @@ export const categoriesContract = c.router({
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/categories/:id",
+    path: "/api/nestjs/categories/:themaCode",
     body: c.type<UpdateCategoryBody>(),
     responses: { 200: c.type<CategoryResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/categories/:id",
+    path: "/api/nestjs/categories/:themaCode",
     body: null,
     responses: { 200: c.type<CategoryResponse>() },
   },

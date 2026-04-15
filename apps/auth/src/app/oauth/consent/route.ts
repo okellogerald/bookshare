@@ -96,6 +96,43 @@ function buildIdTokenClaims(
   return claims;
 }
 
+/**
+ * Build the claims that Hydra will embed in the access token.
+ * We include email/name traits so resource servers can:
+ * - apply bootstrap-admin email rules without an extra userinfo lookup
+ * - enrich request.user consistently from either token type
+ */
+function buildAccessTokenClaims(
+  subject: string,
+  traits: Record<string, unknown>,
+  emailVerified: boolean,
+  roles: string[]
+): Record<string, unknown> {
+  const email =
+    typeof traits.email === "string" ? traits.email.trim().toLowerCase() : "";
+  const { firstName, lastName, fullName } = getNameClaims(traits);
+
+  const claims: Record<string, unknown> = {
+    sub: subject,
+    email_verified: emailVerified,
+    roles,
+    realm_access: {
+      roles,
+    },
+  };
+
+  if (email) {
+    claims.email = email;
+    claims.preferred_username = email.split("@")[0] || email;
+  }
+
+  if (firstName) claims.given_name = firstName;
+  if (lastName) claims.family_name = lastName;
+  if (fullName) claims.name = fullName;
+
+  return claims;
+}
+
 export async function GET(request: NextRequest) {
   const challenge = request.nextUrl.searchParams.get("consent_challenge");
 
@@ -163,14 +200,12 @@ export async function GET(request: NextRequest) {
             // Claims embedded in the ID token (consumed by client apps).
             id_token: buildIdTokenClaims(normalizedTraits, emailVerified, roles),
             // Claims embedded in the access token (consumed by resource server).
-            access_token: {
-              sub: subject,
-              roles,
-              realm_access: {
-                roles,
-              },
-              email_verified: emailVerified,
-            },
+            access_token: buildAccessTokenClaims(
+              subject,
+              normalizedTraits,
+              emailVerified,
+              roles
+            ),
           },
         }),
       }

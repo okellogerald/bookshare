@@ -20,7 +20,7 @@ bun run import:commit --run-id <RUN_ID_FROM_VALIDATE>
 ## Notes
 
 - Emails in `copies.csv` and `wishes.csv` must already exist in `member_profiles.email`.
-- Category slugs in `books.csv` must already exist in `categories` (BISAC slugs).
+- Category slugs in `books.csv` must already exist in `categories`. This sample now expects Thema-style slugs such as `thema-um`, `thema-uma`, and `thema-umz`.
 - Cover files in `covers/` must be named `<isbn>.<ext>` and match ISBNs in `editions.csv`.
 - Cover images are uploaded to MinIO using ISBN-based object keys.
 - `id` is create-only across runs. If you re-run this sample after a successful commit, change all `id` values first.

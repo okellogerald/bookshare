@@ -140,7 +140,7 @@ export function useBrowseListings(filters: BrowseFilters = {}) {
 
 interface BrowseBookCategoriesRow {
   id: string;
-  categories: Array<{ id: string }>;
+  categories: Array<{ thema_code: string }>;
 }
 
 async function fetchBrowseBookCategoryIndex(
@@ -162,7 +162,7 @@ async function fetchBrowseBookCategoryIndex(
   for (const row of rows) {
     categoryIndex.set(
       row.id,
-      new Set((row.categories ?? []).map((category) => category.id))
+      new Set((row.categories ?? []).map((category) => category.thema_code))
     );
   }
 

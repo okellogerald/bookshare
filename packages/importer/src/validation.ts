@@ -20,7 +20,7 @@ import {
   createEditionCoverStorageFromEnv,
 } from "./covers";
 import { isValidIsbn, normalizeIsbn } from "./isbn";
-import { parseCategorySlugs, parseDelimitedUniqueList } from "./list-parsing";
+import { parseThemaCodes, parseDelimitedUniqueList } from "./list-parsing";
 import {
   CSV_FILES,
   ENTITY_FROM_FILE,
@@ -313,16 +313,16 @@ export async function validateParsedInput(
       });
     }
 
-    const categorySlugs = parseCategorySlugs(row.category_slugs);
-    if (categorySlugs.length === 0) {
+    const themaCodes = parseThemaCodes(row.thema_codes);
+    if (themaCodes.length === 0) {
       valid = false;
       addIssue(summary, {
         file: "books.csv",
         rowNumber,
-        column: "category_slugs",
+        column: "thema_codes",
         sourceRef: sourceRef || undefined,
-        code: "missing_category_slugs",
-        message: "category_slugs is required and must include at least one slug",
+        code: "missing_thema_codes",
+        message: "thema_codes is required and must include at least one code",
       });
     }
 
@@ -334,38 +334,38 @@ export async function validateParsedInput(
       subtitle: optionalString(row.subtitle),
       language,
       authorNames: parseDelimitedUniqueList(row.author_names),
-      categorySlugs,
+      themaCodes,
     };
     payloads.books.push(payload);
     validBookIds.add(sourceRef);
   });
 
-  const allCategorySlugs = new Set<string>();
+  const allThemaCodes = new Set<string>();
   for (const book of payloads.books) {
-    for (const slug of book.categorySlugs) {
-      allCategorySlugs.add(slug);
+    for (const code of book.themaCodes) {
+      allThemaCodes.add(code);
     }
   }
-  if (allCategorySlugs.size > 0) {
+  if (allThemaCodes.size > 0) {
     const existingCategories = await db
-      .select({ slug: categories.slug })
+      .select({ themaCode: categories.themaCode })
       .from(categories)
-      .where(inArray(categories.slug, [...allCategorySlugs]));
+      .where(inArray(categories.themaCode, [...allThemaCodes]));
 
-    const knownCategorySlugs = new Set(existingCategories.map((row) => row.slug));
+    const knownThemaCodes = new Set(existingCategories.map((row) => row.themaCode));
     for (const book of payloads.books) {
-      for (const slug of book.categorySlugs) {
-        if (knownCategorySlugs.has(slug)) continue;
+      for (const code of book.themaCodes) {
+        if (knownThemaCodes.has(code)) continue;
         addIssue(summary, {
           file: "books.csv",
           rowNumber: firstRowNumberForSourceRef(
             sourceRefRows["books.csv"],
             book.sourceRef
           ),
-          column: "category_slugs",
+          column: "thema_codes",
           sourceRef: book.sourceRef,
-          code: "unknown_category_slug",
-          message: `category slug '${slug}' was not found in categories`,
+          code: "unknown_thema_code",
+          message: `Thema code '${code}' was not found in categories`,
         });
       }
     }

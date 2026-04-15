@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>BookShare Recovery Flow Trace</title>
+    <title>BookShare Settings Flow Trace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -48,6 +48,7 @@
         --actor-auth: #dcfce7;
         --actor-kratos: #fef3c7;
         --actor-mail: #ffe4e6;
+        --actor-webapp: #f3e8ff;
         --sidebar-w: 260px;
         --font-sans: "Avenir Medium", "Avenir-Medium", "Avenir", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
         --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Menlo, Consolas, monospace;
@@ -88,6 +89,7 @@
         --actor-auth: #14331e;
         --actor-kratos: #33290f;
         --actor-mail: #331519;
+        --actor-webapp: #2d1a4e;
         --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
         --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
         --shadow-md: 0 4px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
@@ -353,6 +355,8 @@
       .actor.kratos .actor-dot { background: #f59e0b; }
       .actor.mail { background: var(--actor-mail); }
       .actor.mail .actor-dot { background: #ef4444; }
+      .actor.webapp { background: var(--actor-webapp); }
+      .actor.webapp .actor-dot { background: #a855f7; }
 
       /* ── Sequence Diagram ── */
       .sequence {
@@ -913,6 +917,58 @@
         display: block;
       }
 
+      /* ── Branch ── */
+      .branch-section {
+        margin-top: 40px;
+        padding-top: 32px;
+        border-top: 2px solid var(--danger-soft);
+      }
+
+      .branch-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        background: var(--danger-soft);
+        color: var(--danger);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+
+      .branch-title {
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+      }
+
+      .branch-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .branch-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .branch-card-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-tertiary);
+        margin-bottom: 10px;
+      }
+
       /* ── Responsive ── */
       @media (max-width: 1024px) {
         .layout {
@@ -952,6 +1008,9 @@
         .http-panel + .http-panel {
           border-left: none;
           border-top: 1px solid var(--border-light);
+        }
+        .branch-cards {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -1006,29 +1065,34 @@
       <nav class="sidebar" id="sidebar">
         <div class="sidebar-brand">
           <h1>BookShare</h1>
-          <div class="badge">Recovery Trace</div>
+          <div class="badge">Settings Trace</div>
         </div>
 
         <div class="sidebar-section">
           <div class="sidebar-section-title">Overview</div>
           <ul class="nav-list">
             <li class="nav-item"><a href="#env"><span class="nav-num">&#8505;</span> Environment</a></li>
-            <li class="nav-item"><a href="#sequence"><span class="nav-num">&#8634;</span> Flow Diagram</a></li>
+            <li class="nav-item"><a href="#sequence"><span class="nav-num">&#8634;</span> Flow Diagrams</a></li>
           </ul>
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-section-title">Main Path</div>
-          <ul class="nav-list" id="mainNav">
-            <li class="nav-item" data-stage="0"><a href="#stage-0"><span class="nav-num">0</span> Bootstrap flow</a></li>
-            <li class="nav-item" data-stage="1"><a href="#stage-1"><span class="nav-num">1</span> Create flow</a></li>
-            <li class="nav-item" data-stage="2"><a href="#stage-2"><span class="nav-num">2</span> Email step</a></li>
-            <li class="nav-item" data-stage="3"><a href="#stage-3"><span class="nav-num">3</span> Submit email</a></li>
-            <li class="nav-item" data-stage="4"><a href="#stage-4"><span class="nav-num">4</span> Code step</a></li>
-            <li class="nav-item" data-stage="5"><a href="#stage-5"><span class="nav-num">5</span> Submit code</a></li>
-            <li class="nav-item" data-stage="6"><a href="#stage-6"><span class="nav-num">6</span> Settings flow</a></li>
-            <li class="nav-item" data-stage="7"><a href="#stage-7"><span class="nav-num">7</span> Submit password</a></li>
-            <li class="nav-item" data-stage="8"><a href="#stage-8"><span class="nav-num">8</span> Exit to login</a></li>
+          <div class="sidebar-section-title">Profile Settings</div>
+          <ul class="nav-list" id="profileNav">
+            <li class="nav-item" data-stage="profile-0"><a href="#profile-0"><span class="nav-num">0</span> Bootstrap flow</a></li>
+            <li class="nav-item" data-stage="profile-1"><a href="#profile-1"><span class="nav-num">1</span> Load settings flow</a></li>
+            <li class="nav-item" data-stage="profile-2"><a href="#profile-2"><span class="nav-num">2</span> Submit profile</a></li>
+            <li class="nav-item" data-stage="profile-3"><a href="#profile-3"><span class="nav-num">3</span> Return to web app</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Password Settings</div>
+          <ul class="nav-list" id="passwordNav">
+            <li class="nav-item" data-stage="password-0"><a href="#password-0"><span class="nav-num">0</span> Bootstrap flow</a></li>
+            <li class="nav-item" data-stage="password-1"><a href="#password-1"><span class="nav-num">1</span> Load settings flow</a></li>
+            <li class="nav-item" data-stage="password-2"><a href="#password-2"><span class="nav-num">2</span> Submit password</a></li>
+            <li class="nav-item" data-stage="password-3"><a href="#password-3"><span class="nav-num">3</span> Return to web app</a></li>
           </ul>
         </div>
 
@@ -1044,8 +1108,8 @@
       <main class="main">
         <!-- Header -->
         <div class="header" id="env">
-          <h2>Recovery Flow</h2>
-          <div class="header-sub">HTTP trace of every request, redirect, header, and cookie through the full password recovery path.</div>
+          <h2>Settings Flow</h2>
+          <div class="header-sub">HTTP trace of every request, redirect, header, and cookie through the profile and password settings paths.</div>
         </div>
 
         <!-- Environment + Actors -->
@@ -1054,9 +1118,9 @@
             <div class="card-title">Environment</div>
             <div class="meta-table">
               <div class="meta-row"><div class="meta-key">Captured</div><div class="meta-val">2026-04-09</div></div>
+              <div class="meta-row"><div class="meta-key">Web App</div><div class="meta-val"><code>localhost:3334</code></div></div>
               <div class="meta-row"><div class="meta-key">Auth Portal</div><div class="meta-val"><code>localhost:3337</code></div></div>
               <div class="meta-row"><div class="meta-key">Kratos</div><div class="meta-val"><code>localhost:4433</code> &middot; v26.2.0</div></div>
-              <div class="meta-row"><div class="meta-key">Mailpit</div><div class="meta-val"><code>localhost:4436</code></div></div>
               <div class="meta-row"><div class="meta-key">Identity</div><div class="meta-val"><code>trace.1775718679@example.com</code></div></div>
             </div>
           </div>
@@ -1067,30 +1131,30 @@
               <div class="actor browser"><span class="actor-dot"></span>Browser</div>
               <div class="actor auth"><span class="actor-dot"></span>Auth Portal</div>
               <div class="actor kratos"><span class="actor-dot"></span>Kratos</div>
-              <div class="actor mail"><span class="actor-dot"></span>Mailpit</div>
+              <div class="actor webapp"><span class="actor-dot"></span>Web App</div>
             </div>
 
             <div class="flow-path" style="margin-top:16px">
-              <div class="flow-step"><code>/recovery</code> Email</div>
+              <div class="flow-step"><code>/settings</code> Profile</div>
               <span class="flow-arrow">&rarr;</span>
-              <div class="flow-step"><code>/recovery</code> Code</div>
+              <div class="flow-step"><code>/profile</code></div>
+              <span class="flow-arrow">&middot;</span>
+              <div class="flow-step"><code>/settings</code> Password</div>
               <span class="flow-arrow">&rarr;</span>
-              <div class="flow-step"><code>/settings</code> Reset Password</div>
-              <span class="flow-arrow">&rarr;</span>
-              <div class="flow-step"><code>/login</code></div>
+              <div class="flow-step"><code>/profile</code></div>
             </div>
           </div>
         </div>
 
-        <!-- Sequence Diagram -->
+        <!-- Sequence Diagrams -->
         <div class="sequence" id="sequence">
-          <div class="sequence-title">Message Sequence</div>
-          <svg viewBox="0 0 800 520" style="width:100%;height:auto;font-family:var(--font-sans)">
+          <div class="sequence-title">Profile Settings Sequence</div>
+          <svg viewBox="0 0 800 280" style="width:100%;height:auto;font-family:var(--font-sans)">
             <!-- Lifelines -->
-            <line x1="100" y1="50" x2="100" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="300" y1="50" x2="300" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="500" y1="50" x2="500" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
-            <line x1="700" y1="50" x2="700" y2="500" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="100" y1="50" x2="100" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="300" y1="50" x2="300" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="500" y1="50" x2="500" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="700" y1="50" x2="700" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
 
             <!-- Actor boxes -->
             <rect x="40" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
@@ -1102,100 +1166,117 @@
             <rect x="445" y="10" width="110" height="32" rx="8" fill="var(--actor-kratos)" stroke="var(--border)" stroke-width="1"/>
             <text x="500" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Kratos</text>
 
-            <rect x="645" y="10" width="110" height="32" rx="8" fill="var(--actor-mail)" stroke="var(--border)" stroke-width="1"/>
-            <text x="700" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Mailpit</text>
+            <rect x="635" y="10" width="130" height="32" rx="8" fill="var(--actor-webapp)" stroke="var(--border)" stroke-width="1"/>
+            <text x="700" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Web App</text>
 
-            <!-- Arrows with numbered circles -->
+            <!-- Arrows -->
             <defs>
               <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="var(--accent)"/></marker>
               <marker id="arrowL" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6" fill="var(--ink-tertiary)"/></marker>
+              <marker id="arrowG" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6" fill="var(--success)"/></marker>
             </defs>
 
-            <!-- 0: Browser -> Auth Portal (GET /recovery) -->
+            <!-- 0: Browser -> Auth Portal (GET /settings?section=profile) -->
             <line x1="104" y1="70" x2="296" y2="70" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
             <circle cx="200" cy="70" r="10" fill="var(--accent)"/><text x="200" y="74" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">0</text>
-            <text x="204" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /recovery</text>
+            <text x="204" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /settings?section=profile</text>
 
-            <!-- 1: redirect to Kratos, Kratos -> Browser (303 + flow) -->
-            <line x1="304" y1="100" x2="496" y2="100" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="400" cy="100" r="10" fill="var(--accent)"/><text x="400" y="104" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
-            <text x="404" y="93" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /recovery/browser</text>
+            <!-- 1: Auth Portal -> Kratos (GET /flows) -->
+            <line x1="304" y1="110" x2="496" y2="110" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="110" r="10" fill="var(--accent)"/><text x="400" y="114" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
+            <text x="404" y="103" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
 
-            <!-- 1: Kratos -> Browser (303 + flow id) -->
-            <line x1="496" y1="120" x2="104" y2="120" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="300" y="115" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /recovery?flow=...</text>
+            <!-- 1: Kratos -> Auth (200) -->
+            <line x1="496" y1="130" x2="304" y2="130" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="125" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 combined settings</text>
 
-            <!-- 2: Auth Portal -> Kratos (fetch flow JSON) -->
-            <line x1="304" y1="150" x2="496" y2="150" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="400" cy="150" r="10" fill="var(--accent)"/><text x="400" y="154" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
-            <text x="404" y="143" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
+            <!-- 2: Browser -> Kratos (POST method=profile) -->
+            <line x1="104" y1="170" x2="496" y2="170" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="170" r="10" fill="var(--accent)"/><text x="300" y="174" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
+            <text x="304" y="163" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST method=profile</text>
 
-            <!-- 2: Kratos -> Auth (200 email step) -->
-            <line x1="496" y1="170" x2="304" y2="170" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="400" y="165" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 email step</text>
+            <!-- 2: Kratos -> Browser (303) -->
+            <line x1="496" y1="190" x2="104" y2="190" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="300" y="185" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /settings/complete</text>
 
-            <!-- 3: Browser -> Kratos (POST email) -->
-            <line x1="104" y1="200" x2="496" y2="200" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="300" cy="200" r="10" fill="var(--accent)"/><text x="300" y="204" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
-            <text x="304" y="193" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST email + method=code</text>
+            <!-- 3: Auth Portal -> Browser (307 to /profile) -->
+            <line x1="296" y1="225" x2="104" y2="225" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowG)"/>
+            <circle cx="200" cy="225" r="10" fill="var(--success)"/><text x="200" y="229" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
+            <text x="204" y="218" font-size="10" fill="var(--success)" font-weight="600">307 to /profile</text>
 
-            <!-- 3: Kratos -> Mailpit (recovery email) -->
-            <line x1="504" y1="220" x2="696" y2="220" stroke="var(--warning)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <text x="600" y="215" text-anchor="middle" font-size="10" fill="var(--warning)" font-weight="600">recovery email</text>
-
-            <!-- 4: Auth Portal -> Kratos (fetch flow again) -->
-            <line x1="304" y1="250" x2="496" y2="250" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="400" cy="250" r="10" fill="var(--accent)"/><text x="400" y="254" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">4</text>
-            <text x="404" y="243" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
-
-            <!-- 4: Kratos -> Auth (200 code step) -->
-            <line x1="496" y1="270" x2="304" y2="270" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="400" y="265" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 code step</text>
-
-            <!-- 5: Browser -> Kratos (POST code) -->
-            <line x1="104" y1="300" x2="496" y2="300" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="300" cy="300" r="10" fill="var(--accent)"/><text x="300" y="304" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">5</text>
-            <text x="304" y="293" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST code=276808</text>
-
-            <!-- 5: Kratos -> Browser (303 + session + settings flow) -->
-            <line x1="496" y1="320" x2="104" y2="320" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="300" y="315" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /settings?flow=... + session</text>
-
-            <!-- 6: Auth Portal -> Kratos (GET /settings/flows) -->
-            <line x1="304" y1="355" x2="496" y2="355" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="400" cy="355" r="10" fill="var(--accent)"/><text x="400" y="359" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">6</text>
-            <text x="404" y="348" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /settings/flows?id=...</text>
-
-            <!-- 6: Kratos -> Auth (200 settings) -->
-            <line x1="496" y1="375" x2="304" y2="375" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
-            <text x="400" y="370" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 settings (password)</text>
-
-            <!-- 7: Browser -> Kratos (POST password) -->
-            <line x1="104" y1="405" x2="496" y2="405" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
-            <circle cx="300" cy="405" r="10" fill="var(--accent)"/><text x="300" y="409" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">7</text>
-            <text x="304" y="398" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST method=password</text>
-
-            <!-- 8: Auth Portal -> Browser (307 /login) -->
-            <line x1="296" y1="440" x2="104" y2="440" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowL)"/>
-            <circle cx="200" cy="440" r="10" fill="var(--success)"/><text x="200" y="444" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">8</text>
-            <text x="204" y="433" font-size="10" fill="var(--success)" font-weight="600">307 /login</text>
-
-            <!-- Bottom bar -->
-            <rect x="40" y="465" width="720" height="18" rx="4" fill="var(--info-soft)" opacity="0.5"/>
-            <text x="400" y="478" text-anchor="middle" font-size="10" fill="var(--info)" font-weight="600">Privileged session created for password reset only &mdash; user must log in after recovery</text>
+            <!-- Session required -->
+            <rect x="40" y="252" width="520" height="18" rx="4" fill="var(--info-soft)" opacity="0.5"/>
+            <text x="300" y="265" text-anchor="middle" font-size="10" fill="var(--info)" font-weight="600">Session required &mdash; user must be logged in</text>
           </svg>
         </div>
 
-        <!-- ── Timeline ── -->
-        <div class="timeline-section" id="timeline">
-          <div class="timeline-label">Main Path</div>
+        <div class="sequence">
+          <div class="sequence-title">Password Settings Sequence</div>
+          <svg viewBox="0 0 800 280" style="width:100%;height:auto;font-family:var(--font-sans)">
+            <!-- Lifelines -->
+            <line x1="100" y1="50" x2="100" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="300" y1="50" x2="300" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="500" y1="50" x2="500" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <line x1="700" y1="50" x2="700" y2="270" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4"/>
 
-          <!-- Stage 0 -->
-          <div class="stage" id="stage-0">
+            <!-- Actor boxes -->
+            <rect x="40" y="10" width="120" height="32" rx="8" fill="var(--actor-browser)" stroke="var(--border)" stroke-width="1"/>
+            <text x="100" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Browser</text>
+
+            <rect x="230" y="10" width="140" height="32" rx="8" fill="var(--actor-auth)" stroke="var(--border)" stroke-width="1"/>
+            <text x="300" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Auth Portal</text>
+
+            <rect x="445" y="10" width="110" height="32" rx="8" fill="var(--actor-kratos)" stroke="var(--border)" stroke-width="1"/>
+            <text x="500" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Kratos</text>
+
+            <rect x="635" y="10" width="130" height="32" rx="8" fill="var(--actor-webapp)" stroke="var(--border)" stroke-width="1"/>
+            <text x="700" y="31" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Web App</text>
+
+            <!-- Arrows -->
+            <!-- 0-P: Browser -> Auth Portal (GET /settings?section=password) -->
+            <line x1="104" y1="70" x2="296" y2="70" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="200" cy="70" r="10" fill="var(--accent)"/><text x="200" y="74" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">0</text>
+            <text x="204" y="63" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /settings?section=password</text>
+
+            <!-- 1-P: Auth Portal -> Kratos (GET /flows) -->
+            <line x1="304" y1="110" x2="496" y2="110" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="400" cy="110" r="10" fill="var(--accent)"/><text x="400" y="114" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">1</text>
+            <text x="404" y="103" font-size="10" fill="var(--ink-secondary)" font-weight="600">GET /flows?id=...</text>
+
+            <!-- 1-P: Kratos -> Auth (200) -->
+            <line x1="496" y1="130" x2="304" y2="130" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="400" y="125" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">200 combined settings</text>
+
+            <!-- 2-P: Browser -> Kratos (POST method=password) -->
+            <line x1="104" y1="170" x2="496" y2="170" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrowR)"/>
+            <circle cx="300" cy="170" r="10" fill="var(--accent)"/><text x="300" y="174" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">2</text>
+            <text x="304" y="163" font-size="10" fill="var(--ink-secondary)" font-weight="600">POST method=password</text>
+
+            <!-- 2-P: Kratos -> Browser (303) -->
+            <line x1="496" y1="190" x2="104" y2="190" stroke="var(--ink-tertiary)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrowL)"/>
+            <text x="300" y="185" text-anchor="middle" font-size="10" fill="var(--ink-tertiary)" font-weight="500">303 /settings/complete</text>
+
+            <!-- 3-P: Auth Portal -> Browser (307 to /profile) -->
+            <line x1="296" y1="225" x2="104" y2="225" stroke="var(--success)" stroke-width="1.5" marker-end="url(#arrowG)"/>
+            <circle cx="200" cy="225" r="10" fill="var(--success)"/><text x="200" y="229" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">3</text>
+            <text x="204" y="218" font-size="10" fill="var(--success)" font-weight="600">307 to /profile</text>
+
+            <!-- Both sections return -->
+            <rect x="40" y="252" width="520" height="18" rx="4" fill="var(--success-soft)" opacity="0.5"/>
+            <text x="300" y="265" text-anchor="middle" font-size="10" fill="var(--success)" font-weight="600">Both sections return to Web App /profile</text>
+          </svg>
+        </div>
+
+        <!-- ── Profile Settings Timeline ── -->
+        <div class="timeline-section" id="profile-timeline">
+          <div class="timeline-label">Profile Settings</div>
+
+          <!-- Stage profile-0 -->
+          <div class="stage" id="profile-0">
             <div class="stage-dot">0</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Auth Portal bootstraps the recovery flow</div>
+                <div class="stage-title">Auth Portal bootstraps profile settings flow</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
                   <span class="source-badge route">Auth Route</span>
@@ -1204,73 +1285,38 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> navigates to the Auth Portal's recovery page. No flow exists yet &mdash; the Auth Portal redirects to <strong>Kratos</strong> to create one.</div>
-                  <pre class="code-block"><span class="hl-comment"># Browser → Auth Portal (localhost:3337)</span>
-<span class="hl-method-get">GET</span> <span class="hl-path">/recovery</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                  <div class="http-panel-desc"><strong>Browser</strong> navigates to Auth Portal settings with <code>section=profile</code>. No flow yet.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/settings?section=profile</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> redirects the Browser to Kratos' recovery browser endpoint.</div>
-                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) → Browser</span>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> redirects the Browser back to itself with a new flow ID appended to the URL.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
 <span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:4433/self-service/recovery/browser</span></pre>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">/settings?section=profile&amp;flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911</span></pre>
                 </div>
               </div>
               <div class="result-section">
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/recovery</code></div></div>
-                  <div class="result-row"><div class="result-key">Flow</div><div class="result-val">not started</div></div>
-                  <div class="result-row"><div class="result-key">Next</div><div class="result-val"><code>/self-service/recovery/browser</code></div></div>
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings?section=profile&amp;flow=ee5c82d9...</code></div></div>
+                  <div class="result-row"><div class="result-key">Flow ID</div><div class="result-val"><code>ee5c82d9-5b77-4f28-a6e3-f63d4f138911</code></div></div>
                 </div>
+              </div>
+              <div class="note-box">
+                <div class="note-box-label">Note &mdash; Settings bootstrapping</div>
+                Unlike other flows that redirect to Kratos' <code>/self-service/.../browser</code>, settings bootstrapping is handled by Auth Portal's route loader server-side.
               </div>
             </div>
           </div>
 
-          <!-- Stage 1 -->
-          <div class="stage" id="stage-1">
+          <!-- Stage profile-1 -->
+          <div class="stage" id="profile-1">
             <div class="stage-dot">1</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Kratos creates the recovery flow</div>
-                <div class="stage-meta">
-                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
-                  <span class="source-badge captured">Captured</span>
-                </div>
-              </div>
-              <div class="http-grid">
-                <div class="http-panel">
-                  <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> (redirected from Stage 0) sends a GET to <strong>Kratos</strong> to initialize a new recovery flow.</div>
-                  <pre class="code-block"><span class="hl-comment"># Browser → Kratos (localhost:4433)</span>
-<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/recovery/browser</span> <span class="hl-proto">HTTP/1.1</span></pre>
-                </div>
-                <div class="http-panel">
-                  <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> creates the recovery flow and redirects back to the Auth Portal with the flow ID and CSRF cookie. Same pattern as registration &mdash; Kratos doesn't return flow details here.</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Browser</span>
-<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span>
-<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">csrf_token_...=...; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax</span></pre>
-                </div>
-              </div>
-              <div class="result-section">
-                <div class="http-panel-label">Result</div>
-                <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/recovery?flow=74124c0b...8170</code></div></div>
-                  <div class="result-row"><div class="result-key">Flow ID</div><div class="result-val"><code>74124c0b-886e-4041-8386-ab63939c8170</code></div></div>
-                  <div class="result-row"><div class="result-key">CSRF Cookie</div><div class="result-val">set</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Stage 2 -->
-          <div class="stage" id="stage-2">
-            <div class="stage-dot">2</div>
-            <div class="stage-card">
-              <div class="stage-header">
-                <div class="stage-title">Auth Portal loads the recovery flow &mdash; email step</div>
+                <div class="stage-title">Auth Portal loads combined settings flow</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
                   <span class="source-badge captured">Captured</span>
@@ -1279,335 +1325,28 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> fetches the recovery flow from <strong>Kratos</strong> using the flow ID. The CSRF cookie authenticates the request.</div>
-                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) → Kratos (localhost:4433)</span>
-<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/recovery/flows?id=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
-<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
-<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span></pre>
-                </div>
-                <div class="http-panel">
-                  <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> returns the recovery flow. The state is <code>"choose_method"</code> and the active method is <code>"code"</code>. The form has one visible field: the email address input, plus the <code>method=code</code> submit button.</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Auth Portal (localhost:3337)</span>
-<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
-<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
-
-                  <div class="collapsible">
-                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
-                    <div class="collapsible-body">
-                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
-  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"74124c0b-886e-4041-8386-ab63939c8170"</span>,
-  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"choose_method"</span>,
-  <span class="hl-json-key">"active"</span>: <span class="hl-json-string">"code"</span>,
-  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
-    <span class="hl-json-key">"action"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/recovery?flow=74124c0b..."</span>,
-    <span class="hl-json-key">"method"</span>: <span class="hl-json-string">"POST"</span>,
-    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"default"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"csrf_token"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>
-      <span class="hl-json-brace">}</span>,
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"email"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"email"</span>,
-        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>
-      <span class="hl-json-brace">}</span>,
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
-        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
-      <span class="hl-json-brace">}</span>
-    <span class="hl-json-brace">]</span>
-  <span class="hl-json-brace">}</span>
-<span class="hl-json-brace">}</span></pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="result-section">
-                <div class="http-panel-label">Result</div>
-                <div class="result-table">
-                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Recovery &middot; Email</div></div>
-                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Email</div></div>
-                  <div class="result-row"><div class="result-key">Submit</div><div class="result-val"><code>method=code</code></div></div>
-                </div>
-              </div>
-              <div class="json-explainer">
-                <div class="json-explainer-title">Understanding the recovery JSON</div>
-                <div class="json-explainer-body">
-                  <dl>
-                    <dt>"active": "code"</dt>
-                    <dd>The active recovery strategy. Kratos supports multiple strategies; BookShare uses <code>code</code> (a 6-digit code sent to the user's email). This is configured in <code>kratos.yml</code>.</dd>
-                    <dt>group: "code"</dt>
-                    <dd>All recovery-specific nodes use this group. Unlike registration (which has "default", "profile", "password"), recovery only has "default" (CSRF) and "code" (the recovery method).</dd>
-                    <dt>"email" field</dt>
-                    <dd>The user's email address input. Kratos uses this to look up the identity. If no identity exists with this email, Kratos still behaves identically (to prevent email enumeration).</dd>
-                    <dt>"method": "submit"</dt>
-                    <dd>The submit button with <code>value: "code"</code>. Sends <code>method=code</code> to tell Kratos to use the code recovery strategy.</dd>
-                  </dl>
-                </div>
-              </div>
-              <div class="note-box">
-                <div class="note-box-label">Note</div>
-                At this point there is no session and no privileged access. Recovery is in the "who are you?" phase.
-              </div>
-            </div>
-          </div>
-
-          <!-- Stage 3 -->
-          <div class="stage" id="stage-3">
-            <div class="stage-dot">3</div>
-            <div class="stage-card">
-              <div class="stage-header">
-                <div class="stage-title">Browser submits the recovery email</div>
-                <div class="stage-meta">
-                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
-                  <span class="source-badge captured">Captured</span>
-                </div>
-              </div>
-              <div class="http-grid">
-                <div class="http-panel">
-                  <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> submits the email form to <strong>Kratos</strong>. The <code>method=code</code> field tells Kratos to send a recovery code to the provided email address.</div>
-                  <pre class="code-block"><span class="hl-comment"># Browser → Kratos (localhost:4433)</span>
-<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
-<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
-<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span>
-
-<span class="hl-form-key">csrf_token</span>=<span class="hl-form-value">...</span>
-<span class="hl-form-key">email</span>=<span class="hl-form-value">trace.1775718679%40example.com</span>
-<span class="hl-form-key">method</span>=<span class="hl-form-value">code</span></pre>
-                </div>
-                <div class="http-panel">
-                  <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> sends a recovery code email and redirects back to the Auth Portal with the same flow ID. The flow advances internally from "choose_method" to "sent_email".</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Browser</span>
-<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span></pre>
-                </div>
-              </div>
-              <div class="result-section">
-                <div class="http-panel-label">Result</div>
-                <div class="result-table">
-                  <div class="result-row"><div class="result-key">Flow</div><div class="result-val">unchanged &mdash; same ID</div></div>
-                  <div class="result-row"><div class="result-key">Next Screen</div><div class="result-val">Recovery &middot; Code</div></div>
-                  <div class="result-row"><div class="result-key">Email Sent</div><div class="result-val">yes</div></div>
-                </div>
-              </div>
-              <div class="note-box">
-                <div class="note-box-label">Note &mdash; Anti-enumeration</div>
-                Kratos sends the recovery email regardless of whether the email exists. This prevents email enumeration attacks &mdash; an attacker cannot determine which emails are registered by observing the response.
-              </div>
-            </div>
-          </div>
-
-          <!-- Stage 4 -->
-          <div class="stage" id="stage-4">
-            <div class="stage-dot">4</div>
-            <div class="stage-card">
-              <div class="stage-header">
-                <div class="stage-title">Auth Portal loads the code step</div>
-                <div class="stage-meta">
-                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
-                  <span class="source-badge captured">Captured</span>
-                </div>
-              </div>
-              <div class="http-grid">
-                <div class="http-panel">
-                  <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> re-fetches the same flow from <strong>Kratos</strong>. The flow has advanced to the code entry step.</div>
-                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) → Kratos (localhost:4433)</span>
-<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/recovery/flows?id=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
-<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
-<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span></pre>
-                </div>
-                <div class="http-panel">
-                  <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> returns the updated flow. State is now <code>"sent_email"</code>. The nodes show a code input field, a submit button, and a resend email action. A message confirms the code was sent.</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Auth Portal (localhost:3337)</span>
-<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
-<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
-
-                  <div class="collapsible">
-                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
-                    <div class="collapsible-body">
-                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
-  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"74124c0b-886e-4041-8386-ab63939c8170"</span>,
-  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"sent_email"</span>,
-  <span class="hl-json-key">"active"</span>: <span class="hl-json-string">"code"</span>,
-  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
-    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"default"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"csrf_token"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>
-      <span class="hl-json-brace">}</span>,
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
-        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>,
-        <span class="hl-json-key">"maxlength"</span>: <span class="hl-json-number">6</span>
-      <span class="hl-json-brace">}</span>,
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"hidden"</span>,
-        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
-      <span class="hl-json-brace">}</span>,
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
-        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"code"</span>
-      <span class="hl-json-brace">}</span>,
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"code"</span>,
-        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"email"</span>,
-        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
-        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>
-      <span class="hl-json-brace">}</span>
-    <span class="hl-json-brace">]</span>,
-    <span class="hl-json-key">"messages"</span>: <span class="hl-json-brace">[</span>
-      <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"id"</span>: <span class="hl-json-number">1060003</span>,
-        <span class="hl-json-key">"text"</span>: <span class="hl-json-string">"An email containing a recovery code has been sent to the email address you provided."</span>
-      <span class="hl-json-brace">}</span>
-    <span class="hl-json-brace">]</span>
-  <span class="hl-json-brace">}</span>
-<span class="hl-json-brace">}</span></pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="result-section">
-                <div class="http-panel-label">Result</div>
-                <div class="result-table">
-                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Recovery &middot; Code</div></div>
-                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Code (6-digit)</div></div>
-                  <div class="result-row"><div class="result-key">Email Sent</div><div class="result-val"><code>Use code 276808 to recover access to your account</code></div></div>
-                  <div class="result-row"><div class="result-key">Code</div><div class="result-val"><code>276808</code></div></div>
-                </div>
-              </div>
-              <div class="json-explainer">
-                <div class="json-explainer-title">Understanding the code step JSON</div>
-                <div class="json-explainer-body">
-                  <dl>
-                    <dt>"state": "sent_email"</dt>
-                    <dd>The flow advanced from <code>"choose_method"</code>. Kratos has already dispatched the recovery email.</dd>
-                    <dt>"code" input (maxlength: 6)</dt>
-                    <dd>The text field for the 6-digit recovery code.</dd>
-                    <dt>hidden method=code</dt>
-                    <dd>Automatically included to tell Kratos which method is being used on submit.</dd>
-                    <dt>submit method=code</dt>
-                    <dd>The submit button for the code.</dd>
-                    <dt>submit email=...</dt>
-                    <dd>The resend action. Clicking this re-sends the recovery code to the same email. The email address is embedded as the button's value.</dd>
-                    <dt>"messages"</dt>
-                    <dd>A UI-level message array. Kratos adds informational and error messages here. The Auth Portal can display these to the user.</dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Stage 5 -->
-          <div class="stage" id="stage-5">
-            <div class="stage-dot">5</div>
-            <div class="stage-card">
-              <div class="stage-header">
-                <div class="stage-title">Browser submits the recovery code</div>
-                <div class="stage-meta">
-                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
-                  <span class="source-badge captured">Captured</span>
-                </div>
-              </div>
-              <div class="http-grid">
-                <div class="http-panel">
-                  <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> submits the 6-digit recovery code to <strong>Kratos</strong>. The hidden <code>method=code</code> field is included.</div>
-                  <pre class="code-block"><span class="hl-comment"># Browser → Kratos (localhost:4433)</span>
-<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/recovery?flow=74124c0b-886e-4041-8386-ab63939c8170</span> <span class="hl-proto">HTTP/1.1</span>
-<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
-<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">csrf_token_...=...</span>
-
-<span class="hl-form-key">csrf_token</span>=<span class="hl-form-value">...</span>
-<span class="hl-form-key">method</span>=<span class="hl-form-value">code</span>
-<span class="hl-form-key">code</span>=<span class="hl-form-value">276808</span></pre>
-                </div>
-                <div class="http-panel">
-                  <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> validates the code. On success, it creates a <strong>privileged session</strong> (<code>ory_kratos_session</code>) and redirects to the Auth Portal's settings page with a <strong>brand new settings flow ID</strong>. The recovery flow is now consumed.</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Browser</span>
-<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</span>
-<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; HttpOnly; SameSite=Lax</span></pre>
-                </div>
-              </div>
-              <div class="result-section">
-                <div class="http-panel-label">Result</div>
-                <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings?flow=b871d432...31c3</code></div></div>
-                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">privileged session created</div></div>
-                  <div class="result-row"><div class="result-key">Recovery Flow</div><div class="result-val">consumed</div></div>
-                  <div class="result-row"><div class="result-key">Settings Flow</div><div class="result-val">new</div></div>
-                </div>
-              </div>
-              <div class="note-box">
-                <div class="note-box-label">Note &mdash; Critical transition: recovery to settings</div>
-                This is the most important step in the recovery flow. Three major things happen:
-                <br><br>
-                <strong>1. Privileged session created.</strong> Kratos creates a session with elevated privileges. This is not a normal login session &mdash; it has a short privilege window (15 minutes by default) that allows the user to change their password without re-entering their current one.
-                <br><br>
-                <strong>2. New flow type.</strong> The redirect points to <code>/settings</code> with a new flow ID. The recovery flow (<code>74124c0b...</code>) is consumed and replaced by a settings flow (<code>b871d432...</code>). This is a different flow type entirely.
-                <br><br>
-                <strong>3. No password written yet.</strong> The recovery code only proves identity ownership &mdash; it does not set a new password. The actual password change happens in the settings flow (Stage 6-7).
-              </div>
-              <div class="note-box" style="border-left-color:var(--danger);background:var(--danger-soft)">
-                <div class="note-box-label" style="color:var(--danger)">Warning</div>
-                The recovery code is single-use. Once submitted successfully, it cannot be reused. If the user navigates away before setting a new password, the privileged session eventually expires (15 minutes) and they must start recovery again.
-              </div>
-            </div>
-          </div>
-
-          <!-- Stage 6 -->
-          <div class="stage" id="stage-6">
-            <div class="stage-dot">6</div>
-            <div class="stage-card">
-              <div class="stage-header">
-                <div class="stage-title">Auth Portal loads the recovery-created settings flow</div>
-                <div class="stage-meta">
-                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
-                  <span class="source-badge captured">Captured</span>
-                </div>
-              </div>
-              <div class="http-grid">
-                <div class="http-panel">
-                  <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> fetches the settings flow from <strong>Kratos</strong> using the new flow ID from Stage 5's redirect. The privileged session cookie authenticates the request.</div>
-                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) → Kratos (localhost:4433)</span>
-<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/settings/flows?id=b871d432-8db2-4743-b686-e649e7f931c3</span> <span class="hl-proto">HTTP/1.1</span>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> fetches settings flow from <strong>Kratos</strong>. Session cookie required.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/settings/flows?id=ee5c82d9-5b77-4f28-a6e3-f63d4f138911</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; csrf_token_...=...</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> returns the settings flow. It contains BOTH <code>profile</code> and <code>password</code> groups &mdash; the full settings form. A message indicates recovery context with a 15-minute window. BookShare intentionally ignores the profile nodes and renders only the password reset form.</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Auth Portal (localhost:3337)</span>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns combined settings with BOTH profile AND password groups. Auth Portal ignores password nodes for profile page.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Auth Portal (localhost:3337)</span>
 <span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
 
                   <div class="collapsible">
                     <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
                     <div class="collapsible-body">
                       <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
-  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"b871d432-8db2-4743-b686-e649e7f931c3"</span>,
-  <span class="hl-json-key">"request_url"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/recovery?flow=74124c0b..."</span>,
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"ee5c82d9-5b77-4f28-a6e3-f63d4f138911"</span>,
+  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"show_form"</span>,
   <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
-    <span class="hl-json-key">"action"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/settings?flow=b871d432..."</span>,
+    <span class="hl-json-key">"action"</span>: <span class="hl-json-string">"http://localhost:4433/self-service/settings?flow=ee5c82d9..."</span>,
     <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
       <span class="hl-json-brace">{</span>
         <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
@@ -1651,11 +1390,246 @@
         <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
         <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"password"</span>
       <span class="hl-json-brace">}</span>
-    <span class="hl-json-brace">]</span>,
-    <span class="hl-json-key">"messages"</span>: <span class="hl-json-brace">[</span>
+    <span class="hl-json-brace">]</span>
+  <span class="hl-json-brace">}</span>
+<span class="hl-json-brace">}</span></pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Settings &middot; Profile</div></div>
+                  <div class="result-row"><div class="result-key">Visible</div><div class="result-val">Email, First name, Last name, Gender</div></div>
+                  <div class="result-row"><div class="result-key">Submit</div><div class="result-val"><code>method=profile</code></div></div>
+                  <div class="result-row"><div class="result-key">Hidden by Auth Portal</div><div class="result-val">password group</div></div>
+                </div>
+              </div>
+              <div class="json-explainer">
+                <div class="json-explainer-title">Understanding the combined settings JSON</div>
+                <div class="json-explainer-body">
+                  <dl>
+                    <dt>"state": "show_form"</dt>
+                    <dd>Settings uses this instead of <code>"choose_method"</code>. All fields available immediately.</dd>
+                    <dt>group: "profile"</dt>
+                    <dd>Trait fields with pre-filled values. <code>method=profile</code> submits only profile.</dd>
+                    <dt>group: "password"</dt>
+                    <dd>Password change fields. <code>method=password</code> submits only password. Ignored by profile page.</dd>
+                    <dt>Why both groups</dt>
+                    <dd>Kratos doesn't know BookShare splits settings. Returns full form. Auth Portal filters by group.</dd>
+                    <dt>Pre-filled values</dt>
+                    <dd>Every profile field has <code>value</code> from current identity.</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage profile-2 -->
+          <div class="stage" id="profile-2">
+            <div class="stage-dot">2</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Browser submits profile changes</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Browser</strong> submits profile form to <strong>Kratos</strong> with updated traits and <code>method=profile</code>. Only profile fields sent.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/settings?flow=ee5c82d9-5b77-4f28-a6e3-f63d4f138911</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; csrf_token_...=...</span>
+
+<span class="hl-form-key">csrf_token</span>=<span class="hl-comment">...</span>
+<span class="hl-form-key">traits.email</span>=<span class="hl-form-value">trace.1775718679%40example.com</span>
+<span class="hl-form-key">traits.name.first</span>=<span class="hl-form-value">TraceUpdated</span>
+<span class="hl-form-key">traits.name.last</span>=<span class="hl-form-value">Runner</span>
+<span class="hl-form-key">traits.gender</span>=<span class="hl-form-value">prefer_not_to_say</span>
+<span class="hl-form-key">method</span>=<span class="hl-form-value">profile</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> validates the updated traits and redirects to the Auth Portal completion endpoint.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/settings/complete</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings/complete</code></div></div>
+                  <div class="result-row"><div class="result-key">Profile</div><div class="result-val">updated</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage profile-3 -->
+          <div class="stage" id="profile-3">
+            <div class="stage-dot" style="background:var(--success)">3</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal returns user to web app</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
+                  <span class="source-badge route">Auth Route</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Browser</strong> follows redirect to Auth Portal completion endpoint.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/settings/complete</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> redirects to <strong>Web App</strong> profile page.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3334/profile</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/profile</code> (Web App)</div></div>
+                  <div class="result-row"><div class="result-key">Settings</div><div class="result-val" style="color:var(--success);font-weight:700">saved</div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">unchanged</div></div>
+                </div>
+              </div>
+              <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
+                <div class="note-box-label" style="color:var(--success)">Note &mdash; Exit to Web App</div>
+                Normal settings saves return to Web App's <code>/profile</code>. This is the exit from auth box back to the app.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Password Settings Timeline ── -->
+        <div class="timeline-section" id="password-timeline">
+          <div class="timeline-label">Password Settings</div>
+
+          <!-- Stage password-0 -->
+          <div class="stage" id="password-0">
+            <div class="stage-dot">0</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal bootstraps password settings flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
+                  <span class="source-badge route">Auth Route</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Browser</strong> navigates to Auth Portal settings with <code>section=password</code>. No flow yet.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/settings?section=password</span> <span class="hl-proto">HTTP/1.1</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> redirects the Browser back to itself with a new flow ID appended to the URL.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">/settings?section=password&amp;flow=bbac41c0-c2bc-4091-a7f8-9161622b0552</span></pre>
+                </div>
+              </div>
+              <div class="result-section">
+                <div class="http-panel-label">Result</div>
+                <div class="result-table">
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings?section=password&amp;flow=bbac41c0...</code></div></div>
+                  <div class="result-row"><div class="result-key">Flow ID</div><div class="result-val"><code>bbac41c0-c2bc-4091-a7f8-9161622b0552</code></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage password-1 -->
+          <div class="stage" id="password-1">
+            <div class="stage-dot">1</div>
+            <div class="stage-card">
+              <div class="stage-header">
+                <div class="stage-title">Auth Portal loads combined settings flow</div>
+                <div class="stage-meta">
+                  <span class="direction-badge">Auth Portal &rarr; Kratos &rarr; Browser</span>
+                  <span class="source-badge captured">Captured</span>
+                </div>
+              </div>
+              <div class="http-grid">
+                <div class="http-panel">
+                  <div class="http-panel-label">Request</div>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> fetches settings flow from <strong>Kratos</strong>. Session cookie required.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-get">GET</span> <span class="hl-path">/self-service/settings/flows?id=bbac41c0-c2bc-4091-a7f8-9161622b0552</span> <span class="hl-proto">HTTP/1.1</span>
+<span class="hl-header-name">Accept:</span> <span class="hl-header-value">application/json</span>
+<span class="hl-header-name">Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; csrf_token_...=...</span></pre>
+                </div>
+                <div class="http-panel">
+                  <div class="http-panel-label">Response</div>
+                  <div class="http-panel-desc"><strong>Kratos</strong> returns combined settings with BOTH profile AND password groups. Auth Portal ignores profile nodes for password page.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Auth Portal (localhost:3337)</span>
+<span class="hl-proto">HTTP/1.1</span> <span class="hl-status-2xx">200 OK</span>
+<span class="hl-header-name">Cache-Control:</span> <span class="hl-header-value">private, no-cache, no-store, must-revalidate</span>
+<span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/json; charset=utf-8</span></pre>
+
+                  <div class="collapsible">
+                    <button class="collapsible-toggle" onclick="toggleCollapsible(this)"><span class="arrow">&#9656;</span> Show JSON body</button>
+                    <div class="collapsible-body">
+                      <pre class="code-block" style="margin-top:8px"><span class="hl-json-brace">{</span>
+  <span class="hl-json-key">"id"</span>: <span class="hl-json-string">"bbac41c0-c2bc-4091-a7f8-9161622b0552"</span>,
+  <span class="hl-json-key">"state"</span>: <span class="hl-json-string">"show_form"</span>,
+  <span class="hl-json-key">"ui"</span>: <span class="hl-json-brace">{</span>
+    <span class="hl-json-key">"nodes"</span>: <span class="hl-json-brace">[</span>
       <span class="hl-json-brace">{</span>
-        <span class="hl-json-key">"id"</span>: <span class="hl-json-number">1060001</span>,
-        <span class="hl-json-key">"text"</span>: <span class="hl-json-string">"You successfully recovered your account. Please change your password or set up an alternative login method (e.g. social sign in) within the next 15.00 minutes."</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.email"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"email"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"trace.1775718679@example.com"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.name.first"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"TraceUpdated"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.name.last"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"Runner"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"traits.gender"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"text"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"prefer_not_to_say"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"profile"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"profile"</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"required"</span>: <span class="hl-json-bool">true</span>
+      <span class="hl-json-brace">}</span>,
+      <span class="hl-json-brace">{</span>
+        <span class="hl-json-key">"group"</span>: <span class="hl-json-string">"password"</span>,
+        <span class="hl-json-key">"name"</span>: <span class="hl-json-string">"method"</span>,
+        <span class="hl-json-key">"type"</span>: <span class="hl-json-string">"submit"</span>,
+        <span class="hl-json-key">"value"</span>: <span class="hl-json-string">"password"</span>
       <span class="hl-json-brace">}</span>
     <span class="hl-json-brace">]</span>
   <span class="hl-json-brace">}</span>
@@ -1667,40 +1641,34 @@
               <div class="result-section">
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
-                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Recovery &middot; Set New Password</div></div>
-                  <div class="result-row"><div class="result-key">Visible Fields</div><div class="result-val">Password only (profile ignored)</div></div>
+                  <div class="result-row"><div class="result-key">Screen</div><div class="result-val">Settings &middot; Password</div></div>
+                  <div class="result-row"><div class="result-key">Visible</div><div class="result-val">Password</div></div>
                   <div class="result-row"><div class="result-key">Submit</div><div class="result-val"><code>method=password</code></div></div>
-                  <div class="result-row"><div class="result-key">Privilege Window</div><div class="result-val">15 minutes</div></div>
+                  <div class="result-row"><div class="result-key">Hidden by Auth Portal</div><div class="result-val">profile group</div></div>
                 </div>
               </div>
               <div class="json-explainer">
-                <div class="json-explainer-title">Understanding the settings flow in recovery context</div>
+                <div class="json-explainer-title">What changed from the profile flow</div>
                 <div class="json-explainer-body">
                   <dl>
-                    <dt>"request_url" points to recovery</dt>
-                    <dd>This confirms this settings flow was created by the recovery process. Normal settings flows have a <code>/settings</code> request_url.</dd>
-                    <dt>group: "profile" nodes</dt>
-                    <dd>Kratos includes the full profile (email, name, gender) with pre-filled values. BookShare ignores these entirely in recovery mode &mdash; the user is here to reset their password, not edit their profile.</dd>
-                    <dt>group: "password"</dt>
-                    <dd>The password input field and <code>method=password</code> submit. This is the only group BookShare renders. No "current password" field is required because the privileged session from the recovery code grants access.</dd>
-                    <dt>"messages" with ID 1060001</dt>
-                    <dd>Kratos' built-in recovery success message indicating the 15-minute privilege window.</dd>
+                    <dt>Same combined shape</dt>
+                    <dd>Kratos returns identical structure. <code>section=</code> is Auth Portal's concept.</dd>
+                    <dt>Updated trait</dt>
+                    <dd><code>traits.name.first</code> now <code>"TraceUpdated"</code> (changed earlier). Confirms persistence.</dd>
+                    <dt>Different flow ID</dt>
+                    <dd>Each visit creates a new flow. Profile was <code>ee5c82d9</code>, password is <code>bbac41c0</code>.</dd>
                   </dl>
                 </div>
-              </div>
-              <div class="note-box">
-                <div class="note-box-label">Note &mdash; Why recovery has its own settings model</div>
-                Kratos returns a generic settings flow with both profile and password groups. BookShare must filter this down to password-only to create the recovery password reset experience.
               </div>
             </div>
           </div>
 
-          <!-- Stage 7 -->
-          <div class="stage" id="stage-7">
-            <div class="stage-dot">7</div>
+          <!-- Stage password-2 -->
+          <div class="stage" id="password-2">
+            <div class="stage-dot">2</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Browser submits the new password</div>
+                <div class="stage-title">Browser submits password change</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Kratos &rarr; Browser</span>
                   <span class="source-badge captured">Captured</span>
@@ -1709,23 +1677,22 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> submits the new password to <strong>Kratos</strong> via the settings flow. Only the password and <code>method=password</code> are sent &mdash; no profile fields.</div>
-                  <pre class="code-block"><span class="hl-comment"># Browser → Kratos (localhost:4433)</span>
-<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/settings?flow=b871d432-8db2-4743-b686-e649e7f931c3</span> <span class="hl-proto">HTTP/1.1</span>
+                  <div class="http-panel-desc"><strong>Browser</strong> submits password form to <strong>Kratos</strong> with the new password and <code>method=password</code>.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Kratos (localhost:4433)</span>
+<span class="hl-method-post">POST</span> <span class="hl-path">/self-service/settings?flow=bbac41c0-c2bc-4091-a7f8-9161622b0552</span> <span class="hl-proto">HTTP/1.1</span>
 <span class="hl-header-name">Content-Type:</span> <span class="hl-header-value">application/x-www-form-urlencoded</span>
 <span class="hl-header-name">Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; csrf_token_...=...</span>
 
-<span class="hl-form-key">csrf_token</span>=<span class="hl-form-value">...</span>
+<span class="hl-form-key">csrf_token</span>=<span class="hl-comment">...</span>
 <span class="hl-form-key">password</span>=<span class="hl-form-value">ResetPassw0rd2026</span>
 <span class="hl-form-key">method</span>=<span class="hl-form-value">password</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc"><strong>Kratos</strong> validates and persists the new password. The session cookie is refreshed. Kratos redirects to the Auth Portal's settings completion endpoint.</div>
-                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) → Browser</span>
+                  <div class="http-panel-desc"><strong>Kratos</strong> updates the password credential and redirects to the Auth Portal completion endpoint.</div>
+                  <pre class="code-block"><span class="hl-comment"># Kratos (localhost:4433) &rarr; Browser</span>
 <span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">303 See Other</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/settings/complete</span>
-<span class="hl-header-name">Set-Cookie:</span> <span class="hl-header-value">ory_kratos_session=...; HttpOnly; SameSite=Lax</span></pre>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/settings/complete</span></pre>
                 </div>
               </div>
               <div class="result-section">
@@ -1733,18 +1700,17 @@
                 <div class="result-table">
                   <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/settings/complete</code></div></div>
                   <div class="result-row"><div class="result-key">Password</div><div class="result-val">updated</div></div>
-                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">refreshed</div></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Stage 8 -->
-          <div class="stage" id="stage-8">
-            <div class="stage-dot" style="background:var(--success)">8</div>
+          <!-- Stage password-3 -->
+          <div class="stage" id="password-3">
+            <div class="stage-dot" style="background:var(--success)">3</div>
             <div class="stage-card">
               <div class="stage-header">
-                <div class="stage-title">Auth Portal completes recovery &mdash; exits to login</div>
+                <div class="stage-title">Auth Portal returns user to web app</div>
                 <div class="stage-meta">
                   <span class="direction-badge">Browser &rarr; Auth Portal &rarr; Browser</span>
                   <span class="source-badge route">Auth Route</span>
@@ -1753,34 +1719,34 @@
               <div class="http-grid">
                 <div class="http-panel">
                   <div class="http-panel-label">Request</div>
-                  <div class="http-panel-desc">The <strong>Browser</strong> follows the redirect to the <strong>Auth Portal's</strong> settings completion endpoint.</div>
-                  <pre class="code-block"><span class="hl-comment"># Browser → Auth Portal (localhost:3337)</span>
+                  <div class="http-panel-desc"><strong>Browser</strong> follows redirect to Auth Portal completion endpoint.</div>
+                  <pre class="code-block"><span class="hl-comment"># Browser &rarr; Auth Portal (localhost:3337)</span>
 <span class="hl-method-get">GET</span> <span class="hl-path">/settings/complete</span> <span class="hl-proto">HTTP/1.1</span></pre>
                 </div>
                 <div class="http-panel">
                   <div class="http-panel-label">Response</div>
-                  <div class="http-panel-desc">The <strong>Auth Portal</strong> redirects the Browser to <code>/login</code>. Recovery is complete &mdash; the user has a new password but must log in again with it.</div>
-                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) → Browser</span>
+                  <div class="http-panel-desc"><strong>Auth Portal</strong> redirects to <strong>Web App</strong> profile page.</div>
+                  <pre class="code-block"><span class="hl-comment"># Auth Portal (localhost:3337) &rarr; Browser</span>
 <span class="hl-proto">HTTP/1.1</span> <span class="hl-status-3xx">307 Temporary Redirect</span>
-<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3337/login</span></pre>
+<span class="hl-header-name">Location:</span> <span class="hl-header-value">http://localhost:3334/profile</span></pre>
                 </div>
               </div>
               <div class="result-section">
                 <div class="http-panel-label">Result</div>
                 <div class="result-table">
-                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/login</code></div></div>
-                  <div class="result-row"><div class="result-key">Recovery</div><div class="result-val" style="color:var(--success)"><strong>completed</strong></div></div>
-                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">none &mdash; user must log in</div></div>
+                  <div class="result-row"><div class="result-key">Route</div><div class="result-val"><code>/profile</code> (Web App)</div></div>
+                  <div class="result-row"><div class="result-key">Settings</div><div class="result-val" style="color:var(--success);font-weight:700">saved</div></div>
+                  <div class="result-row"><div class="result-key">Session</div><div class="result-val">unchanged</div></div>
                 </div>
               </div>
               <div class="note-box" style="border-left-color:var(--success);background:var(--success-soft)">
-                <div class="note-box-label" style="color:var(--success)">Note &mdash; Recovery complete</div>
-                Recovery does not automatically log the user into the web app. The privileged session was only valid inside the auth box for the password reset. The user must now go through the full login flow (including Hydra) with their new password.
+                <div class="note-box-label" style="color:var(--success)">Note &mdash; Shared exit</div>
+                Both profile and password share the same exit &mdash; <code>/settings/complete</code> &rarr; Web App <code>/profile</code>.
               </div>
             </div>
           </div>
-
         </div>
+
       </main>
     </div>
 
@@ -1815,7 +1781,7 @@
       }
 
       // Active nav on scroll
-      const stages = document.querySelectorAll('.stage');
+      const stages = document.querySelectorAll('.stage, .branch-section');
       const navItems = document.querySelectorAll('.nav-item');
 
       const observer = new IntersectionObserver(entries => {

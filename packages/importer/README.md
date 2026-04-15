@@ -69,7 +69,7 @@ Use `--replace-inventory` with `--inventory-only` to clear all existing `copies`
 - Strict create-only mode on `id` by entity (unless `--replace-inventory` for copies/wishes).
 - ISBNs normalize to digits/`X`, must be 10 or 13 chars, and must pass checksum.
 - Every imported book must have at least one imported ISBN edition.
-- `category_slugs` is required for every book and each slug must already exist in `categories`.
+- `category_slugs` is required for every book and each slug must already exist in `categories` before validation.
 - Every imported edition must have exactly one matching cover file in `covers/` by ISBN.
 - Cover files are uploaded to MinIO as `edition-covers/<normalized-isbn>.<ext>`.
 - `--actor` resolves strictly against `member_profiles.email`.
