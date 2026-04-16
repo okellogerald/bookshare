@@ -130,7 +130,7 @@ export function MembersWorkspace() {
             <TableBody>
               {filteredMembers.map((member) => (
                 <TableRow key={member.user_id}>
-                  <TableCell>
+                  <TableCell className="min-w-[200px] whitespace-normal">
                     <p className="font-medium text-foreground">{member.displayName}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{member.email}</p>
                   </TableCell>

@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils";
 
 const panelSizeClassName = {
   md: "max-w-2xl",
+  moderate: "max-w-[56rem]",
   lg: "max-w-4xl",
   xl: "max-w-[72rem]",
 } as const;

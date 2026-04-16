@@ -7,7 +7,6 @@ import { BookOpen, LogOut, MoreVertical, ShieldCheck, User } from "lucide-react"
 import { AdminFlowProvider } from "@/flows/admin-flow-provider";
 import {
   adminNavItems,
-  getAdminPageMeta,
   isActiveAdminPath,
 } from "@/shared/lib/admin-shell";
 import { useMyProfile, useSyncMyProfile } from "@/shared/queries/profile";
@@ -71,7 +70,6 @@ export function AdminShellClient({
   user: UserData;
 }) {
   const pathname = usePathname();
-  const pageMeta = getAdminPageMeta(pathname);
   const isEmailVerified = user.emailVerified === true;
   const syncedProfile = useRef(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -161,20 +159,12 @@ export function AdminShellClient({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex items-center gap-3 lg:hidden">
-                <BookOpen className="h-5 w-5" />
-                <span className="text-sm font-semibold">BookShare</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  {pageMeta.section}
-                </p>
-                <p className="truncate text-sm font-semibold text-foreground">{pageMeta.title}</p>
-              </div>
+            <div className="flex items-center gap-3 lg:hidden">
+              <BookOpen className="h-5 w-5" />
+              <span className="text-sm font-semibold">BookShare</span>
             </div>
 
-            <div className="ml-4 flex items-center gap-2 sm:gap-3">
+            <div className="ml-4 flex w-full justify-end gap-2 sm:gap-3">
               <Link
                 href="/team"
                 className={cn(

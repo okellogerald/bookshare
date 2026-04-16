@@ -15,7 +15,7 @@ function getFlowChrome(flow: AdminFlow) {
         title: "Add New Edition",
         description:
           "Step through title lookup, author selection, edition details, and the final confirmation review.",
-        size: "xl" as const,
+        size: "moderate" as const,
       };
     case "catalog-search":
       return {
@@ -28,7 +28,7 @@ function getFlowChrome(flow: AdminFlow) {
       return {
         title: "Import Batch",
         description: "Choose the run type, validate the ZIP, and review the run before commit.",
-        size: "xl" as const,
+        size: "moderate" as const,
       };
     case "add-team-member":
       return {

@@ -78,6 +78,7 @@ export function RecentImportRunsPanel() {
           <TableHeader>
             <TableRow>
               <TableHead>ZIP</TableHead>
+              <TableHead>Run by</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Rows</TableHead>
               <TableHead>Issues</TableHead>
@@ -89,6 +90,9 @@ export function RecentImportRunsPanel() {
               <TableRow key={run.runId}>
                 <TableCell>
                   <p className="font-medium text-foreground">{run.sourceZipName}</p>
+                </TableCell>
+                <TableCell>
+                  <span className="text-muted-foreground">{run.actorUsername}</span>
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={run.status} />

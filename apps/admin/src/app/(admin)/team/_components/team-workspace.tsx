@@ -84,7 +84,7 @@ export function TeamWorkspace({ actorRoles }: { actorRoles: string[] }) {
             <TableBody>
               {directoryEntries.map((entry) => (
                 <TableRow key={entry.userId}>
-                  <TableCell>
+                  <TableCell className="min-w-[180px] whitespace-normal">
                     <p className="font-medium text-foreground">{entry.displayName}</p>
                     <p className="text-xs text-muted-foreground">
                       {formatIdentitySubtitle(entry)}

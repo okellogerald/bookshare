@@ -10,6 +10,9 @@ const config: Config = {
       screens: { "2xl": "1280px" },
     },
     extend: {
+      fontWeight: {
+        semibold: "700",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

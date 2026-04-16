@@ -288,6 +288,25 @@ async function createAuthor(name: string): Promise<AuthorRecord> {
   });
 }
 
+async function fetchCatalogBooksList(limit = 60): Promise<PgBookWithAuthorsView[]> {
+  const params = new URLSearchParams();
+  params.set("select", "id,title,subtitle,language,authors");
+  params.set("order", "title.asc");
+  params.set("limit", String(limit));
+
+  const response = await fetch(`/api/postgrest/books_with_authors?${params}`);
+  if (!response.ok) throw new Error("Failed to load books.");
+  const json = await response.json();
+  return (json.data ?? []) as PgBookWithAuthorsView[];
+}
+
+export function useCatalogBooks(limit = 60) {
+  return useQuery({
+    queryKey: ["admin-catalog-books", limit],
+    queryFn: () => fetchCatalogBooksList(limit),
+  });
+}
+
 export function useCatalogBookSearch(query: string) {
   const normalized = query.trim();
 
