@@ -15,16 +15,16 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { decrypt } from "@/features/auth/lib/crypto";
+import { decrypt } from "@/domain/auth/lib/crypto";
 import {
   ADMIN_LOGGED_OUT_COOKIE,
   ADMIN_SESSION_COOKIE,
   ADMIN_TOKEN_COOKIE,
-} from "@/features/auth/lib/cookie-names";
-import { buildAuthPortalVerificationUrl } from "@/features/auth/lib/auth-portal";
+} from "@/domain/auth/lib/cookie-names";
+import { buildAuthPortalVerificationUrl } from "@/domain/auth/lib/auth-portal";
 
 /** Admin route prefixes that require a valid session with staff roles. */
-const protectedPrefixes = ["/catalog", "/batches", "/staff"];
+const protectedPrefixes = ["/catalog", "/batches", "/members", "/team", "/staff", "/requests"];
 /** Auth API routes that must always be accessible mid-flow. */
 const authPaths = ["/api/auth/login", "/api/auth/callback", "/api/auth/logout"];
 /** Set of roles that grant access to the admin app. */

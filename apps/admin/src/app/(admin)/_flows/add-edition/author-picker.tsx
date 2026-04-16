@@ -6,9 +6,8 @@ import {
   useAuthorSearch,
   useCreateAuthor,
   type AuthorRecord,
-} from "@/shared/queries/catalog";
+} from "@/domain/catalog/queries";
 import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
@@ -24,22 +23,17 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
   const createAuthor = useCreateAuthor();
 
   const results = authorsQuery.data ?? [];
-  const selectedIds = new Set(selected.map((a) => a.id));
+  const selectedIds = new Set(selected.map((author) => author.id));
   const showDropdown = deferredQuery.trim().length >= 2;
-
-  // Filter out already-selected authors from results
-  const filteredResults = results.filter((a) => !selectedIds.has(a.id));
-
-  // Check if the typed name matches an existing result exactly
+  const filteredResults = results.filter((author) => !selectedIds.has(author.id));
   const trimmedQuery = query.trim();
   const exactMatch = results.some(
-    (a) => a.name.toLowerCase() === trimmedQuery.toLowerCase()
+    (author) => author.name.toLowerCase() === trimmedQuery.toLowerCase()
   );
   const alreadySelected = selected.some(
-    (a) => a.name.toLowerCase() === trimmedQuery.toLowerCase()
+    (author) => author.name.toLowerCase() === trimmedQuery.toLowerCase()
   );
-  const canCreateNew =
-    trimmedQuery.length >= 2 && !exactMatch && !alreadySelected;
+  const canCreateNew = trimmedQuery.length >= 2 && !exactMatch && !alreadySelected;
 
   function addAuthor(author: AuthorRecord) {
     if (!selectedIds.has(author.id)) {
@@ -49,7 +43,7 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
   }
 
   function removeAuthor(id: string) {
-    onChange(selected.filter((a) => a.id !== id));
+    onChange(selected.filter((author) => author.id !== id));
   }
 
   async function handleCreateAuthor() {
@@ -57,7 +51,7 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
       const author = await createAuthor.mutateAsync(trimmedQuery);
       addAuthor(author);
     } catch {
-      // Error handled by mutation state
+      // Mutation state renders the error.
     }
   }
 
@@ -65,14 +59,13 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
     <div className="space-y-2">
       <Label>Authors *</Label>
 
-      {/* Selected authors */}
-      {selected.length > 0 && (
+      {selected.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {selected.map((author) => (
             <Badge
               key={author.id}
               variant="secondary"
-              className="gap-1 border border-border/75 bg-background pl-3 pr-1.5 py-1"
+              className="gap-1 border border-border/75 bg-background py-1 pl-3 pr-1.5"
             >
               {author.name}
               <button
@@ -85,18 +78,16 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
             </Badge>
           ))}
         </div>
-      )}
+      ) : null}
 
-      {/* Search input */}
       <div className="relative">
         <Input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search authors by name..."
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search authors by name"
         />
 
-        {/* Dropdown */}
-        {showDropdown && (
+        {showDropdown ? (
           <div className="absolute z-10 mt-1 w-full rounded-xl border border-border bg-card shadow-lg">
             {authorsQuery.isLoading ? (
               <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
@@ -117,19 +108,17 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
                   </button>
                 ))}
 
-                {filteredResults.length === 0 && !canCreateNew && (
+                {filteredResults.length === 0 && !canCreateNew ? (
                   <p className="px-4 py-3 text-sm text-muted-foreground">
-                    {alreadySelected
-                      ? "Author already selected."
-                      : "No authors found."}
+                    {alreadySelected ? "Author already selected." : "No authors found."}
                   </p>
-                )}
+                ) : null}
 
-                {canCreateNew && (
+                {canCreateNew ? (
                   <>
-                    {filteredResults.length > 0 && (
+                    {filteredResults.length > 0 ? (
                       <div className="mx-3 border-t border-border" />
-                    )}
+                    ) : null}
                     <button
                       type="button"
                       onClick={handleCreateAuthor}
@@ -144,19 +133,19 @@ export function AuthorPicker({ selected, onChange }: AuthorPickerProps) {
                       Create &ldquo;{trimmedQuery}&rdquo;
                     </button>
                   </>
-                )}
+                ) : null}
               </div>
             )}
 
-            {createAuthor.isError && (
+            {createAuthor.isError ? (
               <p className="border-t border-border px-4 py-2 text-xs text-red-700">
                 {createAuthor.error instanceof Error
                   ? createAuthor.error.message
                   : "Failed to create author."}
               </p>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

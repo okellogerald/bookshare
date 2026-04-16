@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, CheckCircle2, LockKeyhole, ShieldCheck } from "lucide-react";
-import { getSession } from "@/features/auth/lib/session";
+import { getSession } from "@/domain/auth/lib/session";
 import { adminNavItems } from "@/shared/lib/admin-shell";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -16,13 +16,13 @@ import {
 const landingStats = [
   { label: "Primary workspace", value: "Catalog operations" },
   { label: "Batch flow", value: "Validate before commit" },
-  { label: "Access model", value: "Staff-only" },
+  { label: "People ops", value: "Members + team" },
 ];
 
 const promises = [
-  "Search the live catalog before creating new records.",
+  "Launch focused catalog flows before creating new records.",
   "Validate importer ZIPs in the browser and keep recent runs visible.",
-  "Grant or revoke internal access without leaving the admin workspace.",
+  "Work through member and team operations from dedicated admin surfaces.",
 ];
 
 export default async function LandingPage({
@@ -54,8 +54,9 @@ export default async function LandingPage({
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
                 The admin console is the internal operating surface for catalog quality,
-                browser-based ingestion, and staff access control. It borrows the same
-                warm BookShare visual language, but tightens it for operational work.
+                browser-based ingestion, member operations, and team access control. It
+                borrows the same warm BookShare visual language, but tightens it for
+                operational work.
               </p>
             </div>
 
@@ -137,8 +138,8 @@ export default async function LandingPage({
               </p>
             ) : (
               <p className="text-sm leading-6 text-muted-foreground">
-                First release scope: catalog, batches, and staff management. Broader
-                organization tooling stays out of this console for now.
+                First release scope: catalog, imports, members, and team management.
+                Broader organization tooling stays out of this console for now.
               </p>
             )}
           </CardContent>

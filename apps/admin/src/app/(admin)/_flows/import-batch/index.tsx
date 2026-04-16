@@ -2,7 +2,8 @@
 
 import { useId, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Upload, Waypoints, X } from "lucide-react";
-import { useCommitImportRun, useValidateImportZip } from "@/shared/queries/imports";
+import { FlowStepper } from "@/app/(admin)/_components/flow-stepper";
+import { useCommitImportRun, useValidateImportZip } from "@/domain/imports/queries";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -32,12 +33,12 @@ const runTypeOptions: Array<{
   {
     value: "catalog",
     label: "Catalog ZIP",
-    description: "Use this when the archive adds or updates catalog records.",
+    description: "Adds or updates catalog records and inventory rows from the uploaded archive.",
   },
   {
     value: "inventory_only",
     label: "Inventory-only ZIP",
-    description: "Use this when the run should affect inventory state without catalog changes.",
+    description: "Touches inventory state only and skips catalog record changes.",
   },
 ];
 
@@ -63,7 +64,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function BatchIngestionWorkbench() {
+export function ImportBatchFlow() {
   const [activeStep, setActiveStep] = useState<BatchStep>(1);
   const [mode, setMode] = useState<"catalog" | "inventory_only">("catalog");
   const [replaceInventory, setReplaceInventory] = useState(false);
@@ -129,84 +130,52 @@ export function BatchIngestionWorkbench() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex gap-3 overflow-x-auto border-b py-4">
-          {stepItems.map((item) => {
-            const isCurrent = activeStep === item.step;
-            const isComplete =
+        <FlowStepper
+          items={stepItems.map((item) => ({
+            step: item.step,
+            label: item.label,
+            current: activeStep === item.step,
+            complete:
               (item.step === 1 && activeStep > 1) ||
               (item.step === 2 && !!latestRun) ||
-              (item.step === 3 && latestRun?.status === "committed");
-            const isAvailable = canOpenStep(item.step);
-
-            return (
-              <button
-                key={item.step}
-                type="button"
-                disabled={!isAvailable}
-                onClick={() => isAvailable && setActiveStep(item.step)}
-                className={cn(
-                  "flex min-w-max items-center gap-3 rounded-full px-1 py-1 text-sm transition disabled:cursor-not-allowed disabled:opacity-50",
-                  isCurrent ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold",
-                    isCurrent
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : isComplete
-                        ? "border-border/75 bg-muted text-foreground"
-                        : "border-border/75 bg-background"
-                  )}
-                >
-                  {item.step}
-                </span>
-                <span className={cn(isCurrent ? "font-medium" : "")}>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+              (item.step === 3 && latestRun?.status === "committed"),
+            disabled: !canOpenStep(item.step),
+            onSelect: canOpenStep(item.step) ? () => setActiveStep(item.step) : undefined,
+          }))}
+        />
 
         {activeStep === 1 ? (
           <section className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Choose the run type</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Choose the run type</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Pick the ingestion mode first. The upload and review steps adapt to this choice.
+              </p>
+            </div>
 
-            <fieldset className="space-y-3">
+            <fieldset className="space-y-4">
               <legend className="text-sm font-medium text-muted-foreground">Run type</legend>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {runTypeOptions.map((option) => {
                   const checked = mode === option.value;
 
                   return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
-                        checked
-                          ? "border-primary/30 bg-primary/5"
-                          : "border-border/75 hover:border-primary/20"
-                      )}
-                    >
+                    <label key={option.value} className="flex items-start gap-3">
                       <input
                         type="radio"
                         name="batch-run-type"
                         value={option.value}
                         checked={checked}
                         onChange={() => handleModeChange(option.value)}
-                        className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-primary"
+                        className="mt-1 h-4 w-4 border-border text-primary focus:ring-primary"
                       />
 
                       <div className="space-y-1">
-                        <p
-                          className={cn(
-                            "text-sm",
-                            checked ? "font-medium text-foreground" : "text-foreground"
-                          )}
-                        >
+                        <p className={cn("text-sm", checked ? "font-medium text-foreground" : "text-foreground")}>
                           {option.label}
                         </p>
-                        <p className="text-sm text-muted-foreground">{option.description}</p>
+                        <p className="text-sm leading-6 text-muted-foreground">{option.description}</p>
                       </div>
                     </label>
                   );
@@ -215,11 +184,7 @@ export function BatchIngestionWorkbench() {
             </fieldset>
 
             <div className="flex justify-end border-t pt-5">
-              <Button
-                type="button"
-                onClick={() => setActiveStep(2)}
-                className="rounded-full px-5"
-              >
+              <Button type="button" onClick={() => setActiveStep(2)} className="rounded-full px-5">
                 Continue
                 <ArrowRight className="h-4 w-4" />
               </Button>
@@ -229,7 +194,12 @@ export function BatchIngestionWorkbench() {
 
         {activeStep === 2 ? (
           <section className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Upload and validate</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Upload and validate</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Upload the ZIP archive for validation. Inventory-only runs can optionally replace existing inventory state.
+              </p>
+            </div>
 
             <label
               htmlFor={fileInputId}
@@ -309,7 +279,12 @@ export function BatchIngestionWorkbench() {
         {activeStep === 3 && latestRun && currentSummary ? (
           <section className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Review and commit</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Review and commit</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Inspect the validation summary before the final commit step.
+                </p>
+              </div>
               <StatusBadge status={latestRun.status} />
             </div>
 
@@ -396,7 +371,7 @@ export function BatchIngestionWorkbench() {
       </div>
 
       {issuesDialogOpen && currentSummary ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-8">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 px-4 py-8">
           <div className="flex max-h-[80vh] w-full max-w-6xl flex-col rounded-[1.25rem] border bg-card">
             <div className="flex items-start justify-between gap-4 border-b px-6 py-5">
               <div>
@@ -421,24 +396,22 @@ export function BatchIngestionWorkbench() {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Code</TableHead>
                     <TableHead>File</TableHead>
                     <TableHead>Row</TableHead>
-                    <TableHead>Column</TableHead>
-                    <TableHead>Code</TableHead>
                     <TableHead>Message</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {currentSummary.issues.map((issue, index) => (
-                    <TableRow key={`${issue.code}-${issue.file}-${index}`}>
+                    <TableRow key={`${issue.file}-${issue.rowNumber}-${index}`}>
+                      <TableCell className="font-medium">{issue.code}</TableCell>
                       <TableCell>{issue.file}</TableCell>
                       <TableCell>{issue.rowNumber ?? "—"}</TableCell>
-                      <TableCell>{issue.column ?? "—"}</TableCell>
-                      <TableCell className="font-mono text-xs">{issue.code}</TableCell>
                       <TableCell>{issue.message}</TableCell>
                     </TableRow>
                   ))}

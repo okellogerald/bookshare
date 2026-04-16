@@ -1,9 +1,9 @@
 "use client";
 
 import { Badge } from "@/shared/components/ui/badge";
-import { formatRole } from "@/features/staff/lib/staff-roles";
+import { formatRole } from "@/domain/team/lib";
 
-export function StaffRoleBadge({
+export function TeamRoleBadge({
   role,
   onRemove,
   disabled,

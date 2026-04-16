@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useGrantStaffRole, useRevokeStaffRole } from "@/shared/queries/staff";
+import { useGrantTeamRole, useRevokeTeamRole } from "@/domain/team/queries";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import type { StaffDirectoryEntry } from "@/shared/api";
@@ -10,10 +10,10 @@ import {
   formatIdentitySubtitle,
   formatRole,
   getManageableRoles,
-} from "@/features/staff/lib/staff-roles";
-import { StaffRoleBadge } from "@/features/staff/components/staff-role-badge";
+} from "@/domain/team/lib";
+import { TeamRoleBadge } from "@/domain/team/team-role-badge";
 
-export function ManageStaffRolesFlow({
+export function ManageTeamMemberFlow({
   actorRoles,
   entry,
   onClose,
@@ -22,16 +22,13 @@ export function ManageStaffRolesFlow({
   entry: StaffDirectoryEntry;
   onClose: () => void;
 }) {
-  const manageableRoles = useMemo(
-    () => getManageableRoles(actorRoles),
-    [actorRoles]
-  );
+  const manageableRoles = useMemo(() => getManageableRoles(actorRoles), [actorRoles]);
   const [currentRoles, setCurrentRoles] = useState<string[]>(
     entry.roles.map((assignment) => assignment.role)
   );
   const [selectedRole, setSelectedRole] = useState<string>(manageableRoles[0] ?? "staff");
-  const grantRole = useGrantStaffRole();
-  const revokeRole = useRevokeStaffRole();
+  const grantRole = useGrantTeamRole();
+  const revokeRole = useRevokeTeamRole();
 
   useEffect(() => {
     setCurrentRoles(entry.roles.map((assignment) => assignment.role));
@@ -84,7 +81,7 @@ export function ManageStaffRolesFlow({
         ) : (
           <div className="flex flex-wrap gap-2">
             {currentRoles.map((role) => (
-              <StaffRoleBadge
+              <TeamRoleBadge
                 key={`${entry.userId}-${role}`}
                 role={role}
                 onRemove={
@@ -100,31 +97,23 @@ export function ManageStaffRolesFlow({
       </section>
 
       {manageableRoles.length > 0 ? (
-        <fieldset className="space-y-3 border-t pt-5">
+        <fieldset className="space-y-4 border-t pt-5">
           <legend className="text-sm font-medium text-muted-foreground">Add role</legend>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {manageableRoles.map((role) => {
               const checked = selectedRole === role;
               const alreadyAssigned = currentRoles.includes(role);
 
               return (
-                <label
-                  key={role}
-                  className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
-                    checked
-                      ? "border-primary/30 bg-primary/5"
-                      : "border-border/75 hover:border-primary/20"
-                  )}
-                >
+                <label key={role} className="flex items-start gap-3">
                   <input
                     type="radio"
-                    name={`manage-staff-role-${entry.userId}`}
+                    name={`manage-team-role-${entry.userId}`}
                     value={role}
                     checked={checked}
                     onChange={() => setSelectedRole(role)}
-                    className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-primary"
+                    className="mt-1 h-4 w-4 border-border text-primary focus:ring-primary"
                   />
 
                   <div className="space-y-1">
@@ -132,10 +121,10 @@ export function ManageStaffRolesFlow({
                       {formatRole(role)}
                       {alreadyAssigned ? " (current)" : ""}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm leading-6 text-muted-foreground">
                       {alreadyAssigned
-                        ? "This staff member already has the selected role."
-                        : "Grant this additional role to the selected staff member."}
+                        ? "This team member already has the selected role."
+                        : "Grant this additional role to the selected team member."}
                     </p>
                   </div>
                 </label>
@@ -168,11 +157,7 @@ export function ManageStaffRolesFlow({
         <Button
           type="button"
           onClick={() => void handleGrant()}
-          disabled={
-            grantRole.isPending ||
-            !selectedRole ||
-            currentRoles.includes(selectedRole)
-          }
+          disabled={grantRole.isPending || !selectedRole || currentRoles.includes(selectedRole)}
         >
           {currentRoles.includes(selectedRole)
             ? `${formatRole(selectedRole)} already assigned`

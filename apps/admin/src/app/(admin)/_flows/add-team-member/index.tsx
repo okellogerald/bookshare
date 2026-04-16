@@ -2,10 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import {
-  useGrantStaffRole,
-  useStaffIdentitySearch,
-} from "@/shared/queries/staff";
+import { useGrantTeamRole, useTeamIdentitySearch } from "@/domain/team/queries";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
@@ -14,8 +11,8 @@ import {
   formatIdentitySubtitle,
   formatRole,
   getManageableRoles,
-} from "@/features/staff/lib/staff-roles";
-import { StaffRoleBadge } from "@/features/staff/components/staff-role-badge";
+} from "@/domain/team/lib";
+import { TeamRoleBadge } from "@/domain/team/team-role-badge";
 
 function IdentityResultCard({
   candidate,
@@ -44,7 +41,7 @@ function IdentityResultCard({
         </div>
         <div className="flex flex-wrap gap-2">
           {candidate.existingRoles.map((role) => (
-            <StaffRoleBadge key={`${candidate.userId}-${role}`} role={role} />
+            <TeamRoleBadge key={`${candidate.userId}-${role}`} role={role} />
           ))}
         </div>
       </div>
@@ -52,7 +49,7 @@ function IdentityResultCard({
   );
 }
 
-export function AddStaffFlow({
+export function AddTeamMemberFlow({
   actorRoles,
   onComplete,
 }: {
@@ -62,12 +59,9 @@ export function AddStaffFlow({
   const [identityQuery, setIdentityQuery] = useState("");
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const deferredIdentityQuery = useDeferredValue(identityQuery);
-  const identitySearch = useStaffIdentitySearch(deferredIdentityQuery);
-  const grantRole = useGrantStaffRole();
-  const manageableRoles = useMemo(
-    () => getManageableRoles(actorRoles),
-    [actorRoles]
-  );
+  const identitySearch = useTeamIdentitySearch(deferredIdentityQuery);
+  const grantRole = useGrantTeamRole();
+  const manageableRoles = useMemo(() => getManageableRoles(actorRoles), [actorRoles]);
   const [selectedRole, setSelectedRole] = useState<string>(manageableRoles[0] ?? "staff");
 
   const candidates = identitySearch.data ?? [];
@@ -108,7 +102,7 @@ export function AddStaffFlow({
   if (manageableRoles.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Your current staff role does not allow granting staff access.
+        Your current team role does not allow granting admin access.
       </p>
     );
   }
@@ -163,30 +157,22 @@ export function AddStaffFlow({
             </p>
           </div>
 
-          <fieldset className="space-y-3">
+          <fieldset className="space-y-4">
             <legend className="text-sm font-medium text-muted-foreground">Role</legend>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {manageableRoles.map((role) => {
                 const checked = selectedRole === role;
                 const alreadyAssigned = selectedCandidate.existingRoles.includes(role);
 
                 return (
-                  <label
-                    key={role}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
-                      checked
-                        ? "border-primary/30 bg-primary/5"
-                        : "border-border/75 hover:border-primary/20"
-                    )}
-                  >
+                  <label key={role} className="flex items-start gap-3">
                     <input
                       type="radio"
-                      name="staff-role"
+                      name="team-role"
                       value={role}
                       checked={checked}
                       onChange={() => setSelectedRole(role)}
-                      className="mt-0.5 h-4 w-4 border-border text-primary focus:ring-primary"
+                      className="mt-1 h-4 w-4 border-border text-primary focus:ring-primary"
                     />
 
                     <div className="space-y-1">
@@ -194,7 +180,7 @@ export function AddStaffFlow({
                         {formatRole(role)}
                         {alreadyAssigned ? " (current)" : ""}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm leading-6 text-muted-foreground">
                         {alreadyAssigned
                           ? "This role is already assigned to the selected identity."
                           : "Grant this role to the selected identity."}

@@ -1,8 +1,7 @@
 import {
   BookCopy,
   FolderKanban,
-  Inbox,
-  ShieldCheck,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,7 +28,7 @@ export const adminNavItems: AdminNavItem[] = [
     href: "/catalog",
     label: "Catalog",
     icon: BookCopy,
-    description: "Review current titles and extend the catalog with new editions.",
+    description: "Work through catalog operations, edition flows, copies, wishes, and intake queues.",
   },
   {
     href: "/batches",
@@ -38,27 +37,17 @@ export const adminNavItems: AdminNavItem[] = [
     description: "Run batch imports, validate issues, and review recent import history.",
   },
   {
-    href: "/requests",
-    label: "Requests",
-    icon: Inbox,
-    description: "Track member-submitted requests that need staff follow-up.",
-  },
-  {
-    href: "/staff",
-    label: "Staff",
-    icon: ShieldCheck,
-    description: "Grant platform access and keep internal roles clean.",
+    href: "/members",
+    label: "Members",
+    icon: Users,
+    description: "Search and manage community members from a dedicated operational directory.",
   },
 ];
 
 const adminPageMetaByPath: Record<string, AdminPageMeta> = {
   "/catalog": {
     section: "Catalog",
-    title: "Catalog workbench",
-  },
-  "/requests": {
-    section: "Requests",
-    title: "Requests",
+    title: "Catalog",
   },
   "/batches": {
     section: "Imports",
@@ -68,9 +57,13 @@ const adminPageMetaByPath: Record<string, AdminPageMeta> = {
     section: "Imports",
     title: "Recent runs",
   },
-  "/staff": {
-    section: "Staff",
-    title: "Staff management",
+  "/members": {
+    section: "Members",
+    title: "Members",
+  },
+  "/team": {
+    section: "Team",
+    title: "Team Management",
   },
   "/profile": {
     section: "Account",

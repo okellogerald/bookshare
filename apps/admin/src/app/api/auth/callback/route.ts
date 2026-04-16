@@ -25,13 +25,13 @@ import {
   readOIDCTransaction,
 } from "@bookshare/shared";
 import * as client from "openid-client";
-import { decrypt } from "@/features/auth/lib/crypto";
-import { getOIDCConfig } from "@/features/auth/lib/oidc";
-import { setSession } from "@/features/auth/lib/session";
-import { buildAuthPortalVerificationUrl } from "@/features/auth/lib/auth-portal";
+import { decrypt } from "@/domain/auth/lib/crypto";
+import { getOIDCConfig } from "@/domain/auth/lib/oidc";
+import { setSession } from "@/domain/auth/lib/session";
+import { buildAuthPortalVerificationUrl } from "@/domain/auth/lib/auth-portal";
 import {
   ADMIN_OIDC_COOKIE_NAMES,
-} from "@/features/auth/lib/cookie-names";
+} from "@/domain/auth/lib/cookie-names";
 
 /** Normalizes claim values to boolean — Hydra may encode them as strings. */
 function toBoolean(value: unknown): boolean {

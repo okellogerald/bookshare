@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 const panelSizeClassName = {
-  md: "max-w-xl",
-  lg: "max-w-2xl",
-  xl: "max-w-4xl",
+  md: "max-w-2xl",
+  lg: "max-w-4xl",
+  xl: "max-w-[72rem]",
 } as const;
 
 export function RightPanel({
@@ -29,6 +30,11 @@ export function RightPanel({
 }) {
   const titleId = useId();
   const descriptionId = useId();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -51,11 +57,11 @@ export function RightPanel({
     };
   }, [open, onClose]);
 
-  if (!open) {
+  if (!open || !mounted) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <button
         type="button"
@@ -70,7 +76,7 @@ export function RightPanel({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         className={cn(
-          "relative flex h-full w-full flex-col border-l border-border/80 bg-card shadow-[0_28px_80px_rgba(15,23,42,0.22)]",
+          "relative z-10 flex h-[100dvh] w-full flex-col border-l border-border/80 bg-card shadow-[0_28px_80px_rgba(15,23,42,0.22)]",
           panelSizeClassName[size]
         )}
       >
@@ -103,6 +109,7 @@ export function RightPanel({
           {children}
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

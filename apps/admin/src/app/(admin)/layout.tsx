@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/features/auth/lib/session";
+import { getSession } from "@/domain/auth/lib/session";
 import { AdminShellClient } from "@/shared/components/admin-shell-client";
 
 export default async function AdminLayout({

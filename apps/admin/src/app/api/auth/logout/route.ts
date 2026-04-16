@@ -5,12 +5,12 @@ import {
   setLoggedOutMarker,
 } from "@bookshare/shared";
 import * as client from "openid-client";
-import { getOIDCConfig } from "@/features/auth/lib/oidc";
-import { buildAppPostLogoutUrl } from "@/features/auth/lib/auth-portal";
-import { getSession } from "@/features/auth/lib/session";
+import { getOIDCConfig } from "@/domain/auth/lib/oidc";
+import { buildAppPostLogoutUrl } from "@/domain/auth/lib/auth-portal";
+import { getSession } from "@/domain/auth/lib/session";
 import {
   ADMIN_OIDC_COOKIE_NAMES,
-} from "@/features/auth/lib/cookie-names";
+} from "@/domain/auth/lib/cookie-names";
 
 export async function GET() {
   const postLogoutRedirectUri = buildAppPostLogoutUrl();

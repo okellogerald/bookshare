@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken, getSession } from "@/features/auth/lib/session";
+import { getAccessToken, getSession } from "@/domain/auth/lib/session";
 import {
   buildProxyBaseUrlCandidates,
   buildProxyRequestUrl,

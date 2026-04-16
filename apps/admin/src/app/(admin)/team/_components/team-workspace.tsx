@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Plus, ShieldCheck } from "lucide-react";
-import { useStaffDirectory } from "@/shared/queries/staff";
-import { RightPanel } from "@/shared/components/right-panel";
+import { useAdminFlow } from "@/app/(admin)/_flows/admin-flow-provider";
+import { useTeamDirectory } from "@/domain/team/queries";
 import { PageIntro } from "@/shared/components/page-intro";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -16,41 +16,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import type { StaffDirectoryEntry } from "@/shared/api";
 import {
   formatIdentitySubtitle,
   getManageableRoles,
-} from "@/features/staff/lib/staff-roles";
-import { StaffRoleBadge } from "@/features/staff/components/staff-role-badge";
-import { AddStaffFlow } from "@/features/staff/flows/add-staff-flow";
-import { ManageStaffRolesFlow } from "@/features/staff/flows/manage-staff-roles-flow";
+} from "@/domain/team/lib";
+import { TeamRoleBadge } from "@/domain/team/team-role-badge";
 
-type StaffFlowState =
-  | { type: "add" }
-  | { type: "manage"; entry: StaffDirectoryEntry }
-  | null;
-
-export function StaffWorkspace({ actorRoles }: { actorRoles: string[] }) {
+export function TeamWorkspace({ actorRoles }: { actorRoles: string[] }) {
   const [directoryQuery, setDirectoryQuery] = useState("");
-  const [activeFlow, setActiveFlow] = useState<StaffFlowState>(null);
-  const directory = useStaffDirectory(directoryQuery);
-  const manageableRoles = useMemo(
-    () => getManageableRoles(actorRoles),
-    [actorRoles]
-  );
+  const { openFlow } = useAdminFlow();
+  const directory = useTeamDirectory(directoryQuery);
+  const manageableRoles = useMemo(() => getManageableRoles(actorRoles), [actorRoles]);
   const canManage = manageableRoles.length > 0;
   const directoryEntries = directory.data ?? [];
 
   return (
     <section className="space-y-6">
       <PageIntro
-        title="Staff management"
-        description="Keep access narrow and explicit. Use page actions to open role-management flows while the default view stays focused on the current staff directory."
+        title="Team Management"
+        description="Keep admin access narrow and explicit. The default view stays focused on the current team directory, while role changes happen inside isolated flows."
         actions={
           canManage ? (
-            <Button type="button" className="rounded-full px-4" onClick={() => setActiveFlow({ type: "add" })}>
+            <Button
+              type="button"
+              className="rounded-full px-4"
+              onClick={() => openFlow({ kind: "add-team-member", actorRoles })}
+            >
               <Plus className="h-4 w-4" />
-              Add Staff
+              Add Team Member
             </Button>
           ) : undefined
         }
@@ -61,7 +54,7 @@ export function StaffWorkspace({ actorRoles }: { actorRoles: string[] }) {
           <Input
             value={directoryQuery}
             onChange={(event) => setDirectoryQuery(event.target.value)}
-            placeholder="Search staff by name, email, or role"
+            placeholder="Search team members by name, email, or role"
             className="pl-4"
           />
         </div>
@@ -70,13 +63,13 @@ export function StaffWorkspace({ actorRoles }: { actorRoles: string[] }) {
           <p className="text-sm text-red-700">
             {directory.error instanceof Error
               ? directory.error.message
-              : "Failed to load the staff directory."}
+              : "Failed to load the team directory."}
           </p>
         ) : directory.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading staff directory...</p>
+          <p className="text-sm text-muted-foreground">Loading team directory...</p>
         ) : directoryEntries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No staff assignments match the current search.
+            No team assignments match the current search.
           </p>
         ) : (
           <Table>
@@ -100,15 +93,15 @@ export function StaffWorkspace({ actorRoles }: { actorRoles: string[] }) {
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       {entry.roles.map((assignment) => (
-                        <StaffRoleBadge
-                          key={`${entry.userId}-${assignment.role}`}
-                          role={assignment.role}
-                        />
+                        <TeamRoleBadge key={`${entry.userId}-${assignment.role}`} role={assignment.role} />
                       ))}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="border border-border/75 bg-background text-muted-foreground">
+                    <Badge
+                      variant="secondary"
+                      className="border border-border/75 bg-background text-muted-foreground"
+                    >
                       {entry.emailVerified ? "Verified" : "Unverified"}
                     </Badge>
                   </TableCell>
@@ -119,7 +112,9 @@ export function StaffWorkspace({ actorRoles }: { actorRoles: string[] }) {
                         variant="outline"
                         size="sm"
                         className="rounded-full"
-                        onClick={() => setActiveFlow({ type: "manage", entry })}
+                        onClick={() =>
+                          openFlow({ kind: "manage-team-member", actorRoles, entry })
+                        }
                       >
                         <ShieldCheck className="h-4 w-4" />
                         Manage roles
@@ -132,28 +127,6 @@ export function StaffWorkspace({ actorRoles }: { actorRoles: string[] }) {
           </Table>
         )}
       </div>
-
-      <RightPanel
-        open={activeFlow !== null}
-        onClose={() => setActiveFlow(null)}
-        title={activeFlow?.type === "manage" ? "Manage staff roles" : "Add staff"}
-        description={
-          activeFlow?.type === "manage"
-            ? "Adjust role assignments for the selected staff member without leaving the directory."
-            : "Search identities, choose the right role, and grant access from this isolated flow."
-        }
-        size="lg"
-      >
-        {activeFlow?.type === "manage" ? (
-          <ManageStaffRolesFlow
-            actorRoles={actorRoles}
-            entry={activeFlow.entry}
-            onClose={() => setActiveFlow(null)}
-          />
-        ) : activeFlow?.type === "add" ? (
-          <AddStaffFlow actorRoles={actorRoles} onComplete={() => setActiveFlow(null)} />
-        ) : null}
-      </RightPanel>
     </section>
   );
 }

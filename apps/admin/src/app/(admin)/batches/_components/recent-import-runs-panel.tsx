@@ -1,6 +1,6 @@
 "use client";
 
-import { useRecentImportRuns } from "@/shared/queries/imports";
+import { useRecentImportRuns } from "@/domain/imports/queries";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Table,

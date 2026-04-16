@@ -3,8 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, LogOut, MoreVertical, User } from "lucide-react";
-import { adminNavItems, isActiveAdminPath } from "@/shared/lib/admin-shell";
+import { BookOpen, LogOut, MoreVertical, ShieldCheck, User } from "lucide-react";
+import { AdminFlowProvider } from "@/app/(admin)/_flows/admin-flow-provider";
+import {
+  adminNavItems,
+  getAdminPageMeta,
+  isActiveAdminPath,
+} from "@/shared/lib/admin-shell";
 import { useMyProfile, useSyncMyProfile } from "@/shared/queries/profile";
 import { cn } from "@/shared/lib/utils";
 
@@ -66,6 +71,7 @@ export function AdminShellClient({
   user: UserData;
 }) {
   const pathname = usePathname();
+  const pageMeta = getAdminPageMeta(pathname);
   const isEmailVerified = user.emailVerified === true;
   const syncedProfile = useRef(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -119,163 +125,137 @@ export function AdminShellClient({
   }, [avatarUrl]);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-[var(--sidebar-width)] shrink-0 border-r bg-card lg:flex lg:flex-col">
-        <div className="flex h-14 items-center border-b px-5">
-          <Link href="/catalog" className="flex items-center gap-3 text-foreground">
-            <BookOpen className="h-5 w-5" />
-            <span className="text-sm font-semibold">BookShare</span>
-          </Link>
-        </div>
+    <AdminFlowProvider>
+      <div className="flex min-h-screen bg-background">
+        <aside className="hidden w-[var(--sidebar-width)] shrink-0 border-r bg-card lg:flex lg:flex-col">
+          <div className="flex h-16 items-center border-b px-5">
+            <Link href="/catalog" className="flex items-center gap-3 text-foreground">
+              <BookOpen className="h-5 w-5" />
+              <span className="text-sm font-semibold">BookShare</span>
+            </Link>
+          </div>
 
-        <nav className="flex-1 px-3 py-4">
-          {adminNavItems.map((item) => {
-            const isActive = isActiveAdminPath(pathname, item.href);
-            const showChildren = item.children?.some((child) =>
-              isActiveAdminPath(pathname, child.href)
-            );
+          <nav className="flex-1 px-3 py-4">
+            {adminNavItems.map((item) => {
+              const isActive = isActiveAdminPath(pathname, item.href);
 
-            return (
-              <div key={item.href} className="mb-1">
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  )}
+              return (
+                <div key={item.href} className="mb-1">
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
+                      isActive
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                </div>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex items-center gap-3 lg:hidden">
+                <BookOpen className="h-5 w-5" />
+                <span className="text-sm font-semibold">BookShare</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  {pageMeta.section}
+                </p>
+                <p className="truncate text-sm font-semibold text-foreground">{pageMeta.title}</p>
+              </div>
+            </div>
+
+            <div className="ml-4 flex items-center gap-2 sm:gap-3">
+              <Link
+                href="/team"
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition",
+                  isActiveAdminPath(pathname, "/team")
+                    ? "border-border bg-muted text-foreground"
+                    : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span className="hidden md:inline">Team Management</span>
+              </Link>
+
+              <div ref={accountMenuRef} className="relative flex items-center gap-3">
+                <span className="hidden max-w-[10rem] truncate text-sm font-medium text-foreground md:block">
+                  {displayName}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((value) => !value)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
+                  <MoreVertical className="h-4 w-4" />
+                </button>
 
-                {item.children && showChildren ? (
-                  <div className="ml-[1.625rem] mt-0.5">
-                    {item.children.map((child, childIndex) => {
-                      const isLast = childIndex === (item.children?.length ?? 0) - 1;
-                      return (
-                        <div key={child.href} className="flex items-stretch">
-                          <div className="relative w-4 shrink-0" aria-hidden="true">
-                            {isLast ? (
-                              <div
-                                className="absolute inset-0"
-                                style={{
-                                  borderLeft: "1px solid hsl(var(--border))",
-                                  borderBottom: "1px solid hsl(var(--border))",
-                                  borderBottomLeftRadius: "6px",
-                                  height: "50%",
-                                  width: "100%",
-                                }}
-                              />
-                            ) : (
-                              <>
-                                <div className="absolute inset-y-0 left-0 w-px bg-border" />
-                                <div className="absolute left-0 top-1/2 h-px w-full bg-border" />
-                              </>
-                            )}
-                          </div>
-                          <Link
-                            href={child.href}
-                            className={cn(
-                              "block rounded-md px-2 py-2 text-sm transition",
-                              pathname === child.href
-                                ? "font-medium text-foreground"
-                                : "text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            {child.label}
-                          </Link>
-                        </div>
-                      );
-                    })}
+                {accountMenuOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-xl border bg-card shadow-md">
+                    <div className="px-3 py-2.5">
+                      <p className="text-sm font-medium text-foreground">{displayName}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>
+                    </div>
+                    <div className="h-px bg-border" />
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-foreground transition hover:bg-accent"
+                      onClick={() => setAccountMenuOpen(false)}
+                    >
+                      <User className="h-4 w-4" />
+                      Profile
+                    </Link>
+                    <a
+                      href="/api/auth/logout"
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-foreground transition hover:bg-accent"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </a>
                   </div>
                 ) : null}
               </div>
-            );
-          })}
-        </nav>
-      </aside>
+            </div>
+          </header>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b bg-card px-4 sm:px-6">
-          <div className="flex items-center gap-3 lg:hidden">
-            <BookOpen className="h-5 w-5" />
-            <span className="text-sm font-semibold">BookShare</span>
-          </div>
+          <nav className="border-b bg-card px-4 py-2 lg:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {adminNavItems.map((item) => {
+                const isActive = isActiveAdminPath(pathname, item.href);
 
-          <div ref={accountMenuRef} className="relative ml-auto flex items-center gap-3">
-            <span className="max-w-[10rem] truncate text-sm font-medium text-foreground">
-              {displayName}
-            </span>
-            <button
-              type="button"
-              onClick={() => setAccountMenuOpen((value) => !value)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "min-w-max rounded-full px-3 py-1.5 text-sm transition",
+                      isActive
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
 
-            {accountMenuOpen ? (
-              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-xl border bg-card shadow-md">
-                <div className="px-3 py-2.5">
-                  <p className="text-sm font-medium text-foreground">{displayName}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>
-                </div>
-                <div className="h-px bg-border" />
-                <Link
-                  href="/profile"
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-foreground transition hover:bg-accent"
-                  onClick={() => setAccountMenuOpen(false)}
-                >
-                  <User className="h-4 w-4" />
-                  Profile
-                </Link>
-                <a
-                  href="/api/auth/logout"
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-foreground transition hover:bg-accent"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign out
-                </a>
-              </div>
-            ) : null}
-          </div>
-        </header>
-
-        <nav className="border-b bg-card px-4 py-2 lg:hidden">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {adminNavItems.flatMap((item) =>
-              item.children && isActiveAdminPath(pathname, item.href)
-                ? item.children.map((child) => ({ ...child, exact: true }))
-                : [{ href: item.href, label: item.label, exact: false }]
-            ).map((item) => {
-              const isActive = item.exact
-                ? pathname === item.href
-                : isActiveAdminPath(pathname, item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "min-w-max rounded-full px-3 py-1.5 text-sm transition",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-
-        <main className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</div>
-        </main>
+          <main className="flex-1 overflow-auto">
+            <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </AdminFlowProvider>
   );
 }

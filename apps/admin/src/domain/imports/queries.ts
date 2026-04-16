@@ -48,8 +48,7 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
 export function useRecentImportRuns(limit = 8) {
   return useQuery({
     queryKey: ["admin-import-runs", limit],
-    queryFn: () =>
-      requestJson<ImportRunRecord[]>(`/api/nestjs/imports?limit=${limit}`),
+    queryFn: () => requestJson<ImportRunRecord[]>(`/api/nestjs/imports?limit=${limit}`),
   });
 }
 

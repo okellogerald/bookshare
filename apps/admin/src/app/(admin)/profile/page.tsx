@@ -1,4 +1,4 @@
-import { getSession } from "@/features/auth/lib/session";
+import { getSession } from "@/domain/auth/lib/session";
 import { PageIntro } from "@/shared/components/page-intro";
 
 export default async function ProfilePage() {

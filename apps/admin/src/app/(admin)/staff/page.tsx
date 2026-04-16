@@ -1,9 +1,5 @@
-import { getSession } from "@/features/auth/lib/session";
-import { StaffWorkspace } from "@/features/staff/components/staff-workspace";
+import { redirect } from "next/navigation";
 
-export default async function StaffPage() {
-  const session = await getSession();
-  const actorRoles = session?.user.roles ?? [];
-
-  return <StaffWorkspace actorRoles={actorRoles} />;
+export default function StaffPage() {
+  redirect("/team");
 }

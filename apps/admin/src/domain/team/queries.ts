@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   StaffDirectoryEntry,
   StaffIdentitySearchResult,
@@ -20,11 +16,7 @@ function getErrorMessage(payload: unknown, fallback: string) {
     return payload;
   }
 
-  if (
-    payload &&
-    typeof payload === "object" &&
-    "message" in payload
-  ) {
+  if (payload && typeof payload === "object" && "message" in payload) {
     const message = (payload as { message?: unknown }).message;
     if (typeof message === "string" && message.trim().length > 0) {
       return message;
@@ -52,7 +44,7 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
       payload = await response.text();
     }
 
-    throw new Error(getErrorMessage(payload, "Staff request failed."));
+    throw new Error(getErrorMessage(payload, "Team request failed."));
   }
 
   return (await response.json()) as T;
@@ -69,78 +61,68 @@ async function fetchStaffDirectory(query: string): Promise<StaffDirectoryEntry[]
   );
 }
 
-async function searchStaffIdentities(
-  query: string
-): Promise<StaffIdentitySearchResult[]> {
+async function searchStaffIdentities(query: string): Promise<StaffIdentitySearchResult[]> {
   const normalized = query.trim();
   if (normalized.length < 2) {
     return [];
   }
 
   const params = new URLSearchParams({ query: normalized });
-  return requestJson<StaffIdentitySearchResult[]>(
-    `/api/nestjs/staff/search?${params}`
-  );
+  return requestJson<StaffIdentitySearchResult[]>(`/api/nestjs/staff/search?${params}`);
 }
 
-async function mutateStaffRole(
-  method: "POST" | "DELETE",
-  input: ManageStaffRoleInput
-) {
-  return requestJson<{ ok: true; userId: string; role: string }>(
-    "/api/nestjs/staff/roles",
-    {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(input),
-    }
-  );
+async function mutateStaffRole(method: "POST" | "DELETE", input: ManageStaffRoleInput) {
+  return requestJson<{ ok: true; userId: string; role: string }>("/api/nestjs/staff/roles", {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
 }
 
-export function useStaffDirectory(query: string) {
+export function useTeamDirectory(query: string) {
   const normalized = query.trim();
 
   return useQuery({
-    queryKey: ["admin-staff-directory", normalized],
+    queryKey: ["admin-team-directory", normalized],
     queryFn: () => fetchStaffDirectory(normalized),
   });
 }
 
-export function useStaffIdentitySearch(query: string) {
+export function useTeamIdentitySearch(query: string) {
   const normalized = query.trim();
 
   return useQuery({
-    queryKey: ["admin-staff-identity-search", normalized],
+    queryKey: ["admin-team-identity-search", normalized],
     queryFn: () => searchStaffIdentities(normalized),
     enabled: normalized.length >= 2,
   });
 }
 
-export function useGrantStaffRole() {
+export function useGrantTeamRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (input: ManageStaffRoleInput) => mutateStaffRole("POST", input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["admin-staff-directory"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-staff-identity-search"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-team-directory"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-team-identity-search"] }),
       ]);
     },
   });
 }
 
-export function useRevokeStaffRole() {
+export function useRevokeTeamRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (input: ManageStaffRoleInput) => mutateStaffRole("DELETE", input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["admin-staff-directory"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-staff-identity-search"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-team-directory"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-team-identity-search"] }),
       ]);
     },
   });

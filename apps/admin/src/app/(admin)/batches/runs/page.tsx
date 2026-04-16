@@ -1,15 +1,5 @@
-import { RecentImportRunsPanel } from "@/features/batches/components/recent-import-runs-panel";
-import { PageIntro } from "@/shared/components/page-intro";
+import { redirect } from "next/navigation";
 
 export default function BatchRunsPage() {
-  return (
-    <section className="space-y-6">
-      <PageIntro
-        title="Recent runs"
-        description="Keep historical import activity nearby, but separate from the step-by-step validation flow."
-      />
-
-      <RecentImportRunsPanel />
-    </section>
-  );
+  redirect("/batches");
 }
