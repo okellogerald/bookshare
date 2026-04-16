@@ -1,6 +1,6 @@
-import { VerificationForm } from "@/features/auth-flows/verification/components/verification-form";
-import { loadVerificationPageData } from "@/features/auth-flows/verification/server/load-verification-page";
-import { type AuthSearchParams } from "@/lib/search-params";
+import { VerificationForm } from "@/flows/verification/components/verification-form";
+import { loadVerificationPageData } from "@/flows/verification/server/load-verification-page";
+import { type AuthSearchParams } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

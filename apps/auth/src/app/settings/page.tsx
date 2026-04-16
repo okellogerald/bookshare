@@ -1,6 +1,6 @@
-import { SettingsForm } from "@/features/auth-flows/settings/components/settings-form";
-import { loadSettingsPageData } from "@/features/auth-flows/settings/server/load-settings-page";
-import { type AuthSearchParams } from "@/lib/search-params";
+import { SettingsForm } from "@/flows/settings/components/settings-form";
+import { loadSettingsPageData } from "@/flows/settings/server/load-settings-page";
+import { type AuthSearchParams } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

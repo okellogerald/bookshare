@@ -1,6 +1,6 @@
-import { LoginForm } from "@/features/auth-flows/login/components/login-form";
-import { loadLoginPageData } from "@/features/auth-flows/login/server/load-login-page";
-import { type AuthSearchParams } from "@/lib/search-params";
+import { LoginForm } from "@/flows/login/components/login-form";
+import { loadLoginPageData } from "@/flows/login/server/load-login-page";
+import { type AuthSearchParams } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

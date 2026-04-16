@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
+import { type AuthSearchParams, getSingleParam } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

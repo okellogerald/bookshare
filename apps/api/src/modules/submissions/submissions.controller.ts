@@ -1,10 +1,22 @@
-import { Body, Controller, Headers, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { CurrentUser } from "../../common/decorators";
+import { UserRole } from "@bookshare/shared";
+import { CurrentUser, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
+  ApproveCopySubmissionDto,
   CreateCopySubmissionDto,
   CreateMissingWantSubmissionDto,
+  RejectCopySubmissionDto,
 } from "./dto";
 import { SubmissionsService } from "./submissions.service";
 
@@ -13,6 +25,8 @@ import { SubmissionsService } from "./submissions.service";
 @Controller("submissions")
 export class SubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
+
+  // ── Member-facing ──────────────────────────────────────────
 
   @Post("copy")
   submitCopy(
@@ -41,6 +55,48 @@ export class SubmissionsController {
       user,
       authorization,
       identityAccessToken
+    );
+  }
+
+  // ── Staff-facing ───────────────────────────────────────────
+
+  @Get("copies")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  listCopySubmissions(@Query("status") status?: string) {
+    return this.submissionsService.listCopySubmissions(status);
+  }
+
+  @Get("copies/:id")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  getCopySubmission(@Param("id") id: string) {
+    return this.submissionsService.getCopySubmission(id);
+  }
+
+  @Patch("copies/:id/approve")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  approveCopySubmission(
+    @Param("id") id: string,
+    @Body() dto: ApproveCopySubmissionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.submissionsService.approveCopySubmission(
+      id,
+      dto,
+      user.email ?? user.id
+    );
+  }
+
+  @Patch("copies/:id/reject")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  rejectCopySubmission(
+    @Param("id") id: string,
+    @Body() dto: RejectCopySubmissionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.submissionsService.rejectCopySubmission(
+      id,
+      dto,
+      user.email ?? user.id
     );
   }
 }

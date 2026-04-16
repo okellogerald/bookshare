@@ -1,7 +1,7 @@
 import NextLink from "next/link";
-import { AuthShell } from "@/components/auth-shell";
-import { getFlowErrorById } from "@/lib/kratos";
-import { type AuthSearchParams, getSingleParam } from "@/lib/search-params";
+import { AuthShell } from "@/shared/components/auth-shell";
+import { getFlowErrorById } from "@/shared/lib/kratos";
+import { type AuthSearchParams, getSingleParam } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

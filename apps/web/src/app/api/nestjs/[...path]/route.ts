@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken, getSession } from "@/features/auth/lib/session";
-import { createDPoPProof, tokenHasDpopBinding } from "@/features/auth/lib/dpop";
+import { getAccessToken, getSession } from "@/domains/auth/lib/session";
+import { createDPoPProof, tokenHasDpopBinding } from "@/domains/auth/lib/dpop";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||

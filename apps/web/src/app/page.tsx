@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { BookOpen } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { sanitizeReturnTo } from "@/features/auth/lib/auth-portal";
+import { sanitizeReturnTo } from "@/domains/auth/lib/auth-portal";
 
 type LandingSearchParams = Record<string, string | string[] | undefined>;
 

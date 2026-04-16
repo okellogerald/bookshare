@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBookshareAppPublicUrl } from "@/lib/config";
-import { getHydraLoginChallenge } from "@/lib/hydra-login-context";
+import { getBookshareAppPublicUrl } from "@/shared/lib/config";
+import { getHydraLoginChallenge } from "@/shared/lib/hydra-login-context";
 import {
   getKratosSession,
   hasKratosAuthenticationMethod,
-} from "@/lib/kratos";
+} from "@/shared/lib/kratos";
 
 export async function GET(request: NextRequest) {
   // Settings completion is an auth-owned decision point. If auth is currently

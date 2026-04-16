@@ -12,8 +12,8 @@
  * @see `/logout` (this app) — Phase 3 (Kratos session cleanup)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthPortalPublicUrl } from "@/lib/config";
-import { hydraAdminRequest } from "@/lib/hydra";
+import { getAuthPortalPublicUrl } from "@/shared/lib/config";
+import { hydraAdminRequest } from "@/shared/lib/hydra";
 
 export async function GET(request: NextRequest) {
   const challenge = request.nextUrl.searchParams.get("logout_challenge");

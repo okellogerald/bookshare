@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import {
   buildAppLoginUrl,
   sanitizeReturnTo,
-} from "@/features/auth/lib/auth-portal";
+} from "@/domains/auth/lib/auth-portal";
 
 type AuthSearchParams = Record<string, string | string[] | undefined>;
 

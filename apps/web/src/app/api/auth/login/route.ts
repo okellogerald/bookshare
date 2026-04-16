@@ -31,9 +31,9 @@ import {
   persistOIDCTransaction,
 } from "@bookshare/shared";
 import * as client from "openid-client";
-import { getOIDCConfig, getRedirectUri } from "@/features/auth/lib/oidc";
-import { encrypt } from "@/features/auth/lib/crypto";
-import { WEB_OIDC_COOKIE_NAMES } from "@/features/auth/lib/cookie-names";
+import { getOIDCConfig, getRedirectUri } from "@/domains/auth/lib/oidc";
+import { encrypt } from "@/domains/auth/lib/crypto";
+import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
 
 export async function GET(request: NextRequest) {
   // Discover Hydra's OIDC metadata (authorization endpoint, token endpoint, etc.)

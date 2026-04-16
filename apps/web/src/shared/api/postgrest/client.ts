@@ -10,7 +10,7 @@
  * The JWT is forwarded to Postgres which enforces RLS policies.
  */
 
-import { getAccessToken } from "@/features/auth/lib/session";
+import { getAccessToken } from "@/domains/auth/lib/session";
 
 const POSTGREST_URL =
   process.env.POSTGREST_INTERNAL_URL ||

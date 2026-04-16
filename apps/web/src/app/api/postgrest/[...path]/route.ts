@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken, getSession } from "@/features/auth/lib/session";
+import { getAccessToken, getSession } from "@/domains/auth/lib/session";
 
 const POSTGREST_URL =
   process.env.POSTGREST_INTERNAL_URL ||

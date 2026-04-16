@@ -25,7 +25,7 @@ import {
   getBookshareAppPublicUrl,
   getKratosBrowserUrl,
   getKratosInternalPublicUrl,
-} from "@/lib/config";
+} from "@/shared/lib/config";
 
 /**
  * Sanitize the return_to URL against a whitelist of allowed origins.

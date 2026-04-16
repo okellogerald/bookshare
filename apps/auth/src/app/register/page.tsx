@@ -1,6 +1,6 @@
-import { RegistrationForm } from "@/features/auth-flows/registration/components/registration-form";
-import { loadRegistrationPageData } from "@/features/auth-flows/registration/server/load-registration-page";
-import { type AuthSearchParams } from "@/lib/search-params";
+import { RegistrationForm } from "@/flows/registration/components/registration-form";
+import { loadRegistrationPageData } from "@/flows/registration/server/load-registration-page";
+import { type AuthSearchParams } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

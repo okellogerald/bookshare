@@ -31,10 +31,10 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthPortalPublicUrl,
   getHydraRememberFor,
-} from "@/lib/config";
-import { hydraAdminRequest } from "@/lib/hydra";
-import { getKratosSession, isKratosEmailVerified } from "@/lib/kratos";
-import { resolveStaffRoles } from "@/lib/staff-roles";
+} from "@/shared/lib/config";
+import { hydraAdminRequest } from "@/shared/lib/hydra";
+import { getKratosSession, isKratosEmailVerified } from "@/shared/lib/kratos";
+import { resolveStaffRoles } from "@/shared/lib/staff-roles";
 
 interface HydraConsentRequest {
   subject: string;

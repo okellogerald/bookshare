@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { sanitizeReturnTo } from "@/features/auth/lib/auth-portal";
+import { sanitizeReturnTo } from "@/domains/auth/lib/auth-portal";
 
 type AuthSearchParams = Record<string, string | string[] | undefined>;
 

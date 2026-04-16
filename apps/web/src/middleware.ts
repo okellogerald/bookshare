@@ -22,12 +22,12 @@
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { decrypt } from "@/features/auth/lib/crypto";
+import { decrypt } from "@/domains/auth/lib/crypto";
 import {
   WEB_LOGGED_OUT_COOKIE,
   WEB_SESSION_COOKIE,
   WEB_TOKEN_COOKIE,
-} from "@/features/auth/lib/cookie-names";
+} from "@/domains/auth/lib/cookie-names";
 
 /**
  * Route prefixes that require a valid, non-expired session with verified email.

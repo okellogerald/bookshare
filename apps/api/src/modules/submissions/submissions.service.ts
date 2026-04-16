@@ -1,14 +1,26 @@
 import {
   BadGatewayException,
   BadRequestException,
+  Inject,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { eq, desc } from "drizzle-orm";
+import {
+  type Database,
+  copySubmissions,
+  copies,
+  editions,
+} from "@bookshare/db";
+import { DRIZZLE } from "../../drizzle/drizzle.service";
 import type { AuthenticatedUser } from "../../common/guards";
 import { MailerService } from "../mailer/mailer.service";
 import {
+  ApproveCopySubmissionDto,
   CreateCopySubmissionDto,
   CreateMissingWantSubmissionDto,
+  RejectCopySubmissionDto,
 } from "./dto";
 
 interface SubmissionResponse {
@@ -18,9 +30,12 @@ interface SubmissionResponse {
 @Injectable()
 export class SubmissionsService {
   constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService
   ) {}
+
+  // ── Member-facing ──────────────────────────────────────────
 
   async submitCopy(
     dto: CreateCopySubmissionDto,
@@ -33,14 +48,29 @@ export class SubmissionsService {
       authorization,
       identityAccessToken
     );
-    const adminBody = this.buildCopyAdminEmailBody(dto, user.id, userEmail);
 
-    await this.mailerService.sendAdminSubmission("[COPY SUBMISSION]", adminBody);
+    // Persist to database.
+    await this.db.insert(copySubmissions).values({
+      userId: user.id,
+      userEmail,
+      title: dto.title,
+      subtitle: undefined,
+      authors: dto.authors,
+      isbn: dto.isbn?.trim() || undefined,
+      language: dto.language?.trim() || undefined,
+      bookDescriptionNotes: dto.bookDescriptionNotes?.trim() || undefined,
+      condition: dto.condition as typeof copySubmissions.$inferInsert.condition,
+      shareType: dto.shareType as typeof copySubmissions.$inferInsert.shareType,
+      notes: dto.notes?.trim() || undefined,
+      contactNote: dto.contactNote?.trim() || undefined,
+    });
+
+    // Send confirmation email to user.
     await this.mailerService.sendUserConfirmation(
       userEmail,
       "BookShare copy submission received",
       [
-        "Your copy submission was received and sent to the BookShare admin inbox.",
+        "Your copy submission was received and is now in the review queue.",
         "",
         `Submitted at: ${new Date().toISOString()}`,
         `Book title: ${dto.title}`,
@@ -79,6 +109,150 @@ export class SubmissionsService {
 
     return { submitted: true };
   }
+
+  // ── Staff-facing ───────────────────────────────────────────
+
+  async listCopySubmissions(status?: string) {
+    if (status && !["pending", "approved", "rejected"].includes(status)) {
+      throw new BadRequestException(
+        "Invalid status filter. Must be pending, approved, or rejected."
+      );
+    }
+
+    const rows = await this.db.query.copySubmissions.findMany({
+      where: status
+        ? eq(
+            copySubmissions.status,
+            status as "pending" | "approved" | "rejected"
+          )
+        : undefined,
+      orderBy: [desc(copySubmissions.createdAt)],
+    });
+
+    return rows;
+  }
+
+  async getCopySubmission(id: string) {
+    const row = await this.db.query.copySubmissions.findFirst({
+      where: eq(copySubmissions.id, id),
+    });
+
+    if (!row) {
+      throw new NotFoundException("Copy submission not found.");
+    }
+
+    return row;
+  }
+
+  async approveCopySubmission(
+    id: string,
+    dto: ApproveCopySubmissionDto,
+    reviewerUsername: string
+  ) {
+    const submission = await this.db.query.copySubmissions.findFirst({
+      where: eq(copySubmissions.id, id),
+    });
+
+    if (!submission) {
+      throw new NotFoundException("Copy submission not found.");
+    }
+
+    if (submission.status !== "pending") {
+      throw new BadRequestException(
+        `Submission is already ${submission.status}.`
+      );
+    }
+
+    // Verify edition exists.
+    const edition = await this.db.query.editions.findFirst({
+      where: eq(editions.id, dto.editionId),
+    });
+
+    if (!edition) {
+      throw new BadRequestException("Edition not found.");
+    }
+
+    // Determine copy fields: use DTO overrides or fall back to submission values.
+    const condition = (dto.condition ?? submission.condition ?? "good") as
+      | "new"
+      | "like_new"
+      | "good"
+      | "fair"
+      | "poor";
+    const shareType = (dto.shareType ?? submission.shareType ?? undefined) as
+      | "lend"
+      | "sell"
+      | "give_away"
+      | undefined;
+
+    // Create the copy for the member.
+    const [createdCopy] = await this.db
+      .insert(copies)
+      .values({
+        userId: submission.userId,
+        editionId: dto.editionId,
+        condition,
+        status: "available",
+        shareType: shareType ?? null,
+        notes: dto.notes?.trim() || submission.notes || undefined,
+        contactNote:
+          dto.contactNote?.trim() || submission.contactNote || undefined,
+      })
+      .returning({ id: copies.id });
+
+    // Update submission status.
+    await this.db
+      .update(copySubmissions)
+      .set({
+        status: "approved",
+        reviewerUsername,
+        reviewedAt: new Date(),
+        reviewNotes: dto.reviewNotes?.trim() || undefined,
+        resolvedEditionId: dto.editionId,
+        resolvedCopyId: createdCopy.id,
+      })
+      .where(eq(copySubmissions.id, id));
+
+    return {
+      approved: true,
+      copyId: createdCopy.id,
+      editionId: dto.editionId,
+    };
+  }
+
+  async rejectCopySubmission(
+    id: string,
+    dto: RejectCopySubmissionDto,
+    reviewerUsername: string
+  ) {
+    const submission = await this.db.query.copySubmissions.findFirst({
+      where: eq(copySubmissions.id, id),
+    });
+
+    if (!submission) {
+      throw new NotFoundException("Copy submission not found.");
+    }
+
+    if (submission.status !== "pending") {
+      throw new BadRequestException(
+        `Submission is already ${submission.status}.`
+      );
+    }
+
+    await this.db
+      .update(copySubmissions)
+      .set({
+        status: "rejected",
+        reviewerUsername,
+        reviewedAt: new Date(),
+        reviewNotes: dto.reviewNotes?.trim() || undefined,
+      })
+      .where(eq(copySubmissions.id, id));
+
+    return { rejected: true };
+  }
+
+  // ── Private helpers ────────────────────────────────────────
 
   private async resolveUserEmail(
     user: AuthenticatedUser,
@@ -159,45 +333,6 @@ export class SubmissionsService {
 
     const payload = (await response.json()) as { email?: string };
     return payload.email?.trim() || null;
-  }
-
-  private buildCopyAdminEmailBody(
-    dto: CreateCopySubmissionDto,
-    userId: string,
-    userEmail: string
-  ) {
-    const lines = [
-      "New copy submission received.",
-      "",
-      `Submitted at: ${new Date().toISOString()}`,
-      `User ID: ${userId}`,
-      `User Email: ${userEmail}`,
-      "",
-      "Book Identifiers",
-      `Title: ${dto.title}`,
-      `Authors: ${dto.authors.join(", ")}`,
-      `ISBN: ${dto.isbn?.trim() || "-"}`,
-      `Language: ${dto.language?.trim() || "-"}`,
-      `Book Description Notes: ${dto.bookDescriptionNotes?.trim() || "-"}`,
-      "",
-      "Copy Details",
-      `Condition: ${dto.condition || "-"}`,
-      `Share Type: ${dto.shareType || "-"}`,
-      `Notes: ${dto.notes?.trim() || "-"}`,
-      `Contact Note: ${dto.contactNote?.trim() || "-"}`,
-      "",
-      "Copy Images",
-    ];
-
-    if (!dto.imageUrls?.length) {
-      lines.push("None");
-    } else {
-      dto.imageUrls.forEach((url, index) => {
-        lines.push(`${index + 1}. ${url}`);
-      });
-    }
-
-    return lines.join("\n");
   }
 
   private buildMissingWantAdminEmailBody(

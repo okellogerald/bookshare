@@ -43,18 +43,18 @@ import {
   getAuthPortalPublicUrl,
   getBookshareAppPublicUrl,
   getHydraRememberFor,
-} from "@/lib/config";
+} from "@/shared/lib/config";
 import {
   clearHydraLoginChallenge,
   getHydraLoginChallenge,
   persistHydraLoginChallenge,
-} from "@/lib/hydra-login-context";
-import { hydraAdminRequest } from "@/lib/hydra";
+} from "@/shared/lib/hydra-login-context";
+import { hydraAdminRequest } from "@/shared/lib/hydra";
 import {
   getKratosSession,
   isKratosEmailVerified,
   isKratosProfileComplete,
-} from "@/lib/kratos";
+} from "@/shared/lib/kratos";
 
 interface HydraLoginRequest {
   /** True when Hydra has a cached login for this subject (remember=true). */

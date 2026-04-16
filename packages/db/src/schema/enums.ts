@@ -79,3 +79,9 @@ export const bookFormatEnum = pgEnum("book_format", [
   "paperback",
   "mass_market",
 ]);
+
+export const copySubmissionStatusEnum = pgEnum("copy_submission_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);

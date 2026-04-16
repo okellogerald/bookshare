@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { buildAuthPortalSettingsUrl } from "@/features/auth/lib/auth-portal";
+import { buildAuthPortalSettingsUrl } from "@/domains/auth/lib/auth-portal";
 
 type AuthSearchParams = Record<string, string | string[] | undefined>;
 

@@ -1,6 +1,6 @@
-import { RecoveryForm } from "@/features/auth-flows/recovery/components/recovery-form";
-import { loadRecoveryPageData } from "@/features/auth-flows/recovery/server/load-recovery-page";
-import { type AuthSearchParams } from "@/lib/search-params";
+import { RecoveryForm } from "@/flows/recovery/components/recovery-form";
+import { loadRecoveryPageData } from "@/flows/recovery/server/load-recovery-page";
+import { type AuthSearchParams } from "@/shared/lib/search-params";
 
 export const dynamic = "force-dynamic";
 

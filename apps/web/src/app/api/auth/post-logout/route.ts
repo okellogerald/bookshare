@@ -14,7 +14,7 @@
  * @see `apps/auth/src/app/logout/route.ts` — Kratos session cleanup (Phase 3)
  */
 import { NextResponse } from "next/server";
-import { buildAuthPortalLogoutUrl } from "@/features/auth/lib/auth-portal";
+import { buildAuthPortalLogoutUrl } from "@/domains/auth/lib/auth-portal";
 
 export async function GET() {
   return NextResponse.redirect(buildAuthPortalLogoutUrl());

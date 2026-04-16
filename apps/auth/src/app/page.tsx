@@ -1,5 +1,5 @@
 import NextLink from "next/link";
-import { AuthShell } from "@/components/auth-shell";
+import { AuthShell } from "@/shared/components/auth-shell";
 
 export default function HomePage() {
   return (

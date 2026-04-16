@@ -29,10 +29,10 @@ import {
 import * as client from "openid-client";
 import {
   getOIDCConfig,
-} from "@/features/auth/lib/oidc";
-import { buildAppPostLogoutUrl } from "@/features/auth/lib/auth-portal";
-import { getSession } from "@/features/auth/lib/session";
-import { WEB_OIDC_COOKIE_NAMES } from "@/features/auth/lib/cookie-names";
+} from "@/domains/auth/lib/oidc";
+import { buildAppPostLogoutUrl } from "@/domains/auth/lib/auth-portal";
+import { getSession } from "@/domains/auth/lib/session";
+import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
 
 export async function GET() {
   // After Hydra completes its logout, it will redirect the browser here.

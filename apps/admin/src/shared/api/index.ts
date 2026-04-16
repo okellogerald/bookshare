@@ -11,3 +11,10 @@ export type {
   StaffIdentitySearchResult,
   StaffRoleAssignment,
 } from "./staff/types";
+export type {
+  CopySubmissionRecord,
+  ApproveCopySubmissionInput,
+  RejectCopySubmissionInput,
+  ApproveCopySubmissionResult,
+  RejectCopySubmissionResult,
+} from "./submissions/types";

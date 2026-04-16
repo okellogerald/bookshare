@@ -32,16 +32,16 @@ import {
   readOIDCTransaction,
 } from "@bookshare/shared";
 import * as client from "openid-client";
-import { getOIDCConfig } from "@/features/auth/lib/oidc";
-import { setSession } from "@/features/auth/lib/session";
-import { decrypt } from "@/features/auth/lib/crypto";
+import { getOIDCConfig } from "@/domains/auth/lib/oidc";
+import { setSession } from "@/domains/auth/lib/session";
+import { decrypt } from "@/domains/auth/lib/crypto";
 import {
   generateDPoPKeyPair,
   exportPrivateKeyJwk,
   createDPoPProof,
   tokenHasDpopBinding,
-} from "@/features/auth/lib/dpop";
-import { WEB_OIDC_COOKIE_NAMES } from "@/features/auth/lib/cookie-names";
+} from "@/domains/auth/lib/dpop";
+import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
 
 /** Internal URL for the NestJS resource server (server-to-server). */
 const API_URL =
