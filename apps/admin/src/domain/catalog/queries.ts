@@ -324,6 +324,29 @@ export function useCatalogSummaryCounts() {
   });
 }
 
+async function fetchEditionsByBook(bookId: string): Promise<CatalogEditionRecord[]> {
+  const params = new URLSearchParams();
+  params.set(
+    "select",
+    "id,isbn,format,description,publisher,published_year,page_count,cover_image_url,created_at,updated_at,book:books(id,title,subtitle,language)"
+  );
+  params.set("book_id", `eq.${bookId}`);
+  params.set("order", "created_at.desc");
+
+  const response = await fetch(`/api/postgrest/editions?${params}`);
+  if (!response.ok) throw new Error("Failed to load editions for this book.");
+  const json = await response.json();
+  return (json.data ?? []) as CatalogEditionRecord[];
+}
+
+export function useEditionsByBook(bookId: string | null) {
+  return useQuery({
+    queryKey: ["admin-editions-by-book", bookId],
+    queryFn: () => fetchEditionsByBook(bookId!),
+    enabled: !!bookId,
+  });
+}
+
 export function useCatalogEditions(limit = 40) {
   return useQuery({
     queryKey: ["admin-catalog-editions", limit],

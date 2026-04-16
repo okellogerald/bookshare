@@ -60,19 +60,25 @@ export function CatalogPageContent() {
       icon: Inbox,
       title: "Copy submissions",
       description:
-        "Reserved for the DB-backed intake queue that will replace email-only copy submissions.",
+        "Review member copy requests, match to catalog entries, and approve to create copies.",
+      href: "/catalog/submissions" as string | null,
+      reserved: false,
     },
     {
       icon: CircleDashed,
       title: "Want submissions",
       description:
         "Reserved for missing-title and want-submission review once those requests are persisted in the database.",
+      href: null,
+      reserved: true,
     },
     {
       icon: Heart,
       title: "Requests",
       description:
         "Catalog-related requests move into this page instead of living as their own admin route.",
+      href: null,
+      reserved: true,
     },
   ];
 
@@ -125,36 +131,56 @@ export function CatalogPageContent() {
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Reserved intake queues</h2>
+          <h2 className="text-lg font-semibold text-foreground">Intake queues</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            These queues are intentionally reserved for the later DB-backed submissions service.
+            Submission queues for member requests that require admin review before catalog data is committed.
           </p>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {intakeCards.map((card) => (
-            <Card key={card.title} className="border-border/75 bg-card/[0.92]">
-              <CardContent className="space-y-4 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="rounded-[1.1rem] border border-border/75 bg-background/80 p-3 text-primary">
-                    <card.icon className="h-5 w-5" />
+          {intakeCards.map((card) => {
+            const inner = (
+              <Card
+                className={
+                  card.href
+                    ? "group border-border/75 bg-card/[0.92] transition hover:border-primary/30 hover:shadow-sm"
+                    : "border-border/75 bg-card/[0.92]"
+                }
+              >
+                <CardContent className="space-y-4 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="rounded-[1.1rem] border border-border/75 bg-background/80 p-3 text-primary">
+                      <card.icon className="h-5 w-5" />
+                    </div>
+                    {card.reserved ? (
+                      <Badge
+                        variant="secondary"
+                        className="border border-border/75 bg-background/75 text-muted-foreground"
+                      >
+                        Reserved
+                      </Badge>
+                    ) : (
+                      <ArrowRight className="h-4 w-4 text-muted-foreground/50 transition group-hover:text-primary" />
+                    )}
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className="border border-border/75 bg-background/75 text-muted-foreground"
-                  >
-                    Reserved
-                  </Badge>
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-foreground">{card.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {card.description}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">{card.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {card.description}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+
+            return card.href ? (
+              <Link key={card.title} href={card.href}>
+                {inner}
+              </Link>
+            ) : (
+              <div key={card.title}>{inner}</div>
+            );
+          })}
         </div>
       </section>
     </section>

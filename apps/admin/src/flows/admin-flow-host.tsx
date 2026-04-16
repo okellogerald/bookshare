@@ -7,6 +7,7 @@ import { AddEditionFlow } from "./add-edition";
 import { AddTeamMemberFlow } from "./add-team-member";
 import { CatalogSearchFlow } from "./catalog-search";
 import { ImportBatchFlow } from "./import-batch";
+import { ReviewCopySubmissionFlow } from "./review-copy-submission";
 
 function getFlowChrome(flow: AdminFlow) {
   switch (flow.kind) {
@@ -44,6 +45,13 @@ function getFlowChrome(flow: AdminFlow) {
           "Review the selected team member’s current roles and make changes in this isolated flow.",
         size: "lg" as const,
       };
+    case "review-copy-submission":
+      return {
+        title: "Review Copy Submission",
+        description:
+          "Review the member’s submitted data and create the catalog entry.",
+        size: "xl" as const,
+      };
   }
 }
 
@@ -76,10 +84,15 @@ export function AdminFlowHost({
         <ImportBatchFlow />
       ) : activeFlow.kind === "add-team-member" ? (
         <AddTeamMemberFlow actorRoles={activeFlow.actorRoles} onComplete={onClose} />
-      ) : (
+      ) : activeFlow.kind === "manage-team-member" ? (
         <ManageTeamMemberFlow
           actorRoles={activeFlow.actorRoles}
           entry={activeFlow.entry}
+          onClose={onClose}
+        />
+      ) : (
+        <ReviewCopySubmissionFlow
+          submission={activeFlow.submission}
           onClose={onClose}
         />
       )}
