@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Plus, ShieldCheck } from "lucide-react";
-import { useAdminFlow } from "@/app/(admin)/_flows/admin-flow-provider";
+import { useAdminFlow } from "@/flows/admin-flow-provider";
 import { useTeamDirectory } from "@/domain/team/queries";
 import { PageIntro } from "@/shared/components/page-intro";
 import { Badge } from "@/shared/components/ui/badge";

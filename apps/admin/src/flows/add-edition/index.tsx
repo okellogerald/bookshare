@@ -10,7 +10,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { FlowStepper } from "@/app/(admin)/_components/flow-stepper";
+import { FlowStepper } from "@/shared/components/flow-stepper";
 import {
   type AuthorRecord,
   type CreateBookInput,

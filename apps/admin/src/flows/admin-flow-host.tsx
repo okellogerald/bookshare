@@ -1,12 +1,12 @@
 "use client";
 
-import { AddEditionFlow } from "@/app/(admin)/_flows/add-edition";
-import { AddTeamMemberFlow } from "@/app/(admin)/_flows/add-team-member";
-import { CatalogSearchFlow } from "@/app/(admin)/_flows/catalog-search";
-import { ImportBatchFlow } from "@/app/(admin)/_flows/import-batch";
-import { ManageTeamMemberFlow } from "@/app/(admin)/_flows/manage-team-member";
 import { RightPanel } from "@/shared/components/right-panel";
 import type { AdminFlow } from "./types";
+import { ManageTeamMemberFlow } from "./manage-team-member";
+import { AddEditionFlow } from "./add-edition";
+import { AddTeamMemberFlow } from "./add-team-member";
+import { CatalogSearchFlow } from "./catalog-search";
+import { ImportBatchFlow } from "./import-batch";
 
 function getFlowChrome(flow: AdminFlow) {
   switch (flow.kind) {

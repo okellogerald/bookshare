@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Upload, Waypoints, X } from "lucide-react";
-import { FlowStepper } from "@/app/(admin)/_components/flow-stepper";
+import { FlowStepper } from "@/shared/components/flow-stepper";
 import { useCommitImportRun, useValidateImportZip } from "@/domain/imports/queries";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";

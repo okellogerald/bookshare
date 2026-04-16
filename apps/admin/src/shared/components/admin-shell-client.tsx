@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, LogOut, MoreVertical, ShieldCheck, User } from "lucide-react";
-import { AdminFlowProvider } from "@/app/(admin)/_flows/admin-flow-provider";
+import { AdminFlowProvider } from "@/flows/admin-flow-provider";
 import {
   adminNavItems,
   getAdminPageMeta,

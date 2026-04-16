@@ -8,7 +8,7 @@ import {
   Plus,
   Search,
 } from "lucide-react";
-import { useAdminFlow } from "@/app/(admin)/_flows/admin-flow-provider";
+import { useAdminFlow } from "@/flows/admin-flow-provider";
 import {
   useCatalogCopies,
   useCatalogEditions,

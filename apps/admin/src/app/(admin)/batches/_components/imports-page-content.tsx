@@ -1,7 +1,7 @@
 "use client";
 
 import { Upload } from "lucide-react";
-import { useAdminFlow } from "@/app/(admin)/_flows/admin-flow-provider";
+import { useAdminFlow } from "@/flows/admin-flow-provider";
 import { RecentImportRunsPanel } from "@/app/(admin)/batches/_components/recent-import-runs-panel";
 import { PageIntro } from "@/shared/components/page-intro";
 import { Button } from "@/shared/components/ui/button";
