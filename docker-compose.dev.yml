@@ -352,6 +352,7 @@ services:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
       - ./apps/admin/package.json:/app/apps/admin/package.json:ro
+      - ./apps/admin/next.config.ts:/app/apps/admin/next.config.ts:ro
       - ./apps/admin/src:/app/apps/admin/src
       - ./packages/shared/src:/app/packages/shared/src
     depends_on:

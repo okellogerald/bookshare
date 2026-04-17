@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "@/shared/styles/globals.css";
 import { QueryProvider } from "@/shared/providers/query-provider";
 
-const displayFont = Manrope({
+const geistSans = Geist({
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
   display: "swap",
-  variable: "--font-display",
+  variable: "--font-geist-sans",
+  fallback: ["Avenir", "ui-sans-serif", "system-ui", "sans-serif"],
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={displayFont.variable}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="font-sans">
         <QueryProvider>{children}</QueryProvider>
       </body>

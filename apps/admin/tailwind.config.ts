@@ -5,11 +5,19 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-body)"],
-        display: ["var(--font-display)", "Arial", '"Helvetica Neue"', "Helvetica", "sans-serif"],
-      },
-      fontWeight: {
-        semibold: "700",
+        sans: ["var(--font-geist-sans)", "Avenir", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-geist-sans)", "Avenir", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: [
+          "var(--font-geist-mono)",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          '"Liberation Mono"',
+          '"Courier New"',
+          "monospace",
+        ],
       },
       colors: {
         border: "hsl(var(--border))",
