@@ -4,8 +4,11 @@ import { useState } from "react";
 import {
   BookOpen,
   Check,
+  ChevronRight,
+  FileText,
   Layers,
   Loader2,
+  Plus,
   Search,
   X,
 } from "lucide-react";
@@ -16,6 +19,10 @@ import {
 import {
   useCatalogBookSearch,
   useEditionsByBook,
+  useAuthorSearch,
+  useCreateAuthor,
+  useCreateBook,
+  useCreateEdition,
   type CatalogEditionRecord,
 } from "@/domain/catalog/queries";
 import type { WantSubmissionRecord, PgBookWithAuthorsView } from "@/shared/api";
@@ -23,6 +30,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { Select } from "@/shared/components/ui/select";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 
@@ -159,13 +167,29 @@ function ReviewForm({
   const bookSearchQuery = useCatalogBookSearch(bookSearch);
   const bookResults = bookSearchQuery.data ?? [];
   const [selectedBook, setSelectedBook] = useState<PgBookWithAuthorsView | null>(null);
+  const [createNewBook, setCreateNewBook] = useState(false);
+  const [newBookTitle, setNewBookTitle] = useState(submission.title);
+  const [newBookSubtitle, setNewBookSubtitle] = useState(submission.subtitle ?? "");
+  const [newBookLanguage, setNewBookLanguage] = useState(submission.language ?? "en");
+  const [authorSearch, setAuthorSearch] = useState("");
+  const [selectedAuthorIds, setSelectedAuthorIds] = useState<string[]>([]);
+  const [selectedAuthorNames, setSelectedAuthorNames] = useState<string[]>([]);
+  const authorSearchQuery = useAuthorSearch(authorSearch);
+  const authorResults = authorSearchQuery.data ?? [];
+  const createAuthorMutation = useCreateAuthor();
 
   // ── Step 2: Edition (optional) ──
   const editionsQuery = useEditionsByBook(selectedBook?.id ?? null);
   const existingEditions = editionsQuery.data ?? [];
   const [selectedEdition, setSelectedEdition] = useState<CatalogEditionRecord | null>(null);
+  const [createNewEdition, setCreateNewEdition] = useState(false);
+  const [editionFormat, setEditionFormat] = useState("paperback");
+  const [editionIsbn, setEditionIsbn] = useState(submission.isbn ?? "");
+  const [editionPublisher, setEditionPublisher] = useState("");
+  const [editionYear, setEditionYear] = useState("");
+  const [editionPageCount, setEditionPageCount] = useState("");
 
-  // ── Step 3: Want notes override ──
+  // ── Step 3: Want notes ──
   const [wantNotes, setWantNotes] = useState(submission.wantNotes ?? "");
 
   // ── Reject ──
@@ -173,37 +197,125 @@ function ReviewForm({
   const [rejectReason, setRejectReason] = useState("");
 
   // ── Mutations ──
+  const createBook = useCreateBook();
+  const createEdition = useCreateEdition();
   const approveSubmission = useApproveWantSubmission();
   const rejectSubmission = useRejectWantSubmission();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
   // ── Derived state ──
-  const bookSummary = selectedBook?.title;
+  const bookResolved = !!selectedBook || createNewBook;
+  const editionReady = !!selectedEdition || createNewEdition || createNewBook;
+  const bookSummary = selectedBook
+    ? selectedBook.title
+    : createNewBook
+      ? newBookTitle.trim() || "New book"
+      : undefined;
   const editionSummary = selectedEdition
     ? `${formatLabels[selectedEdition.format] ?? selectedEdition.format}${selectedEdition.isbn ? ` · ${selectedEdition.isbn}` : ""}`
-    : undefined;
+    : createNewEdition || createNewBook
+      ? `New ${formatLabels[editionFormat] ?? editionFormat}${editionIsbn ? ` · ${editionIsbn}` : ""}`
+      : undefined;
+
+  // ── Handlers ──
 
   function clearBook() {
     setSelectedBook(null);
+    setCreateNewBook(false);
     setSelectedEdition(null);
+    setCreateNewEdition(false);
+  }
+
+  function clearEdition() {
+    setSelectedEdition(null);
+    setCreateNewEdition(false);
+  }
+
+  function addAuthor(id: string, name: string) {
+    if (!selectedAuthorIds.includes(id)) {
+      setSelectedAuthorIds((prev) => [...prev, id]);
+      setSelectedAuthorNames((prev) => [...prev, name]);
+    }
+    setAuthorSearch("");
+  }
+
+  function removeAuthor(index: number) {
+    setSelectedAuthorIds((prev) => prev.filter((_, i) => i !== index));
+    setSelectedAuthorNames((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleCreateAuthor() {
+    if (!authorSearch.trim()) return;
+    try {
+      const result = await createAuthorMutation.mutateAsync(authorSearch.trim());
+      addAuthor(result.id, result.name);
+    } catch {
+      // handled silently
+    }
   }
 
   async function handleApprove() {
-    if (!selectedBook) {
-      setError("Select a book before approving.");
-      return;
-    }
-
     setError(null);
     setProcessing(true);
+
     try {
+      let bookId = selectedBook?.id ?? null;
+      let editionId: string | null = selectedEdition?.id ?? null;
+
+      // Create book if needed.
+      if (createNewBook) {
+        if (!newBookTitle.trim()) {
+          setError("Book title is required.");
+          setProcessing(false);
+          return;
+        }
+        const bookResult = await createBook.mutateAsync({
+          title: newBookTitle.trim(),
+          subtitle: newBookSubtitle.trim() || undefined,
+          language: newBookLanguage.trim() || undefined,
+          authorIds: selectedAuthorIds.length > 0 ? selectedAuthorIds : undefined,
+        });
+        bookId = bookResult.id;
+
+        // Always create an edition when creating a new book.
+        const edResult = await createEdition.mutateAsync({
+          bookId: bookResult.id,
+          format: editionFormat as "hardcover" | "paperback" | "mass_market",
+          isbn: editionIsbn.trim() || undefined,
+          publisher: editionPublisher.trim() || undefined,
+          publishedYear: editionYear ? Number(editionYear) : undefined,
+          pageCount: editionPageCount ? Number(editionPageCount) : undefined,
+        });
+        editionId = edResult.id;
+      }
+
+      // Create edition for an existing book if needed.
+      if (!createNewBook && createNewEdition && selectedBook) {
+        const edResult = await createEdition.mutateAsync({
+          bookId: selectedBook.id,
+          format: editionFormat as "hardcover" | "paperback" | "mass_market",
+          isbn: editionIsbn.trim() || undefined,
+          publisher: editionPublisher.trim() || undefined,
+          publishedYear: editionYear ? Number(editionYear) : undefined,
+          pageCount: editionPageCount ? Number(editionPageCount) : undefined,
+        });
+        editionId = edResult.id;
+      }
+
+      if (!bookId) {
+        setError("Select or create a book before approving.");
+        setProcessing(false);
+        return;
+      }
+
       await approveSubmission.mutateAsync({
         id: submission.id,
-        bookId: selectedBook.id,
-        editionId: selectedEdition?.id,
+        bookId,
+        editionId: editionId ?? undefined,
         wantNotes: wantNotes.trim() || undefined,
       });
+
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Approval failed.");
@@ -228,184 +340,331 @@ function ReviewForm({
     }
   }
 
+  // ── Reject view ──
+  if (showReject) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-base font-semibold text-foreground">Reject submission</h3>
+        <div className="space-y-2">
+          <Label>Reason (optional)</Label>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Why is this submission being rejected?"
+            rows={4}
+          />
+        </div>
+        {error && <p className="text-sm text-red-700">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => setShowReject(false)} disabled={processing}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleReject} disabled={processing} className="bg-red-600 hover:bg-red-700">
+            {processing && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirm Reject
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+
       {/* ═══════════════ STEP 1: BOOK ═══════════════ */}
       <section className="space-y-3">
         <StepHeader
           number={1}
           icon={BookOpen}
           label="Book"
-          resolved={!!selectedBook}
+          resolved={bookResolved}
           summary={bookSummary}
-          onClear={clearBook}
+          onClear={bookResolved ? clearBook : undefined}
         />
 
-        {!selectedBook && (
-          <div className="space-y-2 pl-10">
+        {!bookResolved && (
+          <div className="space-y-3 pl-10">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={bookSearch}
                 onChange={(e) => setBookSearch(e.target.value)}
-                placeholder="Search catalog by title or ISBN"
                 className="pl-9"
+                placeholder="Search existing books by title..."
               />
             </div>
 
-            {bookSearchQuery.isLoading && (
-              <p className="text-xs text-muted-foreground">Searching...</p>
-            )}
-
-            {bookResults.length > 0 && (
-              <ul className="divide-y divide-border/50 rounded-md border border-border/75 bg-background">
-                {bookResults.map((book) => (
-                  <li key={book.id}>
+            {bookSearch.trim().length >= 2 && (
+              <div className="max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/70 p-1">
+                {bookSearchQuery.isLoading ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">Searching...</p>
+                ) : bookResults.length > 0 ? (
+                  bookResults.map((book) => (
                     <button
+                      key={book.id}
                       type="button"
-                      onClick={() => setSelectedBook(book)}
-                      className="w-full px-3 py-2 text-left hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedBook(book);
+                        setSelectedEdition(null);
+                        setCreateNewEdition(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted/50"
                     >
-                      <p className="text-sm font-medium text-foreground">{book.title}</p>
-                      {book.authors && book.authors.length > 0 && (
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{book.title}</p>
+                        {book.subtitle && (
+                          <p className="text-xs text-muted-foreground">{book.subtitle}</p>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                          {book.authors.map((a: { name: string }) => a.name).join(", ")}
+                          {book.authors.map((a) => a.name).join(", ") || "No authors"}
                         </p>
-                      )}
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </button>
-                  </li>
-                ))}
-              </ul>
+                  ))
+                ) : (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    No matching books found in the catalog.
+                  </p>
+                )}
+              </div>
             )}
 
-            {bookResults.length === 0 && bookSearch.trim().length > 1 && !bookSearchQuery.isLoading && (
-              <p className="text-xs text-muted-foreground">
-                No catalog matches — the book may need to be added first.
-              </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setCreateNewBook(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create new book
+            </Button>
+          </div>
+        )}
+
+        {selectedBook && (
+          <div className="ml-10 rounded-lg border border-primary/20 bg-primary/[0.03] px-4 py-3">
+            <p className="text-sm font-medium text-foreground">{selectedBook.title}</p>
+            {selectedBook.subtitle && (
+              <p className="text-xs text-muted-foreground">{selectedBook.subtitle}</p>
             )}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {selectedBook.authors.map((a) => a.name).join(", ")}
+            </p>
+          </div>
+        )}
+
+        {createNewBook && (
+          <div className="ml-10 space-y-3 rounded-lg border border-border/70 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs">Title *</Label>
+                <Input value={newBookTitle} onChange={(e) => setNewBookTitle(e.target.value)} />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs">Subtitle</Label>
+                <Input value={newBookSubtitle} onChange={(e) => setNewBookSubtitle(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Language</Label>
+                <Input value={newBookLanguage} onChange={(e) => setNewBookLanguage(e.target.value)} placeholder="en" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Authors</Label>
+              {selectedAuthorNames.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {selectedAuthorNames.map((name, i) => (
+                    <Badge key={i} variant="secondary" className="gap-1 border border-border/75 text-xs">
+                      {name}
+                      <button type="button" onClick={() => removeAuthor(i)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={authorSearch}
+                  onChange={(e) => setAuthorSearch(e.target.value)}
+                  placeholder="Search or create author..."
+                  className="flex-1"
+                />
+                {authorSearch.trim().length >= 2 && authorResults.length === 0 && !authorSearchQuery.isLoading && (
+                  <Button type="button" variant="outline" size="sm" onClick={handleCreateAuthor} className="gap-1 shrink-0">
+                    <Plus className="h-3 w-3" />
+                    Create
+                  </Button>
+                )}
+              </div>
+              {authorSearch.trim().length >= 2 && authorResults.length > 0 && (
+                <div className="max-h-28 space-y-0.5 overflow-y-auto rounded border border-border/70 p-1">
+                  {authorResults.map((author) => (
+                    <button
+                      key={author.id}
+                      type="button"
+                      onClick={() => addAuthor(author.id, author.name)}
+                      className="w-full rounded px-2 py-1 text-left text-sm hover:bg-muted/40"
+                    >
+                      {author.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
 
       {/* ═══════════════ STEP 2: EDITION (optional) ═══════════════ */}
-      {selectedBook && (
+      {bookResolved && (
         <section className="space-y-3">
           <StepHeader
             number={2}
             icon={Layers}
             label="Edition (optional)"
-            resolved={!!selectedEdition}
+            resolved={editionReady}
             summary={editionSummary}
-            onClear={selectedEdition ? () => setSelectedEdition(null) : undefined}
+            onClear={editionReady && !createNewBook ? clearEdition : undefined}
           />
 
-          {!selectedEdition && (
-            <div className="space-y-2 pl-10">
-              {editionsQuery.isLoading && (
+          {selectedBook && !selectedEdition && !createNewEdition && (
+            <div className="space-y-3 pl-10">
+              {editionsQuery.isLoading ? (
                 <p className="text-xs text-muted-foreground">Loading editions...</p>
-              )}
-
-              {existingEditions.length > 0 && (
+              ) : existingEditions.length > 0 ? (
                 <>
                   <p className="text-xs text-muted-foreground">
-                    Optionally link to a specific edition:
+                    {existingEditions.length} edition{existingEditions.length !== 1 ? "s" : ""} found — select one or create a new one, or skip to link to book only.
                   </p>
-                  <ul className="divide-y divide-border/50 rounded-md border border-border/75 bg-background">
+                  <div className="space-y-1 rounded-lg border border-border/70 p-1">
                     {existingEditions.map((ed) => (
-                      <li key={ed.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEdition(ed)}
-                          className="w-full px-3 py-2 text-left hover:bg-muted/50"
-                        >
-                          <p className="text-sm font-medium text-foreground">
+                      <button
+                        key={ed.id}
+                        type="button"
+                        onClick={() => setSelectedEdition(ed)}
+                        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-muted/50"
+                      >
+                        <div>
+                          <span className="font-medium">
                             {formatLabels[ed.format] ?? ed.format}
-                            {ed.isbn ? ` · ${ed.isbn}` : ""}
-                          </p>
-                          {ed.published_year && (
-                            <p className="text-xs text-muted-foreground">{ed.published_year}</p>
+                          </span>
+                          <span className="ml-2 text-muted-foreground">
+                            {ed.isbn ? `ISBN ${ed.isbn}` : "No ISBN"}
+                          </span>
+                          {ed.publisher && (
+                            <span className="ml-2 text-muted-foreground">· {ed.publisher}</span>
                           )}
-                        </button>
-                      </li>
+                          {ed.published_year && (
+                            <span className="ml-1 text-muted-foreground">({ed.published_year})</span>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </button>
                     ))}
-                  </ul>
-                  <p className="text-xs text-muted-foreground">
-                    Or skip — the want will be linked to the book without an edition.
-                  </p>
+                  </div>
                 </>
-              )}
-
-              {existingEditions.length === 0 && !editionsQuery.isLoading && (
+              ) : (
                 <p className="text-xs text-muted-foreground">
-                  No editions in catalog — want will be linked to the book only.
+                  No editions found for this book. Create one below or skip to link to book only.
                 </p>
               )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setCreateNewEdition(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create new edition
+              </Button>
+            </div>
+          )}
+
+          {selectedEdition && (
+            <div className="ml-10 rounded-lg border border-primary/20 bg-primary/[0.03] px-4 py-3">
+              <p className="text-sm font-medium text-foreground">
+                {formatLabels[selectedEdition.format] ?? selectedEdition.format}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {[
+                  selectedEdition.isbn ? `ISBN ${selectedEdition.isbn}` : null,
+                  selectedEdition.publisher,
+                  selectedEdition.published_year ? `(${selectedEdition.published_year})` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "No additional details"}
+              </p>
+            </div>
+          )}
+
+          {(createNewEdition || createNewBook) && !selectedEdition && (
+            <div className="ml-10 space-y-3 rounded-lg border border-border/70 p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Format *</Label>
+                  <Select value={editionFormat} onChange={(e) => setEditionFormat(e.target.value)}>
+                    <option value="paperback">Paperback</option>
+                    <option value="hardcover">Hardcover</option>
+                    <option value="mass_market">Mass Market</option>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ISBN</Label>
+                  <Input value={editionIsbn} onChange={(e) => setEditionIsbn(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Publisher</Label>
+                  <Input value={editionPublisher} onChange={(e) => setEditionPublisher(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Year</Label>
+                  <Input value={editionYear} onChange={(e) => setEditionYear(e.target.value)} type="number" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Page count</Label>
+                  <Input value={editionPageCount} onChange={(e) => setEditionPageCount(e.target.value)} type="number" />
+                </div>
+              </div>
             </div>
           )}
         </section>
       )}
 
       {/* ═══════════════ STEP 3: WANT NOTES ═══════════════ */}
-      {selectedBook && (
+      {bookResolved && (
         <section className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-              3
-            </span>
-            Want notes (optional)
-          </div>
-          <div className="pl-10">
-            <Textarea
-              value={wantNotes}
-              onChange={(e) => setWantNotes(e.target.value)}
-              placeholder="Override or add notes for this want..."
-              rows={3}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Want will be created for{" "}
-              <span className="font-medium">{submission.userEmail ?? submission.userId}</span>.
-            </p>
-          </div>
-        </section>
-      )}
+          <StepHeader
+            number={3}
+            icon={FileText}
+            label="Want notes (optional)"
+            resolved={false}
+          />
 
-      {/* ═══════════════ REJECT FLOW ═══════════════ */}
-      {showReject && (
-        <section className="space-y-3 rounded-md border border-red-200 bg-red-50/50 p-4">
-          <p className="text-sm font-semibold text-red-700">Reject this submission?</p>
-          <div className="space-y-1">
-            <Label htmlFor="reject-reason" className="text-xs text-muted-foreground">
-              Reason (optional)
-            </Label>
-            <Textarea
-              id="reject-reason"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Explain why this submission is being rejected..."
-              rows={3}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="border-red-300 bg-red-50 text-red-700 hover:border-red-400 hover:bg-red-100"
-              size="sm"
-              onClick={handleReject}
-              disabled={processing}
-            >
-              {processing && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-              Confirm Reject
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowReject(false)}
-              disabled={processing}
-            >
-              Cancel
-            </Button>
+          <div className="ml-10 space-y-3 rounded-lg border border-border/70 p-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Notes</Label>
+              <Textarea
+                value={wantNotes}
+                onChange={(e) => setWantNotes(e.target.value)}
+                placeholder="Override or add notes for this want..."
+                rows={3}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Want will be created for{" "}
+              <span className="font-medium text-foreground">
+                {submission.userEmail ?? submission.userId}
+              </span>
+              {!selectedEdition && !createNewEdition && !createNewBook && (
+                <span className="ml-1 text-muted-foreground/70">· linked to book only (no edition)</span>
+              )}
+            </p>
           </div>
         </section>
       )}
@@ -417,7 +676,7 @@ function ReviewForm({
         <Button
           type="button"
           onClick={handleApprove}
-          disabled={processing || !selectedBook}
+          disabled={processing || !bookResolved}
           className="gap-2"
         >
           {processing && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -428,7 +687,7 @@ function ReviewForm({
           type="button"
           variant="outline"
           onClick={() => setShowReject(true)}
-          disabled={processing || showReject}
+          disabled={processing}
         >
           Reject
         </Button>

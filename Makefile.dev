@@ -102,3 +102,9 @@ clean: ## Remove all containers, volumes, and orphans
 help: ## Show this help
 	@grep -h -E '^[a-zA-Z_%-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+docker-ps:
+	@docker ps --format "{{.ID}}|{{.Image}}|{{.RunningFor}}|{{.Status}}|{{.Ports}}" | \
+	awk -F'|' 'BEGIN {print "CONTAINER ID|IMAGE|CREATED|STATUS|PORT"} \
+	{split($$5,a,","); split(a[1],b,"->"); split(b[1],c,":"); print $$1 "|" $$2 "|" $$3 "|" $$4 "|" c[length(c)]}' | \
+	column -t -s '|'

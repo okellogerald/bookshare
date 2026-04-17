@@ -92,7 +92,7 @@ function buildIdTokenClaims(
     claims.roles = roles;
     claims.realm_access = { roles };
   }
-
+  
   return claims;
 }
 
@@ -129,7 +129,7 @@ function buildAccessTokenClaims(
   if (firstName) claims.given_name = firstName;
   if (lastName) claims.family_name = lastName;
   if (fullName) claims.name = fullName;
-
+  
   return claims;
 }
 

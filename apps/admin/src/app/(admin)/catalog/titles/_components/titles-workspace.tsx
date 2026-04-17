@@ -2,8 +2,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { useCatalogBooks } from "@/domain/catalog/queries";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  useCatalogBooks,
+  useAdminDeleteBook,
+} from "@/domain/catalog/queries";
+import { useAdminFlow } from "@/flows/admin-flow-provider";
+import type { PgBookWithAuthorsView } from "@/shared/api";
+import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { PageIntro } from "@/shared/components/page-intro";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -21,6 +27,50 @@ import {
 
 type TitlesSort = "title_asc" | "title_desc";
 
+function TitleRowActions({ book }: { book: PgBookWithAuthorsView }) {
+  const { openFlow } = useAdminFlow();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteMutation = useAdminDeleteBook();
+
+  return (
+    <>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => openFlow({ kind: "edit-book", book })}
+        >
+          Edit
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs text-red-700 hover:border-red-300 hover:bg-red-50"
+          onClick={() => setConfirmDelete(true)}
+        >
+          Delete
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete book?"
+        description={`"${book.title}" and all its data will be permanently removed.`}
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          await deleteMutation.mutateAsync(book.id);
+          setConfirmDelete(false);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+        isLoading={deleteMutation.isPending}
+      />
+    </>
+  );
+}
+
 export function TitlesWorkspace() {
   const booksQuery = useCatalogBooks(200);
   const [query, setQuery] = useState("");
@@ -30,27 +80,19 @@ export function TitlesWorkspace() {
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-
     return [...books]
       .filter((book) => {
         if (!normalizedQuery) return true;
-
-        const haystacks = [
+        return [
           book.title.toLowerCase(),
           (book.subtitle ?? "").toLowerCase(),
           book.authors.map((a) => a.name.toLowerCase()).join(" "),
-        ];
-
-        return haystacks.some((value) => value.includes(normalizedQuery));
+        ].some((v) => v.includes(normalizedQuery));
       })
-      .sort((left, right) => {
-        switch (sort) {
-          case "title_desc":
-            return right.title.localeCompare(left.title, undefined, { sensitivity: "base" });
-          case "title_asc":
-          default:
-            return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
-        }
+      .sort((a, b) => {
+        if (sort === "title_desc")
+          return b.title.localeCompare(a.title, undefined, { sensitivity: "base" });
+        return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
       });
   }, [books, query, sort]);
 
@@ -78,10 +120,7 @@ export function TitlesWorkspace() {
                 Browse and search titles in the catalog.
               </p>
             </div>
-            <Badge
-              variant="secondary"
-              className="border border-border/75 bg-background px-3 py-1 text-muted-foreground"
-            >
+            <Badge variant="secondary" className="border border-border/75 bg-background px-3 py-1 text-muted-foreground">
               {filtered.length} shown
             </Badge>
           </div>
@@ -89,10 +128,10 @@ export function TitlesWorkspace() {
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
             <Input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search titles by name, subtitle, or author"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, subtitle, or author"
             />
-            <Select value={sort} onChange={(event) => setSort(event.target.value as TitlesSort)}>
+            <Select value={sort} onChange={(e) => setSort(e.target.value as TitlesSort)}>
               <option value="title_asc">Sort: Title A–Z</option>
               <option value="title_desc">Sort: Title Z–A</option>
             </Select>
@@ -100,12 +139,10 @@ export function TitlesWorkspace() {
 
           {booksQuery.isError ? (
             <p className="text-sm text-red-700">
-              {booksQuery.error instanceof Error
-                ? booksQuery.error.message
-                : "Failed to load titles."}
+              {booksQuery.error instanceof Error ? booksQuery.error.message : "Failed to load titles."}
             </p>
           ) : booksQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading titles...</p>
+            <p className="text-sm text-muted-foreground">Loading titles…</p>
           ) : filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground">No titles match the current filters.</p>
           ) : (
@@ -122,14 +159,13 @@ export function TitlesWorkspace() {
                   <TableRow key={book.id}>
                     <TableCell className="min-w-[200px] whitespace-normal">
                       <p className="font-medium text-foreground">{book.title}</p>
-                      {book.subtitle ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{book.subtitle}</p>
-                      ) : null}
+                      {book.subtitle && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{book.subtitle}</p>
+                      )}
+                      <TitleRowActions book={book} />
                     </TableCell>
                     <TableCell>
-                      {book.authors.length > 0
-                        ? book.authors.map((a) => a.name).join(", ")
-                        : "—"}
+                      {book.authors.length > 0 ? book.authors.map((a) => a.name).join(", ") : "—"}
                     </TableCell>
                     <TableCell>{book.language || "—"}</TableCell>
                   </TableRow>

@@ -435,6 +435,85 @@ export function useCreateAuthor() {
   });
 }
 
+// ── Admin book mutations ────────────────────────────────────
+
+interface AdminUpdateBookInput {
+  id: string;
+  title?: string;
+  subtitle?: string;
+  language?: string;
+  authorIds?: string[];
+}
+
+export function useAdminUpdateBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: AdminUpdateBookInput) =>
+      requestJson(`/api/nestjs/books/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-books"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-book-search"] });
+    },
+  });
+}
+
+export function useAdminDeleteBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/books/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-books"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
+// ── Admin edition mutations ─────────────────────────────────
+
+interface AdminUpdateEditionInput {
+  id: string;
+  isbn?: string;
+  format?: string;
+  description?: string;
+  publisher?: string;
+  publishedYear?: number;
+  pageCount?: number;
+  coverImageUrl?: string | null;
+}
+
+export function useAdminUpdateEdition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: AdminUpdateEditionInput) =>
+      requestJson(`/api/nestjs/editions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-editions"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-editions-by-book"] });
+    },
+  });
+}
+
+export function useAdminDeleteEdition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/editions/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-editions"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
 // ── Admin copy mutations ────────────────────────────────────
 
 interface AdminUpdateCopyInput {

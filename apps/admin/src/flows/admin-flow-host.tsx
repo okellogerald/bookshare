@@ -9,6 +9,10 @@ import { CatalogSearchFlow } from "./catalog-search";
 import { ImportBatchFlow } from "./import-batch";
 import { ReviewCopySubmissionFlow } from "./review-copy-submission";
 import { ReviewWantSubmissionFlow } from "./review-want-submission";
+import { EditBookFlow } from "./edit-book";
+import { EditEditionFlow } from "./edit-edition";
+import { EditCopyFlow } from "./edit-copy";
+import { EditWishFlow } from "./edit-wish";
 
 function getFlowChrome(flow: AdminFlow) {
   switch (flow.kind) {
@@ -43,22 +47,44 @@ function getFlowChrome(flow: AdminFlow) {
       return {
         title: "Manage Team Roles",
         description:
-          "Review the selected team member’s current roles and make changes in this isolated flow.",
+          "Review the selected team member's current roles and make changes in this isolated flow.",
         size: "lg" as const,
       };
     case "review-copy-submission":
       return {
         title: "Review Copy Submission",
-        description:
-          "Review the member’s submitted data and create the catalog entry.",
+        description: "Review the member's submitted data and create the catalog entry.",
         size: "xl" as const,
       };
     case "review-want-submission":
       return {
         title: "Review Want Submission",
-        description:
-          "Review the member’s want request and link it to a catalog book.",
+        description: "Review the member's want request and link it to a catalog book.",
         size: "xl" as const,
+      };
+    case "edit-book":
+      return {
+        title: "Edit Book",
+        description: `Update title, subtitle, language, and authors for "${flow.book.title}".`,
+        size: "md" as const,
+      };
+    case "edit-edition":
+      return {
+        title: "Edit Edition",
+        description: `Update edition details and cover image for "${flow.edition.book?.title ?? "this edition"}".`,
+        size: "md" as const,
+      };
+    case "edit-copy":
+      return {
+        title: "Edit Copy",
+        description: `Update condition, share type, and notes for this copy of "${flow.copy.edition?.book?.title ?? "unknown title"}".`,
+        size: "md" as const,
+      };
+    case "edit-wish":
+      return {
+        title: "Edit Want",
+        description: `Update notes for this want for "${flow.wish.book?.title ?? "unknown title"}".`,
+        size: "md" as const,
       };
   }
 }
@@ -99,15 +125,17 @@ export function AdminFlowHost({
           onClose={onClose}
         />
       ) : activeFlow.kind === "review-copy-submission" ? (
-        <ReviewCopySubmissionFlow
-          submission={activeFlow.submission}
-          onClose={onClose}
-        />
+        <ReviewCopySubmissionFlow submission={activeFlow.submission} onClose={onClose} />
+      ) : activeFlow.kind === "review-want-submission" ? (
+        <ReviewWantSubmissionFlow submission={activeFlow.submission} onClose={onClose} />
+      ) : activeFlow.kind === "edit-book" ? (
+        <EditBookFlow book={activeFlow.book} onClose={onClose} />
+      ) : activeFlow.kind === "edit-edition" ? (
+        <EditEditionFlow edition={activeFlow.edition} onClose={onClose} />
+      ) : activeFlow.kind === "edit-copy" ? (
+        <EditCopyFlow copy={activeFlow.copy} onClose={onClose} />
       ) : (
-        <ReviewWantSubmissionFlow
-          submission={activeFlow.submission}
-          onClose={onClose}
-        />
+        <EditWishFlow wish={activeFlow.wish} onClose={onClose} />
       )}
     </RightPanel>
   );
