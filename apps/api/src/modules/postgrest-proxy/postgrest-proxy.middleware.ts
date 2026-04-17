@@ -15,6 +15,7 @@ export class PostgrestProxyMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
+    console.log("request: ", req.url, req.params)
     if (req.method !== "GET") {
       return next();
     }
@@ -47,6 +48,7 @@ export class PostgrestProxyMiddleware implements NestMiddleware {
       ? req.originalUrl.split("?").slice(1).join("?")
       : "";
     const url = this.postgrestProxy.buildPostgrestUrl(target.path, search);
+    console.log("postgrest url: ", url)
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${token}`,

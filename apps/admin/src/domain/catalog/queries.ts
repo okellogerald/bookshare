@@ -162,7 +162,7 @@ async function fetchCatalogBooks(query: string): Promise<PgBookWithAuthorsView[]
 async function fetchPostgrestCount(path: string): Promise<number> {
   const params = new URLSearchParams();
   params.set("select", "id");
-  params.set("limit", "1");
+  // params.set("limit", "1");
 
   const response = await fetch(`/api/backend/${path}?${params}`, {
     headers: {

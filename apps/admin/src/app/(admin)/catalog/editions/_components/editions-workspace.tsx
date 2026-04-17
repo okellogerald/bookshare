@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Delete, Edit, Plus, Trash } from "lucide-react";
 import {
   useCatalogEditions,
   useAdminDeleteEdition,
@@ -47,6 +47,7 @@ function EditionRowActions({ edition }: { edition: CatalogEditionRecord }) {
           className="h-7 px-2 text-xs"
           onClick={() => openFlow({ kind: "edit-edition", edition })}
         >
+          <Edit className="h-4 w-4" />
           Edit
         </Button>
         <Button
@@ -56,6 +57,7 @@ function EditionRowActions({ edition }: { edition: CatalogEditionRecord }) {
           className="h-7 px-2 text-xs text-red-700 hover:border-red-300 hover:bg-red-50"
           onClick={() => setConfirmDelete(true)}
         >
+          <Trash className="h-4 w-4" />
           Delete
         </Button>
       </div>
@@ -77,6 +79,7 @@ function EditionRowActions({ edition }: { edition: CatalogEditionRecord }) {
 }
 
 export function EditionsWorkspace() {
+  const { openFlow } = useAdminFlow();
   const editionsQuery = useCatalogEditions(200);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<EditionsSort>("latest_desc");
@@ -88,6 +91,10 @@ export function EditionsWorkspace() {
     () => Array.from(new Set(editions.map((e) => e.format).filter(Boolean))).sort(),
     [editions]
   );
+
+  const handleAddNewEdition = useCallback(() => {
+    return openFlow({kind: "add-edition"})
+  }, [openFlow])
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -120,12 +127,18 @@ export function EditionsWorkspace() {
         title="Editions"
         description="Cataloged edition records ready for operations."
         actions={
-          <Button type="button" variant="outline" className="rounded-full px-4" asChild>
-            <Link href="/catalog">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Catalog
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="rounded-full px-4" asChild>
+              <Link href="/catalog">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Catalog
+              </Link>
+            </Button>
+            <Button type="button" variant="outline" className="rounded-full px-4" onClick={handleAddNewEdition}>
+                <Plus className="h-4 w-4" />
+                Add New Edition
+            </Button>
+         </div>
         }
       />
 

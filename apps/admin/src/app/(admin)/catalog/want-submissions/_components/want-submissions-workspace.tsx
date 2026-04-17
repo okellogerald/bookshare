@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { useAdminFlow } from "@/flows/admin-flow-provider";
 import { useWantSubmissions } from "@/domain/submissions/queries";
 import type { WantSubmissionRecord } from "@/shared/api";
@@ -71,12 +71,14 @@ export function WantSubmissionsWorkspace() {
         title="Want Submissions"
         description="Review member want requests. Click a submission to open the review flow where you can link it to an existing catalog book."
         actions={
-          <Button type="button" variant="outline" className="rounded-full px-4" asChild>
-            <Link href="/catalog">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Catalog
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="rounded-full px-4" asChild>
+              <Link href="/catalog">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Catalog
+              </Link>
+            </Button>
+          </div>
         }
       />
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit, Loader2, Plus, Trash } from "lucide-react";
 import {
   useCatalogBooks,
   useAdminDeleteBook,
@@ -42,6 +42,7 @@ function TitleRowActions({ book }: { book: PgBookWithAuthorsView }) {
           className="h-7 px-2 text-xs"
           onClick={() => openFlow({ kind: "edit-book", book })}
         >
+          <Edit className="h-4 w-4" />
           Edit
         </Button>
         <Button
@@ -51,6 +52,7 @@ function TitleRowActions({ book }: { book: PgBookWithAuthorsView }) {
           className="h-7 px-2 text-xs text-red-700 hover:border-red-300 hover:bg-red-50"
           onClick={() => setConfirmDelete(true)}
         >
+          <Trash className="h-4 w-4" />
           Delete
         </Button>
       </div>
@@ -102,12 +104,18 @@ export function TitlesWorkspace() {
         title="Titles"
         description="All book records currently stored in the catalog."
         actions={
-          <Button type="button" variant="outline" className="rounded-full px-4" asChild>
-            <Link href="/catalog">
-              <ArrowLeft className="h-4 w-4" />
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="rounded-full px-4">
+              <Link href="/catalog">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
               Back to Catalog
-            </Link>
-          </Button>
+            </Button>
+            <Button type="button" variant={"outline"} className="rounded-full px-4">
+                <Plus className="h-4 w-4" />
+                Add New Title
+            </Button>
+          </div>
         }
       />
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus } from "lucide-react";
 import {
   useCatalogCopies,
   useAdminDeleteCopy,
@@ -189,12 +189,18 @@ export function CopiesWorkspace() {
         title="Copies"
         description="Member-owned inventory rows currently in the system."
         actions={
-          <Button type="button" variant="outline" className="rounded-full px-4" asChild>
-            <Link href="/catalog">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Catalog
-            </Link>
-          </Button>
+          <div className="flex gap-3">
+            <Button type="button" variant="outline" className="rounded-full px-4" asChild>
+              <Link href="/catalog">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Catalog
+              </Link>
+            </Button>
+            <Button type="button" variant={"outline"} className="rounded-full px-4">
+                <Plus className="h-4 w-4" />
+                Add New Copy
+            </Button>
+          </div>
         }
       />
 

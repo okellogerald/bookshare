@@ -8,6 +8,7 @@ import {
   Inbox,
   Plus,
   Search,
+  Upload,
 } from "lucide-react";
 import { useAdminFlow } from "@/flows/admin-flow-provider";
 import { useCatalogSummaryCounts } from "@/domain/catalog/queries";
@@ -100,11 +101,21 @@ export function CatalogPageContent() {
             </Button>
             <Button
               type="button"
+              variant={"outline"}
               className="rounded-full px-4"
               onClick={() => openFlow({ kind: "add-edition" })}
             >
               <Plus className="h-4 w-4" />
               Add New Edition
+            </Button>
+            <Button
+              type="button"
+              variant={"outline"}
+              className="rounded-full px-4"
+              onClick={() => openFlow({ kind: "import-batch" })}
+            >
+              <Upload className="h-4 w-4" />
+              Import Batch
             </Button>
           </>
         }
