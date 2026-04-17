@@ -18,7 +18,7 @@ async function fetchMyWishlist(): Promise<PgWishWithBook[]> {
   params.set("select", "*,book:books(*)");
   params.set("status", "eq.active");
   params.set("order", "created_at.desc");
-  const response = await fetch(`/api/nestjs/wishes?${params}`);
+  const response = await fetch(`/api/backend/wishes?${params}`);
   if (!response.ok) throw new Error("Failed to fetch wishlist");
   const json = await response.json();
   return json.data;
@@ -34,7 +34,7 @@ export function useMyWants(options?: { enabled?: boolean }) {
 
 async function fetchWishSearchResults(query: string): Promise<WishSearchResult[]> {
   const response = await fetch(
-    `/api/nestjs/wishes/search?q=${encodeURIComponent(query.trim())}`
+    `/api/backend/wishes/search?q=${encodeURIComponent(query.trim())}`
   );
   if (!response.ok) throw new Error("Failed to search books for wishes");
   return normalizeLocalMinioUrls(await response.json()) as WishSearchResult[];

@@ -1,10 +1,10 @@
 import { Module } from "@nestjs/common";
-import { PostgrestProxyController } from "./postgrest-proxy.controller";
+import { AuthGuard } from "../../common/guards/auth.guard";
+import { PostgrestProxyMiddleware } from "./postgrest-proxy.middleware";
 import { PostgrestProxyService } from "./postgrest-proxy.service";
 
 @Module({
-  controllers: [PostgrestProxyController],
-  providers: [PostgrestProxyService],
-  exports: [PostgrestProxyService],
+  providers: [PostgrestProxyService, PostgrestProxyMiddleware, AuthGuard],
+  exports: [PostgrestProxyService, PostgrestProxyMiddleware],
 })
 export class PostgrestProxyModule {}

@@ -83,14 +83,14 @@ async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const params = new URLSearchParams();
   params.set("select", "*,edition:editions(*,book:books(*)),images:copy_images(*)");
   params.set("order", "created_at.desc");
-  const response = await fetch(`/api/nestjs/copies?${params}`);
+  const response = await fetch(`/api/backend/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch copies");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgCopyDetail[]);
 }
 
 async function fetchMyCopyDetail(id: string): Promise<MyCopyDialogDetail> {
-  const response = await fetch(`/api/nestjs/copies/${id}`);
+  const response = await fetch(`/api/backend/copies/${id}`);
   if (!response.ok) throw new Error("Failed to fetch copy details");
   return normalizeLocalMinioUrls(await response.json()) as MyCopyDialogDetail;
 }
@@ -99,7 +99,7 @@ async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
   const params = new URLSearchParams();
   params.set("select", "edition:editions(book_id)");
   params.set("status", "in.(available,shelved,lent)");
-  const response = await fetch(`/api/nestjs/copies?${params}`);
+  const response = await fetch(`/api/backend/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch active owned books");
   const json = await response.json();
   const rows = json.data as Array<{ edition?: { book_id?: string } }>;
@@ -116,7 +116,7 @@ async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
   const params = new URLSearchParams();
   params.set("isbn", `eq.${isbn}`);
   params.set("select", "*,book:books(*)");
-  const response = await fetch(`/api/nestjs/editions?${params}`);
+  const response = await fetch(`/api/backend/editions?${params}`);
   if (!response.ok) throw new Error("Failed to search editions");
   const json = await response.json();
   return normalizeLocalMinioUrls((json.data?.[0] as PgEdition | undefined) ?? null);
@@ -124,7 +124,7 @@ async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
 
 async function fetchCopySearchResults(query: string): Promise<WishSearchResult[]> {
   const response = await fetch(
-    `/api/nestjs/wishes/search?q=${encodeURIComponent(query.trim())}`
+    `/api/backend/wishes/search?q=${encodeURIComponent(query.trim())}`
   );
   if (!response.ok) throw new Error("Failed to search catalog");
   return normalizeLocalMinioUrls(await response.json()) as WishSearchResult[];
@@ -134,7 +134,7 @@ async function fetchAllCategories(): Promise<PgCategory[]> {
   const params = new URLSearchParams();
   params.set("select", "thema_code,name");
   params.set("order", "name.asc");
-  const response = await fetch(`/api/nestjs/categories?${params}`);
+  const response = await fetch(`/api/backend/categories?${params}`);
   if (!response.ok) throw new Error("Failed to fetch categories");
   const json = await response.json();
   return json.data;
@@ -144,7 +144,7 @@ async function searchAuthorsByName(name: string): Promise<PgAuthor[]> {
   const params = new URLSearchParams();
   params.set("name", `ilike.*${name}*`);
   params.set("order", "name.asc");
-  const response = await fetch(`/api/nestjs/authors?${params}`);
+  const response = await fetch(`/api/backend/authors?${params}`);
   if (!response.ok) throw new Error("Failed to search authors");
   const json = await response.json();
   return json.data;
@@ -153,7 +153,7 @@ async function searchAuthorsByName(name: string): Promise<PgAuthor[]> {
 async function fetchBookWithAuthors(bookId: string): Promise<PgBookWithAuthorsView | null> {
   const params = new URLSearchParams();
   params.set("id", `eq.${bookId}`);
-  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
+  const response = await fetch(`/api/backend/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to fetch book with authors");
   const json = await response.json();
   return json.data?.[0] ?? null;

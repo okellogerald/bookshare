@@ -120,25 +120,25 @@ import type {
 export const uploadContract = c.router({
   createCopyImagePresign: {
     method: "POST",
-    path: "/api/nestjs/upload/copy-image-presign",
+    path: "/api/backend/upload/copy-image-presign",
     body: c.type<CopyImagePresignBody>(),
     responses: { 201: c.type<CopyImagePresignResponse>() },
   },
   createSubmissionCopyImagePresign: {
     method: "POST",
-    path: "/api/nestjs/upload/submission-copy-image-presign",
+    path: "/api/backend/upload/submission-copy-image-presign",
     body: c.type<CopyImagePresignBody>(),
     responses: { 201: c.type<CopyImagePresignResponse>() },
   },
   createEditionCoverPresign: {
     method: "POST",
-    path: "/api/nestjs/upload/edition-cover-presign",
+    path: "/api/backend/upload/edition-cover-presign",
     body: c.type<EditionCoverPresignBody>(),
     responses: { 201: c.type<EditionCoverPresignResponse>() },
   },
   createProfileAvatarPresign: {
     method: "POST",
-    path: "/api/nestjs/upload/profile-avatar-presign",
+    path: "/api/backend/upload/profile-avatar-presign",
     body: c.type<ProfileAvatarPresignBody>(),
     responses: { 201: c.type<ProfileAvatarPresignResponse>() },
   },

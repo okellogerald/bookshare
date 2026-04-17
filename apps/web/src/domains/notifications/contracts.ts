@@ -39,24 +39,24 @@ export interface MarkAllNotificationsReadResponse {
 export const notificationsContract = c.router({
   list: {
     method: "GET",
-    path: "/api/nestjs/notifications",
+    path: "/api/backend/notifications",
     query: c.type<NotificationListQuery>(),
     responses: { 200: c.type<NotificationListResponse>() },
   },
   unreadCount: {
     method: "GET",
-    path: "/api/nestjs/notifications/unread-count",
+    path: "/api/backend/notifications/unread-count",
     responses: { 200: c.type<UnreadNotificationsCountResponse>() },
   },
   markRead: {
     method: "PATCH",
-    path: "/api/nestjs/notifications/:id/read",
+    path: "/api/backend/notifications/:id/read",
     body: null,
     responses: { 200: c.type<NotificationResponse>() },
   },
   markAllRead: {
     method: "PATCH",
-    path: "/api/nestjs/notifications/read-all",
+    path: "/api/backend/notifications/read-all",
     body: null,
     responses: { 200: c.type<MarkAllNotificationsReadResponse>() },
   },

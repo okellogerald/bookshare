@@ -153,7 +153,7 @@ async function fetchCatalogBooks(query: string): Promise<PgBookWithAuthorsView[]
   params.set("limit", "20");
   params.set("or", `(title.ilike.*${normalized}*,subtitle.ilike.*${normalized}*)`);
 
-  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
+  const response = await fetch(`/api/backend/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to search catalog.");
   const json = await response.json();
   return (json.data ?? []) as PgBookWithAuthorsView[];
@@ -164,7 +164,7 @@ async function fetchPostgrestCount(path: string): Promise<number> {
   params.set("select", "id");
   params.set("limit", "1");
 
-  const response = await fetch(`/api/nestjs/${path}?${params}`, {
+  const response = await fetch(`/api/backend/${path}?${params}`, {
     headers: {
       Prefer: "count=exact",
     },
@@ -203,7 +203,7 @@ async function fetchCatalogEditions(limit = 40): Promise<CatalogEditionRecord[]>
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/nestjs/editions?${params}`);
+  const response = await fetch(`/api/backend/editions?${params}`);
   if (!response.ok) throw new Error("Failed to load editions.");
   const json = await response.json();
   return (json.data ?? []) as CatalogEditionRecord[];
@@ -218,7 +218,7 @@ async function fetchCatalogCopies(limit = 40): Promise<CatalogCopyRecord[]> {
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/nestjs/copies?${params}`);
+  const response = await fetch(`/api/backend/copies?${params}`);
   if (!response.ok) throw new Error("Failed to load copies.");
   const json = await response.json();
   return (json.data ?? []) as CatalogCopyRecord[];
@@ -233,14 +233,14 @@ async function fetchCatalogWishes(limit = 40): Promise<CatalogWishRecord[]> {
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/nestjs/wishes?${params}`);
+  const response = await fetch(`/api/backend/wishes?${params}`);
   if (!response.ok) throw new Error("Failed to load wishes.");
   const json = await response.json();
   return (json.data ?? []) as CatalogWishRecord[];
 }
 
 async function createBook(input: CreateBookInput): Promise<CreateBookResult> {
-  return requestJson<CreateBookResult>("/api/nestjs/books", {
+  return requestJson<CreateBookResult>("/api/backend/books", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -248,7 +248,7 @@ async function createBook(input: CreateBookInput): Promise<CreateBookResult> {
 }
 
 async function createEdition(input: CreateEditionInput): Promise<CreateEditionResult> {
-  return requestJson<CreateEditionResult>("/api/nestjs/editions", {
+  return requestJson<CreateEditionResult>("/api/backend/editions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -258,7 +258,7 @@ async function createEdition(input: CreateEditionInput): Promise<CreateEditionRe
 async function createEditionCoverPresign(
   input: EditionCoverPresignInput
 ): Promise<EditionCoverPresignResult> {
-  return requestJson<EditionCoverPresignResult>("/api/nestjs/upload/edition-cover-presign", {
+  return requestJson<EditionCoverPresignResult>("/api/backend/upload/edition-cover-presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -275,14 +275,14 @@ async function fetchAuthors(query: string): Promise<AuthorRecord[]> {
   params.set("limit", "15");
   params.set("name", `ilike.*${normalized}*`);
 
-  const response = await fetch(`/api/nestjs/authors?${params}`);
+  const response = await fetch(`/api/backend/authors?${params}`);
   if (!response.ok) throw new Error("Failed to search authors.");
   const json = await response.json();
   return (json.data ?? []) as AuthorRecord[];
 }
 
 async function createAuthor(name: string): Promise<AuthorRecord> {
-  return requestJson<AuthorRecord>("/api/nestjs/authors", {
+  return requestJson<AuthorRecord>("/api/backend/authors", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -295,7 +295,7 @@ async function fetchCatalogBooksList(limit = 60): Promise<PgBookWithAuthorsView[
   params.set("order", "title.asc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
+  const response = await fetch(`/api/backend/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to load books.");
   const json = await response.json();
   return (json.data ?? []) as PgBookWithAuthorsView[];
@@ -334,7 +334,7 @@ async function fetchEditionsByBook(bookId: string): Promise<CatalogEditionRecord
   params.set("book_id", `eq.${bookId}`);
   params.set("order", "created_at.desc");
 
-  const response = await fetch(`/api/nestjs/editions?${params}`);
+  const response = await fetch(`/api/backend/editions?${params}`);
   if (!response.ok) throw new Error("Failed to load editions for this book.");
   const json = await response.json();
   return (json.data ?? []) as CatalogEditionRecord[];
@@ -449,7 +449,7 @@ export function useAdminUpdateBook() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: AdminUpdateBookInput) =>
-      requestJson(`/api/nestjs/books/${id}`, {
+      requestJson(`/api/backend/books/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -465,7 +465,7 @@ export function useAdminDeleteBook() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/books/${id}`, { method: "DELETE" }),
+      requestJson(`/api/backend/books/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-books"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
@@ -490,7 +490,7 @@ export function useAdminUpdateEdition() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: AdminUpdateEditionInput) =>
-      requestJson(`/api/nestjs/editions/${id}`, {
+      requestJson(`/api/backend/editions/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -506,7 +506,7 @@ export function useAdminDeleteEdition() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/editions/${id}`, { method: "DELETE" }),
+      requestJson(`/api/backend/editions/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-editions"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
@@ -528,7 +528,7 @@ export function useAdminUpdateCopy() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: AdminUpdateCopyInput) =>
-      requestJson(`/api/nestjs/copies/${id}/admin`, {
+      requestJson(`/api/backend/copies/${id}/admin`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -543,7 +543,7 @@ export function useAdminDeleteCopy() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/copies/${id}/admin`, { method: "DELETE" }),
+      requestJson(`/api/backend/copies/${id}/admin`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
@@ -555,7 +555,7 @@ export function useAdminArchiveCopy() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/copies/${id}/archive`, { method: "PATCH" }),
+      requestJson(`/api/backend/copies/${id}/archive`, { method: "PATCH" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
     },
@@ -566,7 +566,7 @@ export function useAdminUnarchiveCopy() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/copies/${id}/unarchive`, { method: "PATCH" }),
+      requestJson(`/api/backend/copies/${id}/unarchive`, { method: "PATCH" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
     },
@@ -584,7 +584,7 @@ export function useAdminUpdateWish() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: AdminUpdateWishInput) =>
-      requestJson(`/api/nestjs/wishes/${id}/admin`, {
+      requestJson(`/api/backend/wishes/${id}/admin`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -599,7 +599,7 @@ export function useAdminDeleteWish() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/wishes/${id}/admin`, { method: "DELETE" }),
+      requestJson(`/api/backend/wishes/${id}/admin`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
@@ -611,7 +611,7 @@ export function useAdminArchiveWish() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/wishes/${id}/admin/archive`, { method: "PATCH" }),
+      requestJson(`/api/backend/wishes/${id}/admin/archive`, { method: "PATCH" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
     },
@@ -622,7 +622,7 @@ export function useAdminRestoreWish() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
-      requestJson(`/api/nestjs/wishes/${id}/admin/restore`, { method: "PATCH" }),
+      requestJson(`/api/backend/wishes/${id}/admin/restore`, { method: "PATCH" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
     },

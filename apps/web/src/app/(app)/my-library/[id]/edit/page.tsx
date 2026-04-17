@@ -48,7 +48,7 @@ async function fetchCopy(id: string): Promise<PgCopyDetail> {
   params.set("id", `eq.${id}`);
   params.set("select", "*,edition:editions(*,book:books(*))");
 
-  const response = await fetch(`/api/postgrest/copies?${params}`);
+  const response = await fetch(`/api/backend/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch copy");
   const json = await response.json();
   if (!json.data?.[0]) throw new Error("Copy not found");

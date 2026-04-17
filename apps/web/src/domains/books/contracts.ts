@@ -32,19 +32,19 @@ export interface BookResponse {
 export const booksContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/books",
+    path: "/api/backend/books",
     body: c.type<CreateBookBody>(),
     responses: { 201: c.type<BookResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/books/:id",
+    path: "/api/backend/books/:id",
     body: c.type<UpdateBookBody>(),
     responses: { 200: c.type<BookResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/books/:id",
+    path: "/api/backend/books/:id",
     body: null,
     responses: { 200: c.type<BookResponse>() },
   },
@@ -73,19 +73,19 @@ export interface AuthorResponse {
 export const authorsContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/authors",
+    path: "/api/backend/authors",
     body: c.type<CreateAuthorBody>(),
     responses: { 201: c.type<AuthorResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/authors/:id",
+    path: "/api/backend/authors/:id",
     body: c.type<UpdateAuthorBody>(),
     responses: { 200: c.type<AuthorResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/authors/:id",
+    path: "/api/backend/authors/:id",
     body: null,
     responses: { 200: c.type<AuthorResponse>() },
   },
@@ -145,19 +145,19 @@ export interface EditionCoverPresignResponse {
 export const editionsContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/editions",
+    path: "/api/backend/editions",
     body: c.type<CreateEditionBody>(),
     responses: { 201: c.type<EditionResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/editions/:id",
+    path: "/api/backend/editions/:id",
     body: c.type<UpdateEditionBody>(),
     responses: { 200: c.type<EditionResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/editions/:id",
+    path: "/api/backend/editions/:id",
     body: null,
     responses: { 200: c.type<EditionResponse>() },
   },
@@ -183,19 +183,19 @@ export interface CategoryResponse {
 export const categoriesContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/categories",
+    path: "/api/backend/categories",
     body: c.type<CreateCategoryBody>(),
     responses: { 201: c.type<CategoryResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/categories/:themaCode",
+    path: "/api/backend/categories/:themaCode",
     body: c.type<UpdateCategoryBody>(),
     responses: { 200: c.type<CategoryResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/categories/:themaCode",
+    path: "/api/backend/categories/:themaCode",
     body: null,
     responses: { 200: c.type<CategoryResponse>() },
   },
@@ -226,19 +226,19 @@ export interface QuoteResponse {
 export const quotesContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/quotes",
+    path: "/api/backend/quotes",
     body: c.type<CreateQuoteBody>(),
     responses: { 201: c.type<QuoteResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/quotes/:id",
+    path: "/api/backend/quotes/:id",
     body: c.type<UpdateQuoteBody>(),
     responses: { 200: c.type<QuoteResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/quotes/:id",
+    path: "/api/backend/quotes/:id",
     body: null,
     responses: { 200: c.type<{ deleted: boolean }>() },
   },

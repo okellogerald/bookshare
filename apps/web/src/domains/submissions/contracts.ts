@@ -33,13 +33,13 @@ export interface SubmissionResponse {
 export const submissionsContract = c.router({
   submitCopy: {
     method: "POST",
-    path: "/api/nestjs/submissions/copy",
+    path: "/api/backend/submissions/copy",
     body: c.type<CreateCopySubmissionBody>(),
     responses: { 201: c.type<SubmissionResponse>() },
   },
   submitMissingWant: {
     method: "POST",
-    path: "/api/nestjs/submissions/want-missing",
+    path: "/api/backend/submissions/want-missing",
     body: c.type<CreateMissingWantSubmissionBody>(),
     responses: { 201: c.type<SubmissionResponse>() },
   },

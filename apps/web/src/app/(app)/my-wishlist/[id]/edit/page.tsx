@@ -30,7 +30,7 @@ async function fetchWant(id: string): Promise<PgWantWithBook> {
   params.set("id", `eq.${id}`);
   params.set("select", "*,book:books(*)");
 
-  const response = await fetch(`/api/postgrest/wishes?${params}`);
+  const response = await fetch(`/api/backend/wishes?${params}`);
   if (!response.ok) throw new Error("Failed to fetch wish");
   const json = await response.json();
   if (!json.data?.[0]) throw new Error("Wish not found");

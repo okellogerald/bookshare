@@ -57,7 +57,7 @@ async function fetchStaffDirectory(query: string): Promise<StaffDirectoryEntry[]
   }
 
   return requestJson<StaffDirectoryEntry[]>(
-    `/api/nestjs/staff${params.toString() ? `?${params}` : ""}`
+    `/api/backend/staff${params.toString() ? `?${params}` : ""}`
   );
 }
 
@@ -68,11 +68,11 @@ async function searchStaffIdentities(query: string): Promise<StaffIdentitySearch
   }
 
   const params = new URLSearchParams({ query: normalized });
-  return requestJson<StaffIdentitySearchResult[]>(`/api/nestjs/staff/search?${params}`);
+  return requestJson<StaffIdentitySearchResult[]>(`/api/backend/staff/search?${params}`);
 }
 
 async function mutateStaffRole(method: "POST" | "DELETE", input: ManageStaffRoleInput) {
-  return requestJson<{ ok: true; userId: string; role: string }>("/api/nestjs/staff/roles", {
+  return requestJson<{ ok: true; userId: string; role: string }>("/api/backend/staff/roles", {
     method,
     headers: {
       "Content-Type": "application/json",

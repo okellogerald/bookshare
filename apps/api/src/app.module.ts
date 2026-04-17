@@ -40,12 +40,13 @@ import { PostgrestProxyModule } from "./modules/postgrest-proxy/postgrest-proxy.
     SubmissionsModule,
     StaffModule,
     ImportsModule,
-    // Must be last — wildcard GET catch-all must not shadow specific routes
     PostgrestProxyModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: AuthGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
+    AuthGuard,
+    RolesGuard,
+    { provide: APP_GUARD, useExisting: AuthGuard },
+    { provide: APP_GUARD, useExisting: RolesGuard },
   ],
 })
 export class AppModule {}

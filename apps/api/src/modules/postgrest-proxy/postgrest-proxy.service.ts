@@ -3,6 +3,36 @@ import { ConfigService } from "@nestjs/config";
 import * as jwt from "jsonwebtoken";
 import type { AuthenticatedUser } from "../../common/guards/auth.guard";
 
+const EXACT_PROXY_PATHS = new Set([
+  "authors",
+  "book_quotes_with_book",
+  "books",
+  "books_with_authors",
+  "books_with_categories",
+  "browse_listings",
+  "browse_wishes",
+  "categories",
+  "editions",
+  "member_profiles",
+]);
+
+const COLLECTION_PROXY_PATHS = new Set(["copies", "wishes"]);
+
+const PUBLIC_PROXY_PATHS = new Set([
+  "book_quotes_with_book",
+  "books_with_authors",
+  "books_with_categories",
+  "browse_listings",
+  "browse_wishes",
+  "categories",
+  "editions",
+]);
+
+export interface PostgrestProxyTarget {
+  path: string;
+  isPublic: boolean;
+}
+
 @Injectable()
 export class PostgrestProxyService {
   private readonly postgrestUrl: string;
@@ -31,5 +61,33 @@ export class PostgrestProxyService {
     const url = new URL(`/${path}`, this.postgrestUrl);
     if (search) url.search = search;
     return url.toString();
+  }
+
+  resolveProxyTarget(requestPath: string): PostgrestProxyTarget | null {
+    const pathname = requestPath.split("?")[0] ?? "";
+    const normalized = pathname
+      .replace(/^\/+/, "")
+      .replace(/^api\/?/, "")
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "");
+
+    if (!normalized) return null;
+
+    if (EXACT_PROXY_PATHS.has(normalized)) {
+      return {
+        path: normalized,
+        isPublic: PUBLIC_PROXY_PATHS.has(normalized),
+      };
+    }
+
+    const segments = normalized.split("/");
+    if (segments.length === 1 && COLLECTION_PROXY_PATHS.has(segments[0])) {
+      return {
+        path: segments[0],
+        isPublic: PUBLIC_PROXY_PATHS.has(segments[0]),
+      };
+    }
+
+    return null;
   }
 }

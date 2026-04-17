@@ -52,30 +52,30 @@ export interface WishResponse {
 export const wishesContract = c.router({
   search: {
     method: "GET",
-    path: "/api/nestjs/wishes/search",
+    path: "/api/backend/wishes/search",
     responses: { 200: c.type<WishSearchResult[]>() },
   },
   create: {
     method: "POST",
-    path: "/api/nestjs/wishes",
+    path: "/api/backend/wishes",
     body: c.type<CreateWishBody>(),
     responses: { 201: c.type<WishResponse>() },
   },
   confirm: {
     method: "PATCH",
-    path: "/api/nestjs/wishes/:id/confirm",
+    path: "/api/backend/wishes/:id/confirm",
     body: null,
     responses: { 200: c.type<WishResponse>() },
   },
   update: {
     method: "PATCH",
-    path: "/api/nestjs/wishes/:id",
+    path: "/api/backend/wishes/:id",
     body: c.type<UpdateWishBody>(),
     responses: { 200: c.type<WishResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/wishes/:id",
+    path: "/api/backend/wishes/:id",
     body: null,
     responses: { 200: c.type<{ deleted: boolean }>() },
   },

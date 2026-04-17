@@ -52,24 +52,24 @@ export interface ProfileAvatarPresignResponse {
 export const profilesContract = c.router({
   sync: {
     method: "POST",
-    path: "/api/nestjs/profiles/sync",
+    path: "/api/backend/profiles/sync",
     body: null,
     responses: { 201: c.type<ProfileResponse>() },
   },
   getMe: {
     method: "GET",
-    path: "/api/nestjs/profiles/me",
+    path: "/api/backend/profiles/me",
     responses: { 200: c.type<ProfileResponse>() },
   },
   updateMe: {
     method: "PUT",
-    path: "/api/nestjs/profiles/me",
+    path: "/api/backend/profiles/me",
     body: c.type<UpdateProfileBody>(),
     responses: { 200: c.type<ProfileResponse>() },
   },
   updateMyIdentity: {
     method: "PUT",
-    path: "/api/nestjs/profiles/me/identity",
+    path: "/api/backend/profiles/me/identity",
     body: c.type<UpdateProfileIdentityBody>(),
     responses: { 200: c.type<ProfileResponse>() },
   },

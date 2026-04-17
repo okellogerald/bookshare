@@ -48,7 +48,7 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
 export function useRecentImportRuns(limit = 8) {
   return useQuery({
     queryKey: ["admin-import-runs", limit],
-    queryFn: () => requestJson<ImportRunRecord[]>(`/api/nestjs/imports?limit=${limit}`),
+    queryFn: () => requestJson<ImportRunRecord[]>(`/api/backend/imports?limit=${limit}`),
   });
 }
 
@@ -66,7 +66,7 @@ export function useValidateImportZip() {
       formData.set("mode", params.mode);
       formData.set("replaceInventory", String(params.replaceInventory));
 
-      return requestJson<ImportRunValidationResult>("/api/nestjs/imports/validate", {
+      return requestJson<ImportRunValidationResult>("/api/backend/imports/validate", {
         method: "POST",
         body: formData,
       });
@@ -82,7 +82,7 @@ export function useCommitImportRun() {
 
   return useMutation({
     mutationFn: (runId: string) =>
-      requestJson<CommitImportRunResult>(`/api/nestjs/imports/${runId}/commit`, {
+      requestJson<CommitImportRunResult>(`/api/backend/imports/${runId}/commit`, {
         method: "POST",
       }),
     onSuccess: () => {

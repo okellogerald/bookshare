@@ -1,12 +1,18 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import type { NextFunction, Request, Response } from "express";
 import { AppModule } from "./app.module";
+import { PostgrestProxyMiddleware } from "./modules/postgrest-proxy/postgrest-proxy.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const postgrestProxy = app.get(PostgrestProxyMiddleware);
 
   app.setGlobalPrefix("api");
+  app.use((req: Request, res: Response, next: NextFunction) =>
+    postgrestProxy.use(req, res, next)
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({

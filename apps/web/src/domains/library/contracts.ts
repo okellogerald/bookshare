@@ -78,43 +78,43 @@ export interface CopyImagePresignResponse {
 export const copiesContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/copies",
+    path: "/api/backend/copies",
     body: c.type<CreateCopyBody>(),
     responses: { 201: c.type<CopyResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/copies/:id",
+    path: "/api/backend/copies/:id",
     body: c.type<UpdateCopyBody>(),
     responses: { 200: c.type<CopyResponse>() },
   },
   updateStatus: {
     method: "PATCH",
-    path: "/api/nestjs/copies/:id/status",
+    path: "/api/backend/copies/:id/status",
     body: c.type<UpdateCopyStatusBody>(),
     responses: { 200: c.type<CopyResponse>() },
   },
   attachImages: {
     method: "POST",
-    path: "/api/nestjs/copies/:id/images",
+    path: "/api/backend/copies/:id/images",
     body: c.type<AttachCopyImagesBody>(),
     responses: { 201: c.type<CopyImageResponse[]>() },
   },
   removeImage: {
     method: "DELETE",
-    path: "/api/nestjs/copies/:id/images/:imageId",
+    path: "/api/backend/copies/:id/images/:imageId",
     body: null,
     responses: { 200: c.type<{ deleted: boolean }>() },
   },
   confirm: {
     method: "PATCH",
-    path: "/api/nestjs/copies/:id/confirm",
+    path: "/api/backend/copies/:id/confirm",
     body: null,
     responses: { 200: c.type<CopyResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/copies/:id",
+    path: "/api/backend/copies/:id",
     body: null,
     responses: { 200: c.type<CopyResponse>() },
   },
@@ -148,31 +148,31 @@ export interface ManageCopiesBody {
 export const collectionsContract = c.router({
   create: {
     method: "POST",
-    path: "/api/nestjs/collections",
+    path: "/api/backend/collections",
     body: c.type<CreateCollectionBody>(),
     responses: { 201: c.type<CollectionResponse>() },
   },
   update: {
     method: "PUT",
-    path: "/api/nestjs/collections/:id",
+    path: "/api/backend/collections/:id",
     body: c.type<UpdateCollectionBody>(),
     responses: { 200: c.type<CollectionResponse>() },
   },
   addCopies: {
     method: "POST",
-    path: "/api/nestjs/collections/:id/copies",
+    path: "/api/backend/collections/:id/copies",
     body: c.type<ManageCopiesBody>(),
     responses: { 201: c.type<CollectionResponse>() },
   },
   removeCopies: {
     method: "DELETE",
-    path: "/api/nestjs/collections/:id/copies",
+    path: "/api/backend/collections/:id/copies",
     body: c.type<ManageCopiesBody>(),
     responses: { 200: c.type<CollectionResponse>() },
   },
   remove: {
     method: "DELETE",
-    path: "/api/nestjs/collections/:id",
+    path: "/api/backend/collections/:id",
     body: null,
     responses: { 200: c.type<CollectionResponse>() },
   },
@@ -197,7 +197,7 @@ export interface EventResponse {
 export const eventsContract = c.router({
   addNote: {
     method: "POST",
-    path: "/api/nestjs/events",
+    path: "/api/backend/events",
     body: c.type<AddEventNoteBody>(),
     responses: { 201: c.type<EventResponse>() },
   },

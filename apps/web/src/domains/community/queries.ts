@@ -22,7 +22,7 @@ async function fetchCommunityMembers(filters: CommunityFilters): Promise<PgMembe
     );
   }
 
-  const response = await fetch(`/api/nestjs/member_profiles?${params}`);
+  const response = await fetch(`/api/backend/member_profiles?${params}`);
   if (!response.ok) throw new Error("Failed to fetch community members");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgMemberProfile[]);
@@ -110,7 +110,7 @@ async function fetchCommunityWishlist(filters: CommunityWishlistFilters): Promis
     params.set("book_title", `ilike.*${filters.search}*`);
   }
 
-  const response = await fetch(`/api/nestjs/browse_wishes?${params}`);
+  const response = await fetch(`/api/backend/browse_wishes?${params}`);
   if (!response.ok) throw new Error("Failed to fetch community wishlist");
   const json = await response.json();
   return normalizeBrowseWants((json.data as PgBrowseWish[]) ?? []);
@@ -128,7 +128,7 @@ async function fetchActiveWishersForBook(bookId: string) {
   params.set("book_id", `eq.${bookId}`);
   params.set("select", "wishers");
 
-  const response = await fetch(`/api/nestjs/browse_wishes?${params}`);
+  const response = await fetch(`/api/backend/browse_wishes?${params}`);
   if (!response.ok) throw new Error("Failed to fetch active wishers");
   const json = await response.json();
   const wishes = normalizeBrowseWants((json.data as PgBrowseWish[]) ?? []);

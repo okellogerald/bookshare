@@ -21,7 +21,7 @@ import type {
 async function fetchBookDetail(bookId: string): Promise<PgBookWithAuthorsView | null> {
   const params = new URLSearchParams();
   params.set("id", `eq.${bookId}`);
-  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
+  const response = await fetch(`/api/backend/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to fetch book");
   const json = await response.json();
   return json.data?.[0] ?? null;
@@ -38,7 +38,7 @@ export function useBookDetail(bookId: string) {
 async function fetchBookCategories(bookId: string): Promise<PgBookWithCategoriesView | null> {
   const params = new URLSearchParams();
   params.set("id", `eq.${bookId}`);
-  const response = await fetch(`/api/nestjs/books_with_categories?${params}`);
+  const response = await fetch(`/api/backend/books_with_categories?${params}`);
   if (!response.ok) throw new Error("Failed to fetch book categories");
   const json = await response.json();
   return json.data?.[0] ?? null;
@@ -58,7 +58,7 @@ async function fetchEditionsByBook(bookId: string): Promise<PgEdition[]> {
   const params = new URLSearchParams();
   params.set("book_id", `eq.${bookId}`);
   params.set("order", "created_at.desc");
-  const response = await fetch(`/api/nestjs/editions?${params}`);
+  const response = await fetch(`/api/backend/editions?${params}`);
   if (!response.ok) throw new Error("Failed to fetch editions");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgEdition[]);
@@ -79,7 +79,7 @@ async function fetchListingsByBook(bookId: string): Promise<PgBrowseListing[]> {
   params.set("book_id", `eq.${bookId}`);
   params.set("status", "eq.available");
   params.set("order", "created_at.desc");
-  const response = await fetch(`/api/nestjs/browse_listings?${params}`);
+  const response = await fetch(`/api/backend/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgBrowseListing[]);
@@ -98,7 +98,7 @@ export function useListingsByBook(bookId: string) {
 async function fetchBookWithAuthors(bookId: string): Promise<PgBookWithAuthorsView | null> {
   const params = new URLSearchParams();
   params.set("id", `eq.${bookId}`);
-  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
+  const response = await fetch(`/api/backend/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to fetch book with authors");
   const json = await response.json();
   return json.data?.[0] ?? null;
@@ -118,7 +118,7 @@ async function fetchQuotesByBook(bookId: string): Promise<PgBookQuoteWithBook[]>
   const params = new URLSearchParams();
   params.set("book_id", `eq.${bookId}`);
   params.set("order", "created_at.desc");
-  const response = await fetch(`/api/nestjs/book_quotes_with_book?${params}`);
+  const response = await fetch(`/api/backend/book_quotes_with_book?${params}`);
   if (!response.ok) throw new Error("Failed to fetch quotes");
   const json = await response.json();
   return json.data;
@@ -129,7 +129,7 @@ async function fetchQuotesByBooks(bookIds: string[]): Promise<PgBookQuoteWithBoo
   const params = new URLSearchParams();
   params.set("book_id", `in.(${bookIds.join(",")})`);
   params.set("order", "created_at.desc");
-  const response = await fetch(`/api/nestjs/book_quotes_with_book?${params}`);
+  const response = await fetch(`/api/backend/book_quotes_with_book?${params}`);
   if (!response.ok) throw new Error("Failed to fetch quotes");
   const json = await response.json();
   return json.data;

@@ -53,7 +53,7 @@ async function fetchBrowseListings(filters: BrowseFilters): Promise<PgBrowseList
     params.set("format", `eq.${filters.format}`);
   }
 
-  const response = await fetch(`/api/nestjs/browse_listings?${params}`);
+  const response = await fetch(`/api/backend/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgBrowseListing[]);
@@ -145,7 +145,7 @@ async function fetchBrowseBookCategoryIndex(bookIds: string[]): Promise<Map<stri
   params.set("select", "id,categories");
   params.set("id", `in.(${uniqueBookIds.join(",")})`);
 
-  const response = await fetch(`/api/nestjs/books_with_categories?${params}`);
+  const response = await fetch(`/api/backend/books_with_categories?${params}`);
   if (!response.ok) throw new Error("Failed to fetch browse book categories");
   const json = await response.json();
   const rows = (json.data ?? []) as BrowseBookCategoriesRow[];

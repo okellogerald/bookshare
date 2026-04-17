@@ -5,7 +5,7 @@ import { apiContract } from "../contracts";
 /**
  * Create a typed ts-rest client for NestJS write endpoints.
  *
- * All requests are routed through the Next.js API proxy at /api/nestjs/
+ * All requests are routed through the Next.js API proxy at /api/backend/
  * which attaches the JWT server-side. This keeps the auth token out of
  * the browser and leverages the existing proxy route handler.
  *

@@ -59,7 +59,7 @@ export function useCopySubmissions(status?: string) {
     queryKey: ["admin-copy-submissions", status ?? "all"],
     queryFn: () =>
       requestJson<CopySubmissionRecord[]>(
-        `/api/nestjs/submissions/copies${queryString}`
+        `/api/backend/submissions/copies${queryString}`
       ),
   });
 }
@@ -69,7 +69,7 @@ export function useCopySubmission(id: string | null) {
     queryKey: ["admin-copy-submission", id],
     queryFn: () =>
       requestJson<CopySubmissionRecord>(
-        `/api/nestjs/submissions/copies/${id}`
+        `/api/backend/submissions/copies/${id}`
       ),
     enabled: !!id,
   });
@@ -84,7 +84,7 @@ export function useApproveCopySubmission() {
       ...body
     }: ApproveCopySubmissionInput & { id: string }) =>
       requestJson<ApproveCopySubmissionResult>(
-        `/api/nestjs/submissions/copies/${id}/approve`,
+        `/api/backend/submissions/copies/${id}/approve`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -114,7 +114,7 @@ export function useRejectCopySubmission() {
       ...body
     }: RejectCopySubmissionInput & { id: string }) =>
       requestJson<RejectCopySubmissionResult>(
-        `/api/nestjs/submissions/copies/${id}/reject`,
+        `/api/backend/submissions/copies/${id}/reject`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -141,7 +141,7 @@ export function useWantSubmissions(status?: string) {
     queryKey: ["admin-want-submissions", status ?? "all"],
     queryFn: () =>
       requestJson<WantSubmissionRecord[]>(
-        `/api/nestjs/submissions/wants${queryString}`
+        `/api/backend/submissions/wants${queryString}`
       ),
   });
 }
@@ -151,7 +151,7 @@ export function useWantSubmission(id: string | null) {
     queryKey: ["admin-want-submission", id],
     queryFn: () =>
       requestJson<WantSubmissionRecord>(
-        `/api/nestjs/submissions/wants/${id}`
+        `/api/backend/submissions/wants/${id}`
       ),
     enabled: !!id,
   });
@@ -166,7 +166,7 @@ export function useApproveWantSubmission() {
       ...body
     }: ApproveWantSubmissionInput & { id: string }) =>
       requestJson<ApproveWantSubmissionResult>(
-        `/api/nestjs/submissions/wants/${id}/approve`,
+        `/api/backend/submissions/wants/${id}/approve`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -196,7 +196,7 @@ export function useRejectWantSubmission() {
       ...body
     }: RejectWantSubmissionInput & { id: string }) =>
       requestJson<RejectWantSubmissionResult>(
-        `/api/nestjs/submissions/wants/${id}/reject`,
+        `/api/backend/submissions/wants/${id}/reject`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

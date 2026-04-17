@@ -89,10 +89,20 @@ export class AuthGuard implements CanActivate {
     );
 
     const request = context.switchToHttp().getRequest();
+    await this.authenticateRequest(request, { optional: isOptionalAuth });
+    return true;
+  }
+
+  async authenticateRequest(
+    request: any,
+    options: { optional?: boolean } = {}
+  ): Promise<AuthenticatedUser | null> {
+    const optional = options.optional ?? false;
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
-      if (isOptionalAuth) return true;
+      request.user = null;
+      if (optional) return null;
       throw new UnauthorizedException("No authorization token provided");
     }
 
@@ -102,12 +112,13 @@ export class AuthGuard implements CanActivate {
       mappedUser.roles = await this.resolveAuthorizedRoles(mappedUser);
       await this.ensureActiveAccount(mappedUser.id);
       request.user = mappedUser;
-      return true;
+      return mappedUser;
     } catch (error) {
+      request.user = null;
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      if (isOptionalAuth) return true;
+      if (optional) return null;
       throw new UnauthorizedException("Invalid or expired token");
     }
   }

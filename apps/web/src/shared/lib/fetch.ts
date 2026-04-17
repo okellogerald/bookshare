@@ -5,7 +5,7 @@ export async function nestjsFetch<T>(
   method: string,
   body?: unknown
 ): Promise<T> {
-  const res = await fetch(`/api/nestjs/${path}`, {
+  const res = await fetch(`/api/backend/${path}`, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,

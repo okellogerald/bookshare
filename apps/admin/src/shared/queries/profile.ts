@@ -23,7 +23,7 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
 export function useMyProfile(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["admin-my-profile"],
-    queryFn: () => requestJson<ProfileResponse>("/api/nestjs/profiles/me"),
+    queryFn: () => requestJson<ProfileResponse>("/api/backend/profiles/me"),
     enabled: options?.enabled ?? true,
   });
 }
@@ -33,7 +33,7 @@ export function useSyncMyProfile() {
 
   return useMutation({
     mutationFn: () =>
-      requestJson<ProfileResponse>("/api/nestjs/profiles/sync", { method: "POST" }),
+      requestJson<ProfileResponse>("/api/backend/profiles/sync", { method: "POST" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-my-profile"] });
     },

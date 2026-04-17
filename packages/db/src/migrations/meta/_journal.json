@@ -43,6 +43,13 @@
       "when": 1776100000000,
       "tag": "0007_admin_rls_bypass",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776420000000,
+      "tag": "0008_public_postgrest_anon_reads",
+      "breakpoints": true
     }
   ]
 }

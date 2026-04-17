@@ -79,7 +79,7 @@ export function AppShellClient({
     if (!user || !isEmailVerified || syncedProfile.current) return;
     syncedProfile.current = true;
 
-    fetch("/api/nestjs/profiles/sync", { method: "POST" }).catch(() => {
+    fetch("/api/backend/profiles/sync", { method: "POST" }).catch(() => {
       // Best-effort profile bootstrap for first-time users.
     });
   }, [isEmailVerified, user]);
