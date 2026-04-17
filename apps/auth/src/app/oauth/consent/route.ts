@@ -92,7 +92,9 @@ function buildIdTokenClaims(
     claims.roles = roles;
     claims.realm_access = { roles };
   }
-  
+
+  console.info("id token claims: ", claims)
+
   return claims;
 }
 
@@ -129,7 +131,9 @@ function buildAccessTokenClaims(
   if (firstName) claims.given_name = firstName;
   if (lastName) claims.family_name = lastName;
   if (fullName) claims.name = fullName;
-  
+
+  console.info("access token claims: ", claims)
+
   return claims;
 }
 

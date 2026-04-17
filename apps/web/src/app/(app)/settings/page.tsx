@@ -20,11 +20,11 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
-import { useMyProfile } from "@/shared/queries/profile";
+import { useMyProfile } from "@/domains/profile/queries";
 import {
   useDeactivateMyAccount,
   useDeleteMyAccount,
-} from "@/shared/queries/settings";
+} from "@/domains/profile/queries";
 
 export default function SettingsPage() {
   const { data: myProfile, isLoading, isError, error } = useMyProfile();

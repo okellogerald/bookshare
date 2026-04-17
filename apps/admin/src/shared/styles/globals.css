@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    --font-body: Arial, "Helvetica Neue", Helvetica, sans-serif;
     --background: 0 0% 97.5%;
     --foreground: 224 20% 14%;
     --card: 0 0% 100%;
@@ -32,14 +33,29 @@
   }
 
   html {
-    font-family: "Avenir Medium", "Avenir Next Medium", "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight: 500;
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     @apply bg-background text-foreground;
     min-height: 100vh;
     color-scheme: light;
+    font-family: var(--font-body);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display), Arial, "Helvetica Neue", Helvetica, sans-serif;
+    text-wrap: balance;
   }
 
   ::selection {

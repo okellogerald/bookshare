@@ -1,14 +1,16 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { nestjsFetch } from "@/shared/lib/fetch";
 import type {
-  CopyImagePresignBody,
-  CopyImagePresignResponse,
   CreateCopySubmissionBody,
   CreateMissingWantSubmissionBody,
   SubmissionResponse,
-} from "@/shared/api";
-import { nestjsFetch } from "./fetch";
+} from "./contracts";
+import type {
+  CopyImagePresignBody,
+  CopyImagePresignResponse,
+} from "@/domains/library/contracts";
 
 export function useCreateSubmissionCopyImagePresign() {
   return useMutation({
@@ -31,10 +33,6 @@ export function useSubmitCopyRequest() {
 export function useSubmitMissingWantRequest() {
   return useMutation({
     mutationFn: (body: CreateMissingWantSubmissionBody) =>
-      nestjsFetch<SubmissionResponse>(
-        "submissions/want-missing",
-        "POST",
-        body
-      ),
+      nestjsFetch<SubmissionResponse>("submissions/want-missing", "POST", body),
   });
 }

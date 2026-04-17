@@ -129,7 +129,9 @@ export function AdminShellClient({
           <div className="flex h-16 items-center border-b px-5">
             <Link href="/catalog" className="flex items-center gap-3 text-foreground">
               <BookOpen className="h-5 w-5" />
-              <span className="text-sm font-semibold">BookShare</span>
+              <span className="font-display text-[0.95rem] font-semibold tracking-[-0.04em]">
+                BookShare
+              </span>
             </Link>
           </div>
 
@@ -142,7 +144,7 @@ export function AdminShellClient({
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
+                      "font-display flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm tracking-[-0.025em] transition",
                       isActive
                         ? "bg-muted font-medium text-foreground"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -161,14 +163,16 @@ export function AdminShellClient({
           <header className="flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6">
             <div className="flex items-center gap-3 lg:hidden">
               <BookOpen className="h-5 w-5" />
-              <span className="text-sm font-semibold">BookShare</span>
+              <span className="font-display text-[0.95rem] font-semibold tracking-[-0.04em]">
+                BookShare
+              </span>
             </div>
 
             <div className="ml-4 flex w-full justify-end gap-2 sm:gap-3">
               <Link
                 href="/team"
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition",
+                  "font-display inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm tracking-[-0.025em] transition",
                   isActiveAdminPath(pathname, "/team")
                     ? "border-border bg-muted text-foreground"
                     : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground"
@@ -179,7 +183,7 @@ export function AdminShellClient({
               </Link>
 
               <div ref={accountMenuRef} className="relative flex items-center gap-3">
-                <span className="hidden max-w-[10rem] truncate text-sm font-medium text-foreground md:block">
+                <span className="font-display hidden max-w-[10rem] truncate text-sm font-medium tracking-[-0.025em] text-foreground md:block">
                   {displayName}
                 </span>
                 <button
@@ -193,7 +197,9 @@ export function AdminShellClient({
                 {accountMenuOpen ? (
                   <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-52 overflow-hidden rounded-xl border bg-card shadow-md">
                     <div className="px-3 py-2.5">
-                      <p className="text-sm font-medium text-foreground">{displayName}</p>
+                      <p className="font-display text-sm font-medium tracking-[-0.025em] text-foreground">
+                        {displayName}
+                      </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{email}</p>
                     </div>
                     <div className="h-px bg-border" />
@@ -228,7 +234,7 @@ export function AdminShellClient({
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "min-w-max rounded-full px-3 py-1.5 text-sm transition",
+                      "font-display min-w-max rounded-full px-3 py-1.5 text-sm tracking-[-0.025em] transition",
                       isActive
                         ? "bg-muted font-medium text-foreground"
                         : "text-muted-foreground"

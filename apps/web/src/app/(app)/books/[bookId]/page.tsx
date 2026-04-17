@@ -17,7 +17,7 @@ import {
   useBookDetail,
   useEditionsByBook,
   useListingsByBook,
-} from "@/shared/queries/books";
+} from "@/domains/books/queries";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",

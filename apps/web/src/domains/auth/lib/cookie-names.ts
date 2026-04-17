@@ -6,7 +6,7 @@
  * full cookie surface area.
  *
  * Persistent cookies (survive login):
- * - session: encrypted SessionData (user info, DPoP key, expiry)
+ * - session: encrypted SessionData (user info, expiry)
  * - token: encrypted access token for API calls
  * - loggedOut: marker set after explicit logout (affects middleware redirect)
  *

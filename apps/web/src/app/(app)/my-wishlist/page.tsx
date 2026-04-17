@@ -34,7 +34,7 @@ import {
   useMyWants,
   useConfirmWant,
   useDeleteWant,
-} from "@/shared/queries/my-wishlist";
+} from "@/domains/wishlist/queries";
 
 const pageSize = 24;
 

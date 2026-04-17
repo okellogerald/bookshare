@@ -19,13 +19,13 @@ export function PageIntro({
         className
       )}
     >
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          {title}
-        </h1>
-        <p className="mt-2 text-sm leading-7 text-muted-foreground">
-          {description}
-        </p>
-        {actions ? <div className="flex flex-wrap items-center gap-3 pt-4">{actions}</div> : null}
+      <h1 className="font-display text-[2rem] font-semibold leading-[1.08] tracking-[-0.045em] text-foreground sm:text-[2.5rem]">
+        {title}
+      </h1>
+      <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
+        {description}
+      </p>
+      {actions ? <div className="flex flex-wrap items-center gap-3 pt-4">{actions}</div> : null}
     </div>
   );
 }

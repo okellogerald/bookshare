@@ -6,7 +6,7 @@ import {
   useBookDetail,
   useEditionsByBook,
   useListingsByBook,
-} from "@/shared/queries/books";
+} from "@/domains/books/queries";
 import { BookDialogHero } from "@/shared/components/book-dialog-hero";
 import { CommunityCopyList } from "@/shared/components/community-copy-list";
 import { Badge } from "@/shared/components/ui/badge";

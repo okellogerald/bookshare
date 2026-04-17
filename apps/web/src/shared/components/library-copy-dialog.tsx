@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import type { PgCopyDetail } from "@/shared/api";
-import { useBookDetail, useEditionsByBook } from "@/shared/queries/books";
+import { useBookDetail, useEditionsByBook } from "@/domains/books/queries";
 import {
   useMyCopyDetail,
   type MyCopyDialogDetail,
-} from "@/shared/queries/my-library";
+} from "@/domains/library/queries";
 import { BookDialogHero } from "@/shared/components/book-dialog-hero";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";

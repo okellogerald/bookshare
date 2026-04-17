@@ -153,7 +153,7 @@ async function fetchCatalogBooks(query: string): Promise<PgBookWithAuthorsView[]
   params.set("limit", "20");
   params.set("or", `(title.ilike.*${normalized}*,subtitle.ilike.*${normalized}*)`);
 
-  const response = await fetch(`/api/postgrest/books_with_authors?${params}`);
+  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to search catalog.");
   const json = await response.json();
   return (json.data ?? []) as PgBookWithAuthorsView[];
@@ -164,7 +164,7 @@ async function fetchPostgrestCount(path: string): Promise<number> {
   params.set("select", "id");
   params.set("limit", "1");
 
-  const response = await fetch(`/api/postgrest/${path}?${params}`, {
+  const response = await fetch(`/api/nestjs/${path}?${params}`, {
     headers: {
       Prefer: "count=exact",
     },
@@ -203,7 +203,7 @@ async function fetchCatalogEditions(limit = 40): Promise<CatalogEditionRecord[]>
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/postgrest/editions?${params}`);
+  const response = await fetch(`/api/nestjs/editions?${params}`);
   if (!response.ok) throw new Error("Failed to load editions.");
   const json = await response.json();
   return (json.data ?? []) as CatalogEditionRecord[];
@@ -218,7 +218,7 @@ async function fetchCatalogCopies(limit = 40): Promise<CatalogCopyRecord[]> {
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/postgrest/copies?${params}`);
+  const response = await fetch(`/api/nestjs/copies?${params}`);
   if (!response.ok) throw new Error("Failed to load copies.");
   const json = await response.json();
   return (json.data ?? []) as CatalogCopyRecord[];
@@ -233,7 +233,7 @@ async function fetchCatalogWishes(limit = 40): Promise<CatalogWishRecord[]> {
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/postgrest/wishes?${params}`);
+  const response = await fetch(`/api/nestjs/wishes?${params}`);
   if (!response.ok) throw new Error("Failed to load wishes.");
   const json = await response.json();
   return (json.data ?? []) as CatalogWishRecord[];
@@ -275,7 +275,7 @@ async function fetchAuthors(query: string): Promise<AuthorRecord[]> {
   params.set("limit", "15");
   params.set("name", `ilike.*${normalized}*`);
 
-  const response = await fetch(`/api/postgrest/authors?${params}`);
+  const response = await fetch(`/api/nestjs/authors?${params}`);
   if (!response.ok) throw new Error("Failed to search authors.");
   const json = await response.json();
   return (json.data ?? []) as AuthorRecord[];
@@ -295,7 +295,7 @@ async function fetchCatalogBooksList(limit = 60): Promise<PgBookWithAuthorsView[
   params.set("order", "title.asc");
   params.set("limit", String(limit));
 
-  const response = await fetch(`/api/postgrest/books_with_authors?${params}`);
+  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
   if (!response.ok) throw new Error("Failed to load books.");
   const json = await response.json();
   return (json.data ?? []) as PgBookWithAuthorsView[];
@@ -334,7 +334,7 @@ async function fetchEditionsByBook(bookId: string): Promise<CatalogEditionRecord
   params.set("book_id", `eq.${bookId}`);
   params.set("order", "created_at.desc");
 
-  const response = await fetch(`/api/postgrest/editions?${params}`);
+  const response = await fetch(`/api/nestjs/editions?${params}`);
   if (!response.ok) throw new Error("Failed to load editions for this book.");
   const json = await response.json();
   return (json.data ?? []) as CatalogEditionRecord[];

@@ -44,7 +44,7 @@ import {
   useDeleteCopy,
   useMyCopies,
   useUpdateCopyStatus,
-} from "@/shared/queries/my-library";
+} from "@/domains/library/queries";
 import {
   buildStatusTransitionBody,
   createStatusTransitionFormState,

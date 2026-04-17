@@ -17,7 +17,7 @@ import {
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { formatUiDate } from "@/shared/lib/date";
-import { useDeleteWant, useUpdateWant } from "@/shared/queries/my-wishlist";
+import { useDeleteWant, useUpdateWant } from "@/domains/wishlist/queries";
 
 const closureReasonLabels = {
   removed_by_wisher: "Removed by you",

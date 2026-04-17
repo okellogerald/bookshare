@@ -19,9 +19,9 @@ import {
   type BrowseEditionListing,
   useBrowseBookCategoryIndex,
   useBrowseListings,
-} from "@/shared/queries/browse";
-import { useCreateWant, useDeleteWant, useMyWants } from "@/shared/queries/my-wishlist";
-import { useAllCategories, useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
+} from "@/domains/browse/queries";
+import { useCreateWant, useDeleteWant, useMyWants } from "@/domains/wishlist/queries";
+import { useAllCategories, useMyActiveOwnedBookIds } from "@/domains/library/queries";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import { ListingCard } from "./listing-card";
 

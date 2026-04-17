@@ -10,25 +10,23 @@ export async function nestjsFetch<T>(
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
+
   if (!res.ok) {
     const text = await res.text();
     let message = text;
-
     try {
-      const parsed = JSON.parse(text) as {
-        message?: string | string[];
-      };
+      const parsed = JSON.parse(text) as { message?: string | string[] };
       if (Array.isArray(parsed.message)) {
         message = parsed.message.join(". ");
       } else if (typeof parsed.message === "string") {
         message = parsed.message;
       }
     } catch {
-      // Keep the raw response text when the backend did not return JSON.
+      // keep raw text when backend did not return JSON
     }
-
     throw new Error(`API error (${res.status}): ${message}`);
   }
+
   if (res.status === 204) return undefined as T;
   return normalizeLocalMinioUrls(await res.json()) as T;
 }

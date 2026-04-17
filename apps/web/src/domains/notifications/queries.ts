@@ -1,13 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { nestjsFetch } from "@/shared/lib/fetch";
 import type {
   MarkAllNotificationsReadResponse,
   NotificationListResponse,
   NotificationResponse,
   UnreadNotificationsCountResponse,
-} from "@/shared/api";
-import { nestjsFetch } from "./fetch";
+} from "./contracts";
 
 interface NotificationsQueryOptions {
   limit?: number;
@@ -18,22 +18,14 @@ async function fetchNotifications(
   options: NotificationsQueryOptions
 ): Promise<NotificationListResponse> {
   const params = new URLSearchParams();
-  if (options.limit !== undefined) {
-    params.set("limit", String(options.limit));
-  }
-  if (options.offset !== undefined) {
-    params.set("offset", String(options.offset));
-  }
-
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
+  if (options.offset !== undefined) params.set("offset", String(options.offset));
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return nestjsFetch<NotificationListResponse>(`notifications${suffix}`, "GET");
 }
 
 async function fetchUnreadNotificationsCount(): Promise<UnreadNotificationsCountResponse> {
-  return nestjsFetch<UnreadNotificationsCountResponse>(
-    "notifications/unread-count",
-    "GET"
-  );
+  return nestjsFetch<UnreadNotificationsCountResponse>("notifications/unread-count", "GET");
 }
 
 export function useNotifications(
@@ -75,10 +67,7 @@ export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      nestjsFetch<MarkAllNotificationsReadResponse>(
-        "notifications/read-all",
-        "PATCH"
-      ),
+      nestjsFetch<MarkAllNotificationsReadResponse>("notifications/read-all", "PATCH"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import type { BrowseEditionListing } from "@/shared/queries/browse";
+import type { BrowseEditionListing } from "@/domains/browse/queries";
 import {
   useBookDetail,
   useEditionsByBook,
   useListingsByBook,
-} from "@/shared/queries/books";
+} from "@/domains/books/queries";
 import { BookDialogHero } from "@/shared/components/book-dialog-hero";
 import { CommunityCopyList } from "@/shared/components/community-copy-list";
 import { Button } from "@/shared/components/ui/button";

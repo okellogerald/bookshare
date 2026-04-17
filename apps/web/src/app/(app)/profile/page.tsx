@@ -17,7 +17,7 @@ import {
   useCreateProfileAvatarPresign,
   useMyProfile,
   useUpdateMyProfile,
-} from "@/shared/queries/profile";
+} from "@/domains/profile/queries";
 
 function getInitials(value: string): string {
   const words = value

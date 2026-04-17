@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useCurrentUser } from "@/shared/providers/user-provider";
-import { useCommunityMembers } from "@/shared/queries/community";
+import { useCommunityMembers } from "@/domains/community/queries";
 import { PaginationControls } from "@/shared/components/pagination-controls";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";

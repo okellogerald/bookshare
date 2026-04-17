@@ -8,17 +8,20 @@ import type {
   PgCopyDetail,
   PgEdition,
 } from "@/shared/api";
+import type { WishSearchResult } from "@/domains/wishlist/contracts";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
+import { nestjsFetch } from "@/shared/lib/fetch";
 import type {
   AttachCopyImagesBody,
   CopyImagePresignBody,
   CopyImagePresignResponse,
-  EditionCoverPresignBody,
-  EditionCoverPresignResponse,
   CopyImageResponse,
   CreateCopyBody,
   UpdateCopyBody,
   UpdateCopyStatusBody,
   CopyResponse,
+} from "./contracts";
+import type {
   CreateBookBody,
   UpdateBookBody,
   BookResponse,
@@ -27,12 +30,11 @@ import type {
   EditionResponse,
   CreateAuthorBody,
   AuthorResponse,
-  WishSearchResult,
-} from "@/shared/api";
-import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
-import { nestjsFetch } from "./fetch";
+  EditionCoverPresignBody,
+  EditionCoverPresignResponse,
+} from "@/domains/books/contracts";
 
-// ─── Queries ────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────
 
 export interface MyCopyDialogEvent {
   id: string;
@@ -75,15 +77,13 @@ export interface MyCopyDialogDetail {
   events: MyCopyDialogEvent[];
 }
 
+// ─── Queries ─────────────────────────────────────────────────
+
 async function fetchMyCopies(): Promise<PgCopyDetail[]> {
   const params = new URLSearchParams();
-  params.set(
-    "select",
-    "*,edition:editions(*,book:books(*)),images:copy_images(*)"
-  );
+  params.set("select", "*,edition:editions(*,book:books(*)),images:copy_images(*)");
   params.set("order", "created_at.desc");
-
-  const response = await fetch(`/api/postgrest/copies?${params}`);
+  const response = await fetch(`/api/nestjs/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch copies");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgCopyDetail[]);
@@ -99,8 +99,7 @@ async function fetchMyActiveOwnedBookIds(): Promise<string[]> {
   const params = new URLSearchParams();
   params.set("select", "edition:editions(book_id)");
   params.set("status", "in.(available,shelved,lent)");
-
-  const response = await fetch(`/api/postgrest/copies?${params}`);
+  const response = await fetch(`/api/nestjs/copies?${params}`);
   if (!response.ok) throw new Error("Failed to fetch active owned books");
   const json = await response.json();
   const rows = json.data as Array<{ edition?: { book_id?: string } }>;
@@ -117,8 +116,7 @@ async function fetchEditionByIsbn(isbn: string): Promise<PgEdition | null> {
   const params = new URLSearchParams();
   params.set("isbn", `eq.${isbn}`);
   params.set("select", "*,book:books(*)");
-
-  const response = await fetch(`/api/postgrest/editions?${params}`);
+  const response = await fetch(`/api/nestjs/editions?${params}`);
   if (!response.ok) throw new Error("Failed to search editions");
   const json = await response.json();
   return normalizeLocalMinioUrls((json.data?.[0] as PgEdition | undefined) ?? null);
@@ -136,11 +134,29 @@ async function fetchAllCategories(): Promise<PgCategory[]> {
   const params = new URLSearchParams();
   params.set("select", "thema_code,name");
   params.set("order", "name.asc");
-
-  const response = await fetch(`/api/postgrest/categories?${params}`);
+  const response = await fetch(`/api/nestjs/categories?${params}`);
   if (!response.ok) throw new Error("Failed to fetch categories");
   const json = await response.json();
   return json.data;
+}
+
+async function searchAuthorsByName(name: string): Promise<PgAuthor[]> {
+  const params = new URLSearchParams();
+  params.set("name", `ilike.*${name}*`);
+  params.set("order", "name.asc");
+  const response = await fetch(`/api/nestjs/authors?${params}`);
+  if (!response.ok) throw new Error("Failed to search authors");
+  const json = await response.json();
+  return json.data;
+}
+
+async function fetchBookWithAuthors(bookId: string): Promise<PgBookWithAuthorsView | null> {
+  const params = new URLSearchParams();
+  params.set("id", `eq.${bookId}`);
+  const response = await fetch(`/api/nestjs/books_with_authors?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch book with authors");
+  const json = await response.json();
+  return json.data?.[0] ?? null;
 }
 
 export function useMyCopies(options?: { enabled?: boolean }) {
@@ -191,7 +207,23 @@ export function useAllCategories() {
   });
 }
 
-// ─── Mutations ──────────────────────────────────────────────
+export function useSearchAuthors(name: string) {
+  return useQuery({
+    queryKey: ["search-authors", name],
+    queryFn: () => searchAuthorsByName(name),
+    enabled: name.length >= 2,
+  });
+}
+
+export function useBookWithAuthors(bookId: string | undefined) {
+  return useQuery({
+    queryKey: ["book-with-authors", bookId],
+    queryFn: () => fetchBookWithAuthors(bookId!),
+    enabled: !!bookId,
+  });
+}
+
+// ─── Copy Mutations ──────────────────────────────────────────
 
 export function useCreateCopy() {
   const queryClient = useQueryClient();
@@ -265,13 +297,8 @@ export function useDeleteCopy() {
 export function useAttachCopyImages() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      body,
-    }: {
-      id: string;
-      body: AttachCopyImagesBody;
-    }) => nestjsFetch<CopyImageResponse[]>(`copies/${id}/images`, "POST", body),
+    mutationFn: ({ id, body }: { id: string; body: AttachCopyImagesBody }) =>
+      nestjsFetch<CopyImageResponse[]>(`copies/${id}/images`, "POST", body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
@@ -303,15 +330,11 @@ export function useCreateCopyImagePresign() {
 export function useCreateEditionCoverPresign() {
   return useMutation({
     mutationFn: (body: EditionCoverPresignBody) =>
-      nestjsFetch<EditionCoverPresignResponse>(
-        "upload/edition-cover-presign",
-        "POST",
-        body
-      ),
+      nestjsFetch<EditionCoverPresignResponse>("upload/edition-cover-presign", "POST", body),
   });
 }
 
-// ─── Book + Edition + Author Creation (for ISBN not found) ──
+// ─── Book / Edition / Author Mutations ───────────────────────
 
 export function useCreateBook() {
   return useMutation({
@@ -333,27 +356,6 @@ export function useCreateAuthor() {
       nestjsFetch<AuthorResponse>("authors", "POST", body),
   });
 }
-
-async function searchAuthorsByName(name: string): Promise<PgAuthor[]> {
-  const params = new URLSearchParams();
-  params.set("name", `ilike.*${name}*`);
-  params.set("order", "name.asc");
-
-  const response = await fetch(`/api/postgrest/authors?${params}`);
-  if (!response.ok) throw new Error("Failed to search authors");
-  const json = await response.json();
-  return json.data;
-}
-
-export function useSearchAuthors(name: string) {
-  return useQuery({
-    queryKey: ["search-authors", name],
-    queryFn: () => searchAuthorsByName(name),
-    enabled: name.length >= 2,
-  });
-}
-
-// ─── Book & Edition Updates ─────────────────────────────────
 
 export function useUpdateBook() {
   const queryClient = useQueryClient();
@@ -381,29 +383,5 @@ export function useUpdateEdition() {
       queryClient.invalidateQueries({ queryKey: ["my-copies"] });
       queryClient.invalidateQueries({ queryKey: ["browse-listings"] });
     },
-  });
-}
-
-// ─── Book with Authors (for edit form pre-population) ───────
-
-async function fetchBookWithAuthors(
-  bookId: string
-): Promise<PgBookWithAuthorsView | null> {
-  const params = new URLSearchParams();
-  params.set("id", `eq.${bookId}`);
-
-  const response = await fetch(
-    `/api/postgrest/books_with_authors?${params}`
-  );
-  if (!response.ok) throw new Error("Failed to fetch book with authors");
-  const json = await response.json();
-  return json.data?.[0] ?? null;
-}
-
-export function useBookWithAuthors(bookId: string | undefined) {
-  return useQuery({
-    queryKey: ["book-with-authors", bookId],
-    queryFn: () => fetchBookWithAuthors(bookId!),
-    enabled: !!bookId,
   });
 }

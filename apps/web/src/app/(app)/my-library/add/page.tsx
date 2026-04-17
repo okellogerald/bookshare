@@ -26,8 +26,8 @@ import {
 import {
   useCopySearchResults,
   useCreateCopy,
-} from "@/shared/queries/my-library";
-import { useSubmitCopyRequest } from "@/shared/queries/submissions";
+} from "@/domains/library/queries";
+import { useSubmitCopyRequest } from "@/domains/submissions/queries";
 
 const formatLabels: Record<string, string> = {
   hardcover: "Hardcover",

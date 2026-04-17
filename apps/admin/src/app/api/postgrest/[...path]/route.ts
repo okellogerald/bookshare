@@ -1,3 +1,6 @@
+/**
+ * PostgREST proxy — routes through NestJS (which handles auth + PostgREST forwarding).
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken, getSession } from "@/domain/auth/lib/session";
 import {
@@ -5,23 +8,19 @@ import {
   buildProxyRequestUrl,
 } from "@/shared/lib/proxy-targets";
 
-const POSTGREST_URL_CANDIDATES = buildProxyBaseUrlCandidates(
-  process.env.POSTGREST_INTERNAL_URL,
-  process.env.NEXT_PUBLIC_POSTGREST_URL,
-  "http://localhost:3336",
-  "http://postgrest:3000"
+const API_URL_CANDIDATES = buildProxyBaseUrlCandidates(
+  process.env.API_INTERNAL_URL,
+  process.env.NEXT_PUBLIC_API_URL,
+  "http://localhost:3333/api",
+  "http://api:3333/api"
 );
 
-const PUBLIC_POSTGREST_PATHS = new Set([
+const PUBLIC_PATHS = new Set([
   "books_with_authors",
   "books_with_categories",
   "editions",
   "categories",
 ]);
-
-function isPublicPostgrestPath(path: string) {
-  return PUBLIC_POSTGREST_PATHS.has(path);
-}
 
 export async function GET(
   request: NextRequest,
@@ -29,23 +28,25 @@ export async function GET(
 ) {
   const { path } = await params;
   const tablePath = path.join("/");
-  const isPublicPath = isPublicPostgrestPath(tablePath);
+  const isPublic = PUBLIC_PATHS.has(tablePath);
+
   let token: string | null = null;
 
-  if (!isPublicPath) {
+  if (!isPublic) {
     token = await getAccessToken();
     const session = await getSession();
 
     if (!token || !session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
     if (session.user.emailVerified !== true) {
       return NextResponse.json(
         { error: "Email verification required" },
         { status: 403 }
       );
     }
+  } else {
+    token = await getAccessToken();
   }
 
   const search = request.nextUrl.searchParams.toString();
@@ -53,20 +54,16 @@ export async function GET(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const preferHeader = request.headers.get("prefer");
-
-  if (!isPublicPath && token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (preferHeader) {
-    headers.Prefer = preferHeader;
-  }
+  if (preferHeader) headers["Prefer"] = preferHeader;
 
   let lastError: unknown = null;
   let lastUrl: string | null = null;
 
-  for (const baseUrl of POSTGREST_URL_CANDIDATES) {
+  for (const baseUrl of API_URL_CANDIDATES) {
     const url = buildProxyRequestUrl(baseUrl, tablePath, search);
     lastUrl = url;
 
@@ -74,29 +71,16 @@ export async function GET(
       const response = await fetch(url, { headers });
 
       if (!response.ok) {
-        const error = await response.text();
+        const detail = await response.text();
         return NextResponse.json(
-          { error: "PostgREST query failed", detail: error },
+          { error: "Query failed", detail },
           { status: response.status }
         );
       }
 
-      const data = await response.json();
-      const responseBody: Record<string, unknown> = { data };
-      const contentRange = response.headers.get("Content-Range");
-
-      if (contentRange) {
-        const total = contentRange.split("/")[1];
-        if (total && total !== "*") {
-          responseBody.count = parseInt(total, 10);
-        }
-      }
-
-      if (responseBody.count === undefined && Array.isArray(data)) {
-        responseBody.count = data.length;
-      }
-
-      return NextResponse.json(responseBody);
+      // NestJS proxy returns { data, count }
+      const body = await response.json() as { data: unknown; count?: number };
+      return NextResponse.json(body);
     } catch (error) {
       lastError = error;
     }
@@ -105,10 +89,10 @@ export async function GET(
   const detail =
     lastError instanceof Error
       ? lastError.message
-      : "No reachable PostgREST upstream configured.";
+      : "No reachable API upstream configured.";
 
   return NextResponse.json(
-    { error: "Failed to reach PostgREST", detail, upstream: lastUrl },
+    { error: "Failed to reach API", detail, upstream: lastUrl },
     { status: 502 }
   );
 }

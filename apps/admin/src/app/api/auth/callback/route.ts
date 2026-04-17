@@ -1,20 +1,15 @@
 /**
  * OAuth2 Callback — Admin Client (Authorization Code Exchange)
  *
- * Identical to the Web callback in structure, but with two key differences:
+ * Identical to the Web callback in structure, but with one key difference:
  *
- * 1. **No DPoP**: Admin doesn't generate DPoP keypairs. All API calls from
- *    the admin app use plain Bearer tokens. This is intentional — the admin
- *    app is an internal tool and DPoP adds complexity without proportional
- *    benefit for staff-only access.
+ * **Role gate**: After exchanging the code for tokens, this route checks that
+ * the user has at least one staff role (owner, manager, staff, viewer).
+ * Users without roles are rejected with a `?error=forbidden` redirect.
+ * Roles are populated during the consent step by Auth-Portal's
+ * `resolveStaffRoles()` function.
  *
- * 2. **Role gate**: After exchanging the code for tokens, this route checks
- *    that the user has at least one staff role (owner, manager, staff, viewer).
- *    Users without roles are rejected with a `?error=forbidden` redirect.
- *    Roles are populated during the consent step by Auth-Portal's
- *    `resolveStaffRoles()` function.
- *
- * @see `apps/web/src/app/api/auth/callback/route.ts` — Web version (with DPoP)
+ * @see `apps/web/src/app/api/auth/callback/route.ts` — Web version
  * @see `apps/auth/src/app/oauth/consent/route.ts` — where roles are injected
  * @see `apps/auth/src/lib/staff-roles.ts` — role resolution logic
  */

@@ -2,24 +2,23 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PgWishWithBook } from "@/shared/api";
+import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
+import { nestjsFetch } from "@/shared/lib/fetch";
 import type {
   CreateWishBody,
   UpdateWishBody,
   WishResponse,
   WishSearchResult,
-} from "@/shared/api";
-import { normalizeLocalMinioUrls } from "@/shared/lib/minio-url";
-import { nestjsFetch } from "./fetch";
+} from "./contracts";
 
-// ─── Queries ────────────────────────────────────────────────
+// ─── Queries ─────────────────────────────────────────────────
 
 async function fetchMyWishlist(): Promise<PgWishWithBook[]> {
   const params = new URLSearchParams();
   params.set("select", "*,book:books(*)");
   params.set("status", "eq.active");
   params.set("order", "created_at.desc");
-
-  const response = await fetch(`/api/postgrest/wishes?${params}`);
+  const response = await fetch(`/api/nestjs/wishes?${params}`);
   if (!response.ok) throw new Error("Failed to fetch wishlist");
   const json = await response.json();
   return json.data;
@@ -50,7 +49,7 @@ export function useWantSearchResults(query: string) {
   });
 }
 
-// ─── Mutations ──────────────────────────────────────────────
+// ─── Mutations ───────────────────────────────────────────────
 
 export function useCreateWant() {
   const queryClient = useQueryClient();

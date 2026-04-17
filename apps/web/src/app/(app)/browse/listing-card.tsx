@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
-import type { BrowseEditionListing } from "@/shared/queries/browse";
+import type { BrowseEditionListing } from "@/domains/browse/queries";
 
 const shareTypeLabels: Record<string, string> = {
   lend: "Lend",

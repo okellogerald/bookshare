@@ -35,7 +35,7 @@ import { PaginationControls } from "@/shared/components/pagination-controls";
 import {
   useMarkNotificationRead,
   useNotifications,
-} from "@/shared/queries/notifications";
+} from "@/domains/notifications/queries";
 import { formatUiDateTime } from "@/shared/lib/date";
 
 const pageSize = 20;

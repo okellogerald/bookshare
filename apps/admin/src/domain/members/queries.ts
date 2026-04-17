@@ -44,7 +44,7 @@ async function fetchMemberProfiles(): Promise<MemberProfileRecord[]> {
   params.set("limit", "200");
 
   const json = await requestJson<PostgrestListResponse<MemberProfileRecord>>(
-    `/api/postgrest/member_profiles?${params}`
+    `/api/nestjs/member_profiles?${params}`
   );
   return json.data ?? [];
 }
@@ -55,7 +55,7 @@ async function fetchCopyOwners() {
   params.set("limit", "1000");
 
   const json = await requestJson<PostgrestListResponse<{ user_id: string }>>(
-    `/api/postgrest/copies?${params}`
+    `/api/nestjs/copies?${params}`
   );
   return json.data ?? [];
 }
@@ -66,7 +66,7 @@ async function fetchWishOwners() {
   params.set("limit", "1000");
 
   const json = await requestJson<PostgrestListResponse<{ user_id: string; status: string }>>(
-    `/api/postgrest/wishes?${params}`
+    `/api/nestjs/wishes?${params}`
   );
   return json.data ?? [];
 }

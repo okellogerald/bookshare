@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Textarea } from "@/shared/components/ui/textarea";
-import { useUpdateCopy, useUpdateCopyStatus } from "@/shared/queries/my-library";
+import { useUpdateCopy, useUpdateCopyStatus } from "@/domains/library/queries";
 import type { PgCopyDetail } from "@/shared/api";
 import {
   buildStatusTransitionBody,

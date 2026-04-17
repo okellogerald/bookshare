@@ -24,8 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { UserProvider } from "@/shared/providers/user-provider";
-import { useMyProfile } from "@/shared/queries/profile";
-import { useUnreadNotificationsCount } from "@/shared/queries/notifications";
+import { useMyProfile } from "@/domains/profile/queries";
+import { useUnreadNotificationsCount } from "@/domains/notifications/queries";
 import { cn } from "@/shared/lib/utils";
 
 interface User {

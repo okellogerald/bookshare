@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { PgMemberProfile } from "@/shared/api";
-import { useCommunityMembers } from "@/shared/queries/community";
-import { useActiveWishersForBook } from "@/shared/queries/community-wishlist";
+import { useCommunityMembers } from "@/domains/community/queries";
+import { useActiveWishersForBook } from "@/domains/community/queries";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import {
   goneReasonLabels,

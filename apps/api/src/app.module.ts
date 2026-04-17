@@ -19,6 +19,7 @@ import { SubmissionsModule } from "./modules/submissions/submissions.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { StaffModule } from "./modules/staff/staff.module";
 import { ImportsModule } from "./modules/imports/imports.module";
+import { PostgrestProxyModule } from "./modules/postgrest-proxy/postgrest-proxy.module";
 
 @Module({
   imports: [
@@ -39,6 +40,8 @@ import { ImportsModule } from "./modules/imports/imports.module";
     SubmissionsModule,
     StaffModule,
     ImportsModule,
+    // Must be last — wildcard GET catch-all must not shadow specific routes
+    PostgrestProxyModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

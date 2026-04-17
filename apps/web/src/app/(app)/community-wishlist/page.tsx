@@ -15,8 +15,8 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { useCurrentUser } from "@/shared/providers/user-provider";
-import { useMyCopies } from "@/shared/queries/my-library";
-import { useBrowseWants } from "@/shared/queries/community-wishlist";
+import { useMyCopies } from "@/domains/library/queries";
+import { useBrowseWants } from "@/domains/community/queries";
 import { WishCard } from "./wish-card";
 
 const pageSize = 24;

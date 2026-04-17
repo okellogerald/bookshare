@@ -4,6 +4,10 @@ const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-body)"],
+        display: ["var(--font-display)", "Arial", '"Helvetica Neue"', "Helvetica", "sans-serif"],
+      },
       fontWeight: {
         semibold: "700",
       },

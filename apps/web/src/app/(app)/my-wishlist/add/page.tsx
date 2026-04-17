@@ -15,9 +15,9 @@ import {
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
-import { useCreateWant, useMyWants, useWantSearchResults } from "@/shared/queries/my-wishlist";
-import { useMyActiveOwnedBookIds } from "@/shared/queries/my-library";
-import { useSubmitMissingWantRequest } from "@/shared/queries/submissions";
+import { useCreateWant, useMyWants, useWantSearchResults } from "@/domains/wishlist/queries";
+import { useMyActiveOwnedBookIds } from "@/domains/library/queries";
+import { useSubmitMissingWantRequest } from "@/domains/submissions/queries";
 
 function parseAuthors(rawValue: string) {
   return Array.from(

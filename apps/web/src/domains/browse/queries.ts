@@ -34,9 +34,7 @@ interface BrowseFilters {
   format?: string;
 }
 
-async function fetchBrowseListings(
-  filters: BrowseFilters
-): Promise<PgBrowseListing[]> {
+async function fetchBrowseListings(filters: BrowseFilters): Promise<PgBrowseListing[]> {
   const params = new URLSearchParams();
   params.set("select", "*");
   params.set("order", "created_at.desc");
@@ -55,15 +53,13 @@ async function fetchBrowseListings(
     params.set("format", `eq.${filters.format}`);
   }
 
-  const response = await fetch(`/api/postgrest/browse_listings?${params}`);
+  const response = await fetch(`/api/nestjs/browse_listings?${params}`);
   if (!response.ok) throw new Error("Failed to fetch listings");
   const json = await response.json();
   return normalizeLocalMinioUrls(json.data as PgBrowseListing[]);
 }
 
-export function groupBrowseListingsByEdition(
-  listings: PgBrowseListing[]
-): BrowseEditionListing[] {
+export function groupBrowseListingsByEdition(listings: PgBrowseListing[]): BrowseEditionListing[] {
   const editionCountsByBook = new Map<string, Set<string>>();
   for (const listing of listings) {
     const existing = editionCountsByBook.get(listing.book_id) ?? new Set<string>();
@@ -76,8 +72,7 @@ export function groupBrowseListingsByEdition(
   for (const listing of listings) {
     const existing = grouped.get(listing.edition_id);
     const shareTypes = listing.share_type ? [listing.share_type] : [];
-    const bookEditionCount =
-      editionCountsByBook.get(listing.book_id)?.size ?? 1;
+    const bookEditionCount = editionCountsByBook.get(listing.book_id)?.size ?? 1;
 
     if (!existing) {
       grouped.set(listing.edition_id, {
@@ -110,11 +105,9 @@ export function groupBrowseListingsByEdition(
     if (!existing.owner_user_ids.includes(listing.user_id)) {
       existing.owner_user_ids.push(listing.user_id);
     }
-
     if (listing.share_type && !existing.share_types.includes(listing.share_type)) {
       existing.share_types.push(listing.share_type);
     }
-
     if (listing.created_at > existing.created_at) {
       existing.created_at = listing.created_at;
       existing.last_confirmed_at = listing.last_confirmed_at;
@@ -144,9 +137,7 @@ interface BrowseBookCategoriesRow {
   categories: Array<{ thema_code: string }>;
 }
 
-async function fetchBrowseBookCategoryIndex(
-  bookIds: string[]
-): Promise<Map<string, Set<string>>> {
+async function fetchBrowseBookCategoryIndex(bookIds: string[]): Promise<Map<string, Set<string>>> {
   const uniqueBookIds = Array.from(new Set(bookIds)).sort();
   if (uniqueBookIds.length === 0) return new Map();
 
@@ -154,7 +145,7 @@ async function fetchBrowseBookCategoryIndex(
   params.set("select", "id,categories");
   params.set("id", `in.(${uniqueBookIds.join(",")})`);
 
-  const response = await fetch(`/api/postgrest/books_with_categories?${params}`);
+  const response = await fetch(`/api/nestjs/books_with_categories?${params}`);
   if (!response.ok) throw new Error("Failed to fetch browse book categories");
   const json = await response.json();
   const rows = (json.data ?? []) as BrowseBookCategoriesRow[];
@@ -172,7 +163,6 @@ async function fetchBrowseBookCategoryIndex(
 
 export function useBrowseBookCategoryIndex(bookIds: string[]) {
   const uniqueBookIds = Array.from(new Set(bookIds)).sort();
-
   return useQuery({
     queryKey: ["browse-book-category-index", uniqueBookIds],
     queryFn: () => fetchBrowseBookCategoryIndex(uniqueBookIds),
