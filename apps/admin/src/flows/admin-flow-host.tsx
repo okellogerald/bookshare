@@ -8,6 +8,7 @@ import { AddTeamMemberFlow } from "./add-team-member";
 import { CatalogSearchFlow } from "./catalog-search";
 import { ImportBatchFlow } from "./import-batch";
 import { ReviewCopySubmissionFlow } from "./review-copy-submission";
+import { ReviewWantSubmissionFlow } from "./review-want-submission";
 
 function getFlowChrome(flow: AdminFlow) {
   switch (flow.kind) {
@@ -52,6 +53,13 @@ function getFlowChrome(flow: AdminFlow) {
           "Review the member’s submitted data and create the catalog entry.",
         size: "xl" as const,
       };
+    case "review-want-submission":
+      return {
+        title: "Review Want Submission",
+        description:
+          "Review the member’s want request and link it to a catalog book.",
+        size: "xl" as const,
+      };
   }
 }
 
@@ -90,8 +98,13 @@ export function AdminFlowHost({
           entry={activeFlow.entry}
           onClose={onClose}
         />
-      ) : (
+      ) : activeFlow.kind === "review-copy-submission" ? (
         <ReviewCopySubmissionFlow
+          submission={activeFlow.submission}
+          onClose={onClose}
+        />
+      ) : (
+        <ReviewWantSubmissionFlow
           submission={activeFlow.submission}
           onClose={onClose}
         />

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Delete,
   Body,
@@ -9,9 +10,10 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { UserRole } from "@bookshare/shared";
 import { WishesService } from "./wishes.service";
 import { CreateWishDto, UpdateWishDto } from "./dto";
-import { CurrentUser } from "../../common/decorators";
+import { CurrentUser, Roles } from "../../common/decorators";
 
 @ApiTags("Wishes")
 @ApiBearerAuth()
@@ -74,5 +76,31 @@ export class WishesController {
   @Delete(":id")
   remove(@Param("id") id: string, @CurrentUser("id") userId: string) {
     return this.wishesService.remove(id, userId);
+  }
+
+  // ── Admin operations ───────────────────────────────────────
+
+  @Put(":id/admin")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminUpdate(@Param("id") id: string, @Body() dto: UpdateWishDto) {
+    return this.wishesService.adminUpdate(id, dto);
+  }
+
+  @Delete(":id/admin")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminDelete(@Param("id") id: string) {
+    return this.wishesService.adminDelete(id);
+  }
+
+  @Patch(":id/admin/archive")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminArchive(@Param("id") id: string) {
+    return this.wishesService.adminArchive(id);
+  }
+
+  @Patch(":id/admin/restore")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminRestore(@Param("id") id: string) {
+    return this.wishesService.adminRestore(id);
   }
 }

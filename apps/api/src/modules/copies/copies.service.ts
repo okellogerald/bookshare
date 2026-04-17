@@ -601,4 +601,101 @@ export class CopiesService {
       );
     return { deleted: true };
   }
+
+  // ── Admin operations (no userId scoping) ──────────────────
+
+  private async findOneAdmin(id: string) {
+    const copy = await this.db.query.copies.findFirst({
+      where: eq(copies.id, id),
+      with: { edition: { with: { book: true } } },
+    });
+    if (!copy) throw new NotFoundException(`Copy with ID ${id} not found`);
+    return copy;
+  }
+
+  async adminUpdate(id: string, dto: UpdateCopyDto) {
+    const existing = await this.findOneAdmin(id);
+
+    return this.db.transaction(async (tx) => {
+      await tx.update(copies).set(dto as any).where(eq(copies.id, id));
+
+      if (dto.condition && dto.condition !== existing.condition) {
+        await tx.insert(copyEvents).values({
+          userId: existing.userId,
+          copyId: id,
+          eventType: "condition_changed",
+          performedBy: "admin",
+          notes: `Condition changed from ${existing.condition} to ${dto.condition}`,
+          metadata: {
+            fromCondition: existing.condition,
+            toCondition: dto.condition,
+          },
+        });
+      }
+
+      return this.findOneAdmin(id);
+    });
+  }
+
+  async adminDelete(id: string) {
+    await this.findOneAdmin(id);
+    await this.db.delete(copies).where(eq(copies.id, id));
+    return { deleted: true };
+  }
+
+  async adminArchive(id: string) {
+    const existing = await this.findOneAdmin(id);
+
+    if (existing.status === "shelved") {
+      throw new BadRequestException("Copy is already shelved.");
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(copies)
+        .set({ status: "shelved" })
+        .where(eq(copies.id, id));
+
+      await tx.insert(copyEvents).values({
+        userId: existing.userId,
+        copyId: id,
+        eventType: "status_changed",
+        fromStatus: existing.status,
+        toStatus: "shelved",
+        performedBy: "admin",
+        notes: "Archived by admin",
+      });
+    });
+
+    return { archived: true };
+  }
+
+  async adminUnarchive(id: string) {
+    const existing = await this.findOneAdmin(id);
+
+    if (existing.status !== "shelved") {
+      throw new BadRequestException(
+        "Only shelved copies can be unarchived."
+      );
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(copies)
+        .set({ status: "available" })
+        .where(eq(copies.id, id));
+
+      await tx.insert(copyEvents).values({
+        userId: existing.userId,
+        copyId: id,
+        eventType: "status_changed",
+        fromStatus: "shelved",
+        toStatus: "available",
+        performedBy: "admin",
+        notes: "Unarchived by admin",
+      });
+    });
+
+    return { unarchived: true };
+  }
 }

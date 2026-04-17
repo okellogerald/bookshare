@@ -310,4 +310,92 @@ export class WishesService {
     if (!removed) throw new NotFoundException(`Wish with ID ${id} not found`);
     return { deleted: true };
   }
+
+  // ── Admin operations (no userId scoping) ──────────────────
+
+  private async findOneAdmin(id: string) {
+    const wish = await this.db.query.wishes.findFirst({
+      where: eq(wishes.id, id),
+      with: { book: true },
+    });
+    if (!wish) throw new NotFoundException(`Wish with ID ${id} not found`);
+    return wish;
+  }
+
+  async adminUpdate(id: string, dto: UpdateWishDto) {
+    const existing = await this.findOneAdmin(id);
+    if (dto.notes === undefined) return existing;
+
+    await this.db
+      .update(wishes)
+      .set({ notes: dto.notes })
+      .where(eq(wishes.id, id));
+
+    return this.findOneAdmin(id);
+  }
+
+  async adminDelete(id: string) {
+    await this.findOneAdmin(id);
+    await this.db.delete(wishes).where(eq(wishes.id, id));
+    return { deleted: true };
+  }
+
+  async adminArchive(id: string) {
+    const existing = await this.findOneAdmin(id);
+
+    if (existing.status === "cancelled") {
+      throw new BadRequestException("Wish is already cancelled.");
+    }
+
+    if (existing.status === "fulfilled") {
+      throw new BadRequestException("Fulfilled wishes cannot be archived.");
+    }
+
+    await this.db
+      .update(wishes)
+      .set({
+        status: "cancelled",
+        closureReason: WishClosureReason.ARCHIVED_BY_ADMIN,
+        closedAt: new Date(),
+      })
+      .where(eq(wishes.id, id));
+
+    return { archived: true };
+  }
+
+  async adminRestore(id: string) {
+    const existing = await this.findOneAdmin(id);
+
+    if (existing.status !== "cancelled") {
+      throw new BadRequestException(
+        "Only cancelled wishes can be restored."
+      );
+    }
+
+    // Guard against duplicate active wish for the same user + book.
+    const activeExists = await this.db.query.wishes.findFirst({
+      where: and(
+        eq(wishes.userId, existing.userId),
+        eq(wishes.bookId, existing.bookId),
+        eq(wishes.status, "active")
+      ),
+    });
+
+    if (activeExists) {
+      throw new ConflictException(
+        "Member already has an active want for this book."
+      );
+    }
+
+    await this.db
+      .update(wishes)
+      .set({
+        status: "active",
+        closureReason: null,
+        closedAt: null,
+      })
+      .where(eq(wishes.id, id));
+
+    return { restored: true };
+  }
 }

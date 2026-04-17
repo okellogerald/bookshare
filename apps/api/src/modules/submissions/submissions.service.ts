@@ -6,21 +6,26 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import {
   type Database,
   copySubmissions,
+  wantSubmissions,
   copies,
   editions,
+  books,
+  wishes,
 } from "@bookshare/db";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import type { AuthenticatedUser } from "../../common/guards";
 import { MailerService } from "../mailer/mailer.service";
 import {
   ApproveCopySubmissionDto,
+  ApproveWantSubmissionDto,
   CreateCopySubmissionDto,
   CreateMissingWantSubmissionDto,
   RejectCopySubmissionDto,
+  RejectWantSubmissionDto,
 } from "./dto";
 
 interface SubmissionResponse {
@@ -92,8 +97,21 @@ export class SubmissionsService {
       authorization,
       identityAccessToken
     );
-    const adminBody = this.buildMissingWantAdminEmailBody(dto, user.id, userEmail);
 
+    // Persist to database so staff can review via the admin panel.
+    await this.db.insert(wantSubmissions).values({
+      userId: user.id,
+      userEmail,
+      title: dto.title,
+      subtitle: undefined,
+      authors: dto.authors,
+      isbn: dto.isbn?.trim() || undefined,
+      language: dto.language?.trim() || undefined,
+      bookDescriptionNotes: dto.bookDescriptionNotes?.trim() || undefined,
+      wantNotes: dto.wantNotes?.trim() || undefined,
+    });
+
+    const adminBody = this.buildMissingWantAdminEmailBody(dto, user.id, userEmail);
     await this.mailerService.sendAdminSubmission("[WANT REQUEST]", adminBody);
     await this.mailerService.sendUserConfirmation(
       userEmail,
@@ -248,6 +266,155 @@ export class SubmissionsService {
         reviewNotes: dto.reviewNotes?.trim() || undefined,
       })
       .where(eq(copySubmissions.id, id));
+
+    return { rejected: true };
+  }
+
+  // ── Staff-facing: want submissions ────────────────────────
+
+  async listWantSubmissions(status?: string) {
+    if (status && !["pending", "approved", "rejected"].includes(status)) {
+      throw new BadRequestException(
+        "Invalid status filter. Must be pending, approved, or rejected."
+      );
+    }
+
+    return this.db.query.wantSubmissions.findMany({
+      where: status
+        ? eq(
+            wantSubmissions.status,
+            status as "pending" | "approved" | "rejected"
+          )
+        : undefined,
+      orderBy: [desc(wantSubmissions.createdAt)],
+    });
+  }
+
+  async getWantSubmission(id: string) {
+    const row = await this.db.query.wantSubmissions.findFirst({
+      where: eq(wantSubmissions.id, id),
+    });
+
+    if (!row) {
+      throw new NotFoundException("Want submission not found.");
+    }
+
+    return row;
+  }
+
+  async approveWantSubmission(
+    id: string,
+    dto: ApproveWantSubmissionDto,
+    reviewerUsername: string
+  ) {
+    const submission = await this.db.query.wantSubmissions.findFirst({
+      where: eq(wantSubmissions.id, id),
+    });
+
+    if (!submission) {
+      throw new NotFoundException("Want submission not found.");
+    }
+
+    if (submission.status !== "pending") {
+      throw new BadRequestException(
+        `Submission is already ${submission.status}.`
+      );
+    }
+
+    // Verify book exists.
+    const book = await this.db.query.books.findFirst({
+      where: eq(books.id, dto.bookId),
+    });
+
+    if (!book) {
+      throw new BadRequestException("Book not found.");
+    }
+
+    // Optionally verify edition exists.
+    if (dto.editionId) {
+      const edition = await this.db.query.editions.findFirst({
+        where: eq(editions.id, dto.editionId),
+      });
+      if (!edition) {
+        throw new BadRequestException("Edition not found.");
+      }
+    }
+
+    // Guard against a duplicate active wish for this user + book.
+    const existingWish = await this.db.query.wishes.findFirst({
+      where: and(
+        eq(wishes.userId, submission.userId),
+        eq(wishes.bookId, dto.bookId),
+        eq(wishes.status, "active")
+      ),
+    });
+
+    if (existingWish) {
+      throw new BadRequestException(
+        "Member already has an active want for this book."
+      );
+    }
+
+    // Create the wish for the member.
+    const [createdWish] = await this.db
+      .insert(wishes)
+      .values({
+        userId: submission.userId,
+        bookId: dto.bookId,
+        editionId: dto.editionId ?? null,
+        notes: dto.wantNotes?.trim() || submission.wantNotes || undefined,
+        status: "active",
+      })
+      .returning({ id: wishes.id });
+
+    // Update submission status.
+    await this.db
+      .update(wantSubmissions)
+      .set({
+        status: "approved",
+        reviewerUsername,
+        reviewedAt: new Date(),
+        reviewNotes: dto.reviewNotes?.trim() || undefined,
+        resolvedBookId: dto.bookId,
+        resolvedWishId: createdWish.id,
+      })
+      .where(eq(wantSubmissions.id, id));
+
+    return {
+      approved: true,
+      wishId: createdWish.id,
+      bookId: dto.bookId,
+    };
+  }
+
+  async rejectWantSubmission(
+    id: string,
+    dto: RejectWantSubmissionDto,
+    reviewerUsername: string
+  ) {
+    const submission = await this.db.query.wantSubmissions.findFirst({
+      where: eq(wantSubmissions.id, id),
+    });
+
+    if (!submission) {
+      throw new NotFoundException("Want submission not found.");
+    }
+
+    if (submission.status !== "pending") {
+      throw new BadRequestException(
+        `Submission is already ${submission.status}.`
+      );
+    }
+
+    await this.db
+      .update(wantSubmissions)
+      .set({
+        status: "rejected",
+        reviewerUsername,
+        reviewedAt: new Date(),
+        reviewNotes: dto.reviewNotes?.trim() || undefined,
+      })
+      .where(eq(wantSubmissions.id, id));
 
     return { rejected: true };
   }

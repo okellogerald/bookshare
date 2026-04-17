@@ -113,6 +113,8 @@ export const WishClosureReason = {
   MATCHED_MEMBER_LENT: "matched_member_lent",
   // Closed after a member received the copy permanently.
   MATCHED_MEMBER_GONE: "matched_member_gone",
+  // Cancelled by an admin.
+  ARCHIVED_BY_ADMIN: "archived_by_admin",
 } as const;
 
 export type WishClosureReason =

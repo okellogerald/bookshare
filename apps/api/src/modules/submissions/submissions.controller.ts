@@ -14,9 +14,11 @@ import { CurrentUser, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
   ApproveCopySubmissionDto,
+  ApproveWantSubmissionDto,
   CreateCopySubmissionDto,
   CreateMissingWantSubmissionDto,
   RejectCopySubmissionDto,
+  RejectWantSubmissionDto,
 } from "./dto";
 import { SubmissionsService } from "./submissions.service";
 
@@ -94,6 +96,48 @@ export class SubmissionsController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.submissionsService.rejectCopySubmission(
+      id,
+      dto,
+      user.email ?? user.id
+    );
+  }
+
+  // ── Staff-facing: want submissions ────────────────────────
+
+  @Get("wants")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  listWantSubmissions(@Query("status") status?: string) {
+    return this.submissionsService.listWantSubmissions(status);
+  }
+
+  @Get("wants/:id")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  getWantSubmission(@Param("id") id: string) {
+    return this.submissionsService.getWantSubmission(id);
+  }
+
+  @Patch("wants/:id/approve")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  approveWantSubmission(
+    @Param("id") id: string,
+    @Body() dto: ApproveWantSubmissionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.submissionsService.approveWantSubmission(
+      id,
+      dto,
+      user.email ?? user.id
+    );
+  }
+
+  @Patch("wants/:id/reject")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  rejectWantSubmission(
+    @Param("id") id: string,
+    @Body() dto: RejectWantSubmissionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.submissionsService.rejectWantSubmission(
       id,
       dto,
       user.email ?? user.id

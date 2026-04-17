@@ -4,9 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ApproveCopySubmissionInput,
   ApproveCopySubmissionResult,
+  ApproveWantSubmissionInput,
+  ApproveWantSubmissionResult,
   CopySubmissionRecord,
   RejectCopySubmissionInput,
   RejectCopySubmissionResult,
+  RejectWantSubmissionInput,
+  RejectWantSubmissionResult,
+  WantSubmissionRecord,
 } from "@/shared/api";
 
 function getErrorMessage(payload: unknown, fallback: string) {
@@ -122,6 +127,88 @@ export function useRejectCopySubmission() {
       });
       void queryClient.invalidateQueries({
         queryKey: ["admin-copy-submission"],
+      });
+    },
+  });
+}
+
+// ── Want Submissions ───────────────────────────────────────────
+
+export function useWantSubmissions(status?: string) {
+  const queryString = status ? `?status=${status}` : "";
+
+  return useQuery({
+    queryKey: ["admin-want-submissions", status ?? "all"],
+    queryFn: () =>
+      requestJson<WantSubmissionRecord[]>(
+        `/api/nestjs/submissions/wants${queryString}`
+      ),
+  });
+}
+
+export function useWantSubmission(id: string | null) {
+  return useQuery({
+    queryKey: ["admin-want-submission", id],
+    queryFn: () =>
+      requestJson<WantSubmissionRecord>(
+        `/api/nestjs/submissions/wants/${id}`
+      ),
+    enabled: !!id,
+  });
+}
+
+export function useApproveWantSubmission() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: ApproveWantSubmissionInput & { id: string }) =>
+      requestJson<ApproveWantSubmissionResult>(
+        `/api/nestjs/submissions/wants/${id}/approve`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-want-submissions"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-want-submission"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-catalog-summary-counts"],
+      });
+    },
+  });
+}
+
+export function useRejectWantSubmission() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: RejectWantSubmissionInput & { id: string }) =>
+      requestJson<RejectWantSubmissionResult>(
+        `/api/nestjs/submissions/wants/${id}/reject`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-want-submissions"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-want-submission"],
       });
     },
   });

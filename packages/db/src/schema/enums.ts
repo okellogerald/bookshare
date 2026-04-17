@@ -72,6 +72,8 @@ export const wishClosureReasonEnum = pgEnum("wish_closure_reason", [
   "matched_member_lent",
   // Closed after a member received the copy permanently.
   "matched_member_gone",
+  // Cancelled by an admin.
+  "archived_by_admin",
 ]);
 
 export const bookFormatEnum = pgEnum("book_format", [
@@ -81,6 +83,12 @@ export const bookFormatEnum = pgEnum("book_format", [
 ]);
 
 export const copySubmissionStatusEnum = pgEnum("copy_submission_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const wantSubmissionStatusEnum = pgEnum("want_submission_status", [
   "pending",
   "approved",
   "rejected",

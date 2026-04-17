@@ -9,6 +9,7 @@ import {
   Param,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { UserRole } from "@bookshare/shared";
 import { CopiesService } from "./copies.service";
 import {
   AttachCopyImagesDto,
@@ -16,7 +17,7 @@ import {
   UpdateCopyDto,
   UpdateCopyStatusDto,
 } from "./dto";
-import { CurrentUser } from "../../common/decorators";
+import { CurrentUser, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 
 @ApiTags("Copies")
@@ -87,5 +88,31 @@ export class CopiesController {
   @Delete(":id")
   remove(@Param("id") id: string, @CurrentUser("id") userId: string) {
     return this.copiesService.remove(id, userId);
+  }
+
+  // ── Admin operations ───────────────────────────────────────
+
+  @Put(":id/admin")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminUpdate(@Param("id") id: string, @Body() dto: UpdateCopyDto) {
+    return this.copiesService.adminUpdate(id, dto);
+  }
+
+  @Delete(":id/admin")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminDelete(@Param("id") id: string) {
+    return this.copiesService.adminDelete(id);
+  }
+
+  @Patch(":id/archive")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminArchive(@Param("id") id: string) {
+    return this.copiesService.adminArchive(id);
+  }
+
+  @Patch(":id/unarchive")
+  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  adminUnarchive(@Param("id") id: string) {
+    return this.copiesService.adminUnarchive(id);
   }
 }

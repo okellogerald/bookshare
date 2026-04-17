@@ -68,6 +68,7 @@ export interface CatalogCopyRecord {
   condition: string;
   status: string;
   share_type: string | null;
+  notes: string | null;
   contact_note: string | null;
   last_confirmed_at: string | null;
   created_at: string;
@@ -212,7 +213,7 @@ async function fetchCatalogCopies(limit = 40): Promise<CatalogCopyRecord[]> {
   const params = new URLSearchParams();
   params.set(
     "select",
-    "id,user_id,condition,status,share_type,contact_note,last_confirmed_at,created_at,updated_at,edition:editions(id,isbn,format,description,publisher,published_year,page_count,cover_image_url,created_at,updated_at,book:books(id,title,subtitle,language))"
+    "id,user_id,condition,status,share_type,notes,contact_note,last_confirmed_at,created_at,updated_at,edition:editions(id,isbn,format,description,publisher,published_year,page_count,cover_image_url,created_at,updated_at,book:books(id,title,subtitle,language))"
   );
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));
@@ -430,6 +431,121 @@ export function useCreateAuthor() {
     mutationFn: createAuthor,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-author-search"] });
+    },
+  });
+}
+
+// ── Admin copy mutations ────────────────────────────────────
+
+interface AdminUpdateCopyInput {
+  id: string;
+  condition?: string;
+  shareType?: string;
+  notes?: string;
+  contactNote?: string;
+}
+
+export function useAdminUpdateCopy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: AdminUpdateCopyInput) =>
+      requestJson(`/api/nestjs/copies/${id}/admin`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
+    },
+  });
+}
+
+export function useAdminDeleteCopy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/copies/${id}/admin`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
+export function useAdminArchiveCopy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/copies/${id}/archive`, { method: "PATCH" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
+    },
+  });
+}
+
+export function useAdminUnarchiveCopy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/copies/${id}/unarchive`, { method: "PATCH" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
+    },
+  });
+}
+
+// ── Admin wish mutations ────────────────────────────────────
+
+interface AdminUpdateWishInput {
+  id: string;
+  notes?: string;
+}
+
+export function useAdminUpdateWish() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: AdminUpdateWishInput) =>
+      requestJson(`/api/nestjs/wishes/${id}/admin`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
+    },
+  });
+}
+
+export function useAdminDeleteWish() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/wishes/${id}/admin`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
+export function useAdminArchiveWish() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/wishes/${id}/admin/archive`, { method: "PATCH" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
+    },
+  });
+}
+
+export function useAdminRestoreWish() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/nestjs/wishes/${id}/admin/restore`, { method: "PATCH" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
     },
   });
 }

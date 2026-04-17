@@ -17,4 +17,9 @@ export type {
   RejectCopySubmissionInput,
   ApproveCopySubmissionResult,
   RejectCopySubmissionResult,
+  WantSubmissionRecord,
+  ApproveWantSubmissionInput,
+  RejectWantSubmissionInput,
+  ApproveWantSubmissionResult,
+  RejectWantSubmissionResult,
 } from "./submissions/types";

@@ -68,9 +68,9 @@ export function CatalogPageContent() {
       icon: CircleDashed,
       title: "Want submissions",
       description:
-        "Reserved for missing-title and want-submission review once those requests are persisted in the database.",
-      href: null,
-      reserved: true,
+        "Review member want requests, link to existing catalog books, and approve to create wishes.",
+      href: "/catalog/want-submissions" as string | null,
+      reserved: false,
     },
     {
       icon: Heart,

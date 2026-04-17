@@ -44,3 +44,45 @@ export interface ApproveCopySubmissionResult {
 export interface RejectCopySubmissionResult {
   rejected: true;
 }
+
+export interface WantSubmissionRecord {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  status: "pending" | "approved" | "rejected";
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+  isbn: string | null;
+  language: string | null;
+  bookDescriptionNotes: string | null;
+  wantNotes: string | null;
+  reviewerUsername: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  resolvedBookId: string | null;
+  resolvedWishId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApproveWantSubmissionInput {
+  bookId: string;
+  editionId?: string;
+  wantNotes?: string;
+  reviewNotes?: string;
+}
+
+export interface RejectWantSubmissionInput {
+  reviewNotes?: string;
+}
+
+export interface ApproveWantSubmissionResult {
+  approved: true;
+  wishId: string;
+  bookId: string;
+}
+
+export interface RejectWantSubmissionResult {
+  rejected: true;
+}
