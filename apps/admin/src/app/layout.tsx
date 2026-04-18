@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Spline_Sans, Geist_Mono } from "next/font/google";
 import "@/shared/styles/globals.css";
 import { QueryProvider } from "@/shared/providers/query-provider";
 
-const geistSans = Geist({
+const splineSans = Spline_Sans({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-geist-sans",
+  variable: "--font-spline-sans",
   fallback: ["Avenir", "ui-sans-serif", "system-ui", "sans-serif"],
 });
 
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${splineSans.variable} ${geistMono.variable}`}>
       <body className="font-sans">
         <QueryProvider>{children}</QueryProvider>
       </body>
