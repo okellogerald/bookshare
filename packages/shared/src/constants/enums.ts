@@ -145,12 +145,27 @@ export const WorkflowTopic = {
 
 export type WorkflowTopic = (typeof WorkflowTopic)[keyof typeof WorkflowTopic];
 
-// ─── User Roles ──────────────────────────────────────────────
-export const UserRole = {
-  OWNER: "owner",
-  MANAGER: "manager",
-  STAFF: "staff",
-  VIEWER: "viewer",
+// ─── Platform Roles ──────────────────────────────────────────
+export const PlatformRole = {
+  USER: "user",
+  PLATFORM_ADMIN: "platform_admin",
+  PLATFORM_STAFF: "platform_staff",
 } as const;
 
-export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+export type PlatformRole = (typeof PlatformRole)[keyof typeof PlatformRole];
+
+export const AdminConsoleRole = [
+  PlatformRole.PLATFORM_ADMIN,
+  PlatformRole.PLATFORM_STAFF,
+] as const;
+
+export type AdminConsoleRole =
+  (typeof AdminConsoleRole)[number];
+
+export function isAdminConsoleRole(role: string): role is AdminConsoleRole {
+  return (AdminConsoleRole as readonly string[]).includes(role);
+}
+
+// Temporary alias while callers finish the rename.
+export const UserRole = PlatformRole;
+export type UserRole = PlatformRole;

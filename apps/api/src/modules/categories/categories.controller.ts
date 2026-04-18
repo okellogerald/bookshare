@@ -1,13 +1,13 @@
 import { Controller, Post, Put, Delete, Body, Param } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { CategoriesService } from "./categories.service";
 import { CreateCategoryDto, UpdateCategoryDto } from "./dto";
 import { Roles } from "../../common/decorators";
 
 @ApiTags("Categories")
 @ApiBearerAuth()
-@Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+@Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
 @Controller("categories")
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}

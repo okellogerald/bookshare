@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useGrantTeamRole, useTeamIdentitySearch } from "@/domain/team/queries";
+import { PlatformRole } from "@bookshare/shared";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
@@ -62,7 +63,9 @@ export function AddTeamMemberFlow({
   const identitySearch = useTeamIdentitySearch(deferredIdentityQuery);
   const grantRole = useGrantTeamRole();
   const manageableRoles = useMemo(() => getManageableRoles(actorRoles), [actorRoles]);
-  const [selectedRole, setSelectedRole] = useState<string>(manageableRoles[0] ?? "staff");
+  const [selectedRole, setSelectedRole] = useState<string>(
+    manageableRoles[0] ?? PlatformRole.PLATFORM_STAFF
+  );
 
   const candidates = identitySearch.data ?? [];
   const selectedCandidate =
@@ -84,7 +87,7 @@ export function AddTeamMemberFlow({
       return;
     }
 
-    setSelectedRole(manageableRoles[0] ?? "staff");
+    setSelectedRole(manageableRoles[0] ?? PlatformRole.PLATFORM_STAFF);
   }, [manageableRoles, selectedRole]);
 
   const handleGrant = async () => {
@@ -102,7 +105,7 @@ export function AddTeamMemberFlow({
   if (manageableRoles.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Your current team role does not allow granting admin access.
+        Your current platform role does not allow granting admin-console access.
       </p>
     );
   }

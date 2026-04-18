@@ -4,10 +4,9 @@
  * Identical to the Web callback in structure, but with one key difference:
  *
  * **Role gate**: After exchanging the code for tokens, this route checks that
- * the user has at least one staff role (owner, manager, staff, viewer).
- * Users without roles are rejected with a `?error=forbidden` redirect.
- * Roles are populated during the consent step by Auth-Portal's
- * `resolveStaffRoles()` function.
+ * the user has an allowed admin-console role (`platform_admin` or
+ * `platform_staff`). Users without those roles are rejected with a
+ * `?error=forbidden` redirect.
  *
  * @see `apps/web/src/app/api/auth/callback/route.ts` — Web version
  * @see `apps/auth/src/app/oauth/consent/route.ts` — where roles are injected
@@ -24,6 +23,7 @@ import { decrypt } from "@/domain/auth/lib/crypto";
 import { getOIDCConfig } from "@/domain/auth/lib/oidc";
 import { setSession } from "@/domain/auth/lib/session";
 import { buildAuthPortalVerificationUrl } from "@/domain/auth/lib/auth-portal";
+import { isAdminConsoleRole } from "@bookshare/shared";
 import {
   ADMIN_OIDC_COOKIE_NAMES,
 } from "@/domain/auth/lib/cookie-names";
@@ -36,23 +36,11 @@ function toBoolean(value: unknown): boolean {
 }
 
 /**
- * Extract staff roles from the ID token claims.
- * Tries `claims.roles` first (direct array), then falls back to
- * `claims.realm_access.roles` (Keycloak-compatible nested format).
- * These roles were injected by Auth-Portal during the consent step.
+ * Extract platform roles from the ID token claims.
  */
 function extractRoles(claims: Record<string, unknown>): string[] {
   if (Array.isArray(claims.roles)) {
     return claims.roles.filter((value): value is string => typeof value === "string");
-  }
-
-  const realmAccess =
-    typeof claims.realm_access === "object" && claims.realm_access !== null
-      ? (claims.realm_access as { roles?: unknown })
-      : null;
-
-  if (Array.isArray(realmAccess?.roles)) {
-    return realmAccess.roles.filter((value): value is string => typeof value === "string");
   }
 
   return [];
@@ -93,9 +81,8 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Gate 2: user must have at least one staff role. Regular users
-    // who somehow reach the admin login are rejected here.
-    if (roles.length === 0) {
+    // Gate 2: user must have an admin-console role.
+    if (!roles.some(isAdminConsoleRole)) {
       const response = NextResponse.redirect(new URL("/?error=forbidden", request.url));
       clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;

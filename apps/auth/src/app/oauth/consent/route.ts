@@ -10,13 +10,13 @@
  * 1. Fetches the latest Kratos session to get current user traits (not stale
  *    data from the login context — the user might have changed their name).
  *
- * 2. Resolves staff roles from two sources:
+ * 2. Resolves platform roles from two sources:
  *    - BOOTSTRAP_ADMIN_EMAILS env var (for initial admin bootstrapping)
  *    - staff_roles database table (for dynamic role management)
  *
  * 3. Builds the claims that will appear in the ID and access tokens:
  *    - ID token: email, name, email_verified, roles (for client identity)
- *    - Access token: sub, roles, realm_access, email_verified (for API auth)
+ *    - Access token: sub, roles, email_verified (for API auth)
  *
  * 4. Accepts the consent with `remember: true` so Hydra caches the decision.
  *
@@ -34,7 +34,7 @@ import {
 } from "@/shared/lib/config";
 import { hydraAdminRequest } from "@/shared/lib/hydra";
 import { getKratosSession, isKratosEmailVerified } from "@/shared/lib/kratos";
-import { resolveStaffRoles } from "@/shared/lib/staff-roles";
+import { resolvePlatformRoles } from "@/shared/lib/staff-roles";
 
 interface HydraConsentRequest {
   subject: string;
@@ -88,10 +88,7 @@ function buildIdTokenClaims(
   if (firstName) claims.given_name = firstName;
   if (lastName) claims.family_name = lastName;
   if (fullName) claims.name = fullName;
-  if (roles.length > 0) {
-    claims.roles = roles;
-    claims.realm_access = { roles };
-  }
+  claims.roles = roles;
 
   console.info("id token claims: ", claims)
 
@@ -118,9 +115,6 @@ function buildAccessTokenClaims(
     sub: subject,
     email_verified: emailVerified,
     roles,
-    realm_access: {
-      roles,
-    },
   };
 
   if (email) {
@@ -175,13 +169,13 @@ export async function GET(request: NextRequest) {
         ? normalizedTraits.email.trim().toLowerCase()
         : null;
 
-    // Resolve staff roles from bootstrap config + database.
+    // Resolve platform roles from bootstrap config + database.
     // These roles end up in both the ID and access tokens, enabling:
-    // - Admin app's callback to gate access (no roles → forbidden)
-    // - Admin middleware to enforce role-based route protection
-    // - Resource server to authorize admin-level API operations
+    // - Admin app's callback to gate access
+    // - Admin middleware to enforce route protection
+    // - Resource server to authorize elevated API operations
     const roles = subject
-      ? await resolveStaffRoles({
+      ? await resolvePlatformRoles({
           userId: subject,
           email,
         })

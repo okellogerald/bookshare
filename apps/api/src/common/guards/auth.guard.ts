@@ -10,7 +10,7 @@ import { Reflector } from "@nestjs/core";
 import * as jwt from "jsonwebtoken";
 import jwksClient, { JwksClient } from "jwks-rsa";
 import { type Database, memberProfiles, staffRoles } from "@bookshare/db";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
@@ -30,9 +30,6 @@ interface IdentityJwtPayload {
   nickname?: string;
   gender?: string;
   roles?: string[];
-  realm_access?: {
-    roles?: string[];
-  };
 }
 
 export interface AuthenticatedUser {
@@ -163,11 +160,18 @@ export class AuthGuard implements CanActivate {
   private async resolveAuthorizedRoles(
     user: Pick<AuthenticatedUser, "id" | "email" | "roles">
   ) {
-    const roles = new Set(user.roles);
+    const roles = new Set<string>([PlatformRole.USER]);
     const email = this.normalizeEmail(user.email);
 
+    for (const role of user.roles) {
+      const normalized = this.normalizeRole(role);
+      if (normalized) {
+        roles.add(normalized);
+      }
+    }
+
     if (email && this.parseBootstrapEmails().has(email)) {
-      roles.add(UserRole.OWNER);
+      roles.add(PlatformRole.PLATFORM_ADMIN);
     }
 
     const persistedRoles = await this.db
@@ -176,10 +180,22 @@ export class AuthGuard implements CanActivate {
       .where(eq(staffRoles.userId, user.id));
 
     for (const entry of persistedRoles) {
-      roles.add(entry.role);
+      const normalized = this.normalizeRole(entry.role);
+      if (normalized) {
+        roles.add(normalized);
+      }
     }
 
     return Array.from(roles);
+  }
+
+  private normalizeRole(role: string | undefined) {
+    if (!role) return null;
+    return Object.values(PlatformRole).includes(
+      role as (typeof PlatformRole)[keyof typeof PlatformRole]
+    )
+      ? role
+      : null;
   }
 
   private async verifyToken(token: string): Promise<IdentityJwtPayload> {
@@ -211,10 +227,8 @@ export class AuthGuard implements CanActivate {
     payload: IdentityJwtPayload
   ): AuthenticatedUser {
     const roles = Array.isArray(payload.roles)
-      ? payload.roles
-      : Array.isArray(payload.realm_access?.roles)
-        ? payload.realm_access.roles
-        : [];
+      ? payload.roles.filter((value): value is string => typeof value === "string")
+      : [];
 
     return {
       id: payload.sub,

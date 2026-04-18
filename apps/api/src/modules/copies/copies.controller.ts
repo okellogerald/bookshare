@@ -9,7 +9,7 @@ import {
   Param,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { CopiesService } from "./copies.service";
 import {
   AttachCopyImagesDto,
@@ -93,25 +93,25 @@ export class CopiesController {
   // ── Admin operations ───────────────────────────────────────
 
   @Put(":id/admin")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminUpdate(@Param("id") id: string, @Body() dto: UpdateCopyDto) {
     return this.copiesService.adminUpdate(id, dto);
   }
 
   @Delete(":id/admin")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminDelete(@Param("id") id: string) {
     return this.copiesService.adminDelete(id);
   }
 
   @Patch(":id/archive")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminArchive(@Param("id") id: string) {
     return this.copiesService.adminArchive(id);
   }
 
   @Patch(":id/unarchive")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminUnarchive(@Param("id") id: string) {
     return this.copiesService.adminUnarchive(id);
   }

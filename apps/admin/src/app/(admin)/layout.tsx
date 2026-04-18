@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/domain/auth/lib/session";
 import { AdminShellClient } from "@/shared/components/admin-shell-client";
+import { isAdminConsoleRole } from "@bookshare/shared";
 
 export default async function AdminLayout({
   children,
@@ -10,7 +11,7 @@ export default async function AdminLayout({
   const session = await getSession();
   const roles = session?.user.roles ?? [];
 
-  if (!session || roles.length === 0) {
+  if (!session || !roles.some(isAdminConsoleRole)) {
     redirect("/");
   }
 

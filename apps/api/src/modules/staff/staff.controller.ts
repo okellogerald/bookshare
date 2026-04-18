@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { CurrentUser, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import { ManageStaffRoleDto } from "./dto";
@@ -8,7 +8,7 @@ import { StaffService } from "./staff.service";
 
 @ApiTags("Staff")
 @ApiBearerAuth()
-@Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF, UserRole.VIEWER)
+@Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
 @Controller("staff")
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
@@ -24,7 +24,7 @@ export class StaffController {
   }
 
   @Post("roles")
-  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @Roles(PlatformRole.PLATFORM_ADMIN)
   grantRole(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ManageStaffRoleDto
@@ -33,7 +33,7 @@ export class StaffController {
   }
 
   @Delete("roles")
-  @Roles(UserRole.OWNER, UserRole.MANAGER)
+  @Roles(PlatformRole.PLATFORM_ADMIN)
   revokeRole(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ManageStaffRoleDto

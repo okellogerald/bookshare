@@ -8,7 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { type Database, staffRoles } from "@bookshare/db";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { and, asc, count, desc, eq } from "drizzle-orm";
 import type { AuthenticatedUser } from "../../common/guards";
 import type { ManageStaffRoleDto } from "./dto";
@@ -130,7 +130,7 @@ export class StaffService {
       .map((identity) => {
         const existingRoles = new Set(persistedRoles.get(identity.userId) ?? []);
         if (identity.email && bootstrapEmails.has(identity.email)) {
-          existingRoles.add(UserRole.OWNER);
+          existingRoles.add(PlatformRole.PLATFORM_ADMIN);
         }
 
         return {
@@ -155,7 +155,7 @@ export class StaffService {
     });
 
     if (existing) {
-      throw new ConflictException("That staff role is already assigned.");
+      throw new ConflictException("That platform role is already assigned.");
     }
 
     const identity = await this.fetchIdentity(dto.userId);
@@ -187,18 +187,18 @@ export class StaffService {
     });
 
     if (!existing) {
-      throw new NotFoundException("That staff role is not currently assigned.");
+      throw new NotFoundException("That platform role is not currently assigned.");
     }
 
-    if (dto.role === UserRole.OWNER) {
-      const [ownerCount] = await this.db
+    if (dto.role === PlatformRole.PLATFORM_ADMIN) {
+      const [adminCount] = await this.db
         .select({ count: count() })
         .from(staffRoles)
-        .where(eq(staffRoles.role, UserRole.OWNER));
+        .where(eq(staffRoles.role, PlatformRole.PLATFORM_ADMIN));
 
-      if ((ownerCount?.count ?? 0) <= 1) {
+      if ((adminCount?.count ?? 0) <= 1) {
         throw new ForbiddenException(
-          "BookShare must keep at least one persisted owner role."
+          "BookShare must keep at least one persisted platform_admin role."
         );
       }
     }
@@ -217,13 +217,10 @@ export class StaffService {
   }
 
   private ensureCanManageRole(actorRoles: string[], targetRole: string) {
-    if (actorRoles.includes(UserRole.OWNER)) {
-      return;
-    }
-
     if (
-      actorRoles.includes(UserRole.MANAGER) &&
-      [UserRole.STAFF, UserRole.VIEWER].includes(targetRole as any)
+      actorRoles.includes(PlatformRole.PLATFORM_ADMIN) &&
+      (targetRole === PlatformRole.PLATFORM_ADMIN ||
+        targetRole === PlatformRole.PLATFORM_STAFF)
     ) {
       return;
     }

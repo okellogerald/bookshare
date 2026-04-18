@@ -9,7 +9,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { CurrentUser, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
@@ -63,19 +63,19 @@ export class SubmissionsController {
   // ── Staff-facing ───────────────────────────────────────────
 
   @Get("copies")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   listCopySubmissions(@Query("status") status?: string) {
     return this.submissionsService.listCopySubmissions(status);
   }
 
   @Get("copies/:id")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   getCopySubmission(@Param("id") id: string) {
     return this.submissionsService.getCopySubmission(id);
   }
 
   @Patch("copies/:id/approve")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   approveCopySubmission(
     @Param("id") id: string,
     @Body() dto: ApproveCopySubmissionDto,
@@ -89,7 +89,7 @@ export class SubmissionsController {
   }
 
   @Patch("copies/:id/reject")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   rejectCopySubmission(
     @Param("id") id: string,
     @Body() dto: RejectCopySubmissionDto,
@@ -105,19 +105,19 @@ export class SubmissionsController {
   // ── Staff-facing: want submissions ────────────────────────
 
   @Get("wants")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   listWantSubmissions(@Query("status") status?: string) {
     return this.submissionsService.listWantSubmissions(status);
   }
 
   @Get("wants/:id")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   getWantSubmission(@Param("id") id: string) {
     return this.submissionsService.getWantSubmission(id);
   }
 
   @Patch("wants/:id/approve")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   approveWantSubmission(
     @Param("id") id: string,
     @Body() dto: ApproveWantSubmissionDto,
@@ -131,7 +131,7 @@ export class SubmissionsController {
   }
 
   @Patch("wants/:id/reject")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   rejectWantSubmission(
     @Param("id") id: string,
     @Body() dto: RejectWantSubmissionDto,

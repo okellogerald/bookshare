@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, CheckCircle2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { getSession } from "@/domain/auth/lib/session";
+import { isAdminConsoleRole } from "@bookshare/shared";
 import { adminNavItems } from "@/shared/lib/admin-shell";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -33,7 +34,10 @@ export default async function LandingPage({
   const session = await getSession();
   const params = await searchParams;
 
-  if (session?.user.emailVerified && (session.user.roles?.length ?? 0) > 0) {
+  if (
+    session?.user.emailVerified &&
+    (session.user.roles ?? []).some(isAdminConsoleRole)
+  ) {
     redirect("/catalog");
   }
 
@@ -98,10 +102,10 @@ export default async function LandingPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl">
               <LockKeyhole className="h-5 w-5 text-primary" />
-              Staff access
+              Platform access
             </CardTitle>
             <CardDescription className="text-base leading-7">
-              Sign in with a verified account that already has a BookShare staff role.
+              Sign in with a verified account that already has a BookShare platform role.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -119,7 +123,7 @@ export default async function LandingPage({
                 <div className="flex gap-3">
                   <ShieldCheck className="mt-1 h-4 w-4 flex-none text-primary" />
                   <p className="text-sm leading-6 text-muted-foreground">
-                    Assigned internal role before any protected route opens.
+                    Assigned platform role before any protected route opens.
                   </p>
                 </div>
               </div>
@@ -134,7 +138,7 @@ export default async function LandingPage({
 
             {params.error === "forbidden" ? (
               <p className="rounded-[1.25rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                This account is signed in, but it does not currently have staff access.
+                This account is signed in, but it does not currently have admin-console access.
               </p>
             ) : (
               <p className="text-sm leading-6 text-muted-foreground">

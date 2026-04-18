@@ -1,4 +1,5 @@
 import { getAccessToken, getSession } from "@/domain/auth/lib/session";
+import { isReadGatewayResourceName } from "@bookshare/shared";
 import {
   buildProxyBaseUrlCandidates,
   buildProxyRequestUrl,
@@ -43,7 +44,13 @@ async function proxyRequest(
   path: string[],
   token: string | null
 ) {
-  const apiPath = path.join("/");
+  const gatewayPath =
+    (request.method === "GET" || request.method === "HEAD") &&
+    path.length === 1 &&
+    isReadGatewayResourceName(path[0])
+      ? ["read", path[0]]
+      : path;
+  const apiPath = gatewayPath.join("/");
   const search = request.nextUrl.searchParams.toString();
   const headers = new Headers();
   if (token) {
@@ -51,9 +58,16 @@ async function proxyRequest(
     headers.set("x-auth-access-token", token);
   }
 
-  const contentType = request.headers.get("content-type");
-  if (contentType) {
-    headers.set("Content-Type", contentType);
+  for (const [source, target] of [
+    ["content-type", "Content-Type"],
+    ["accept", "Accept"],
+    ["prefer", "Prefer"],
+    ["range", "Range"],
+  ] as const) {
+    const value = request.headers.get(source);
+    if (value) {
+      headers.set(target, value);
+    }
   }
 
   const fetchOptions: RequestInit = { method: request.method, headers };

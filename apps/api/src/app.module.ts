@@ -19,7 +19,7 @@ import { SubmissionsModule } from "./modules/submissions/submissions.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { StaffModule } from "./modules/staff/staff.module";
 import { ImportsModule } from "./modules/imports/imports.module";
-import { PostgrestProxyModule } from "./modules/postgrest-proxy/postgrest-proxy.module";
+import { ReadGatewayModule } from "./modules/read-gateway/read-gateway.module";
 
 @Module({
   imports: [
@@ -40,7 +40,7 @@ import { PostgrestProxyModule } from "./modules/postgrest-proxy/postgrest-proxy.
     SubmissionsModule,
     StaffModule,
     ImportsModule,
-    PostgrestProxyModule,
+    ReadGatewayModule,
   ],
   providers: [
     AuthGuard,

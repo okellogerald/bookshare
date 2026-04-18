@@ -1,10 +1,8 @@
 import { pgEnum, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const staffRoleEnum = pgEnum("staff_role", [
-  "owner",
-  "manager",
-  "staff",
-  "viewer",
+  "platform_admin",
+  "platform_staff",
 ]);
 
 export const staffRoles = pgTable(

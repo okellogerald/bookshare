@@ -50,6 +50,20 @@
       "when": 1776420000000,
       "tag": "0008_public_postgrest_anon_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776480000000,
+      "tag": "0009_platform_roles_and_internal_postgrest",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776500000000,
+      "tag": "0010_postgrest_fixed_internal_read_role",
+      "breakpoints": true
     }
   ]
 }

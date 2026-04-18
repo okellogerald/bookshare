@@ -10,7 +10,7 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { WishesService } from "./wishes.service";
 import { CreateWishDto, UpdateWishDto } from "./dto";
 import { CurrentUser, Roles } from "../../common/decorators";
@@ -81,25 +81,25 @@ export class WishesController {
   // ── Admin operations ───────────────────────────────────────
 
   @Put(":id/admin")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminUpdate(@Param("id") id: string, @Body() dto: UpdateWishDto) {
     return this.wishesService.adminUpdate(id, dto);
   }
 
   @Delete(":id/admin")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminDelete(@Param("id") id: string) {
     return this.wishesService.adminDelete(id);
   }
 
   @Patch(":id/admin/archive")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminArchive(@Param("id") id: string) {
     return this.wishesService.adminArchive(id);
   }
 
   @Patch(":id/admin/restore")
-  @Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   adminRestore(@Param("id") id: string) {
     return this.wishesService.adminRestore(id);
   }

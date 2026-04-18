@@ -1,8 +1,3 @@
-// ─── PostgREST (reads) ───────────────────────────────────────
-export { postgrestAuth, postgrestPublic } from "./postgrest/client";
-export { PostgRESTError } from "./postgrest/client";
-export type { PostgRESTOptions, PostgRESTResponse } from "./postgrest/client";
-
 export type {
   // Base table types
   PgBook,

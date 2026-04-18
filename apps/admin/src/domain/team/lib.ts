@@ -2,28 +2,27 @@ import type {
   StaffDirectoryEntry,
   StaffIdentitySearchResult,
 } from "@/shared/api";
+import { PlatformRole } from "@bookshare/shared";
 
-export const ROLE_ORDER = ["owner", "manager", "staff", "viewer"] as const;
+export const ROLE_ORDER = [
+  PlatformRole.PLATFORM_ADMIN,
+  PlatformRole.PLATFORM_STAFF,
+] as const;
 
 export function formatRole(role: string) {
   return role.charAt(0).toUpperCase() + role.slice(1).replace(/_/g, " ");
 }
 
 export function canManageRole(actorRoles: string[], targetRole: string) {
-  if (actorRoles.includes("owner")) {
-    return true;
-  }
-
-  return actorRoles.includes("manager") && ["staff", "viewer"].includes(targetRole);
+  return (
+    actorRoles.includes(PlatformRole.PLATFORM_ADMIN) &&
+    ROLE_ORDER.includes(targetRole as (typeof ROLE_ORDER)[number])
+  );
 }
 
 export function getManageableRoles(actorRoles: string[]) {
-  if (actorRoles.includes("owner")) {
+  if (actorRoles.includes(PlatformRole.PLATFORM_ADMIN)) {
     return [...ROLE_ORDER];
-  }
-
-  if (actorRoles.includes("manager")) {
-    return ["staff", "viewer"] as const;
   }
 
   return [] as const;

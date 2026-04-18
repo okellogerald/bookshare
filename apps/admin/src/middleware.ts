@@ -3,8 +3,9 @@
  *
  * Similar to the Web middleware but with an additional authorization layer:
  * after verifying the session is valid and email is verified, it checks that
- * the user has at least one recognized staff role (owner, manager, staff,
- * or viewer). Users without roles are redirected to the landing page.
+ * the user has at least one recognized admin-console role
+ * (`platform_admin` or `platform_staff`). Users without those roles are
+ * redirected to the landing page.
  *
  * This provides defense-in-depth: the callback route already rejects
  * non-staff users, but the middleware catches edge cases like sessions
@@ -16,6 +17,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decrypt } from "@/domain/auth/lib/crypto";
+import { PlatformRole, isAdminConsoleRole } from "@bookshare/shared";
 import {
   ADMIN_LOGGED_OUT_COOKIE,
   ADMIN_SESSION_COOKIE,
@@ -23,12 +25,15 @@ import {
 } from "@/domain/auth/lib/cookie-names";
 import { buildAuthPortalVerificationUrl } from "@/domain/auth/lib/auth-portal";
 
-/** Admin route prefixes that require a valid session with staff roles. */
+/** Admin route prefixes that require a valid session with elevated roles. */
 const protectedPrefixes = ["/catalog", "/batches", "/members", "/team", "/staff", "/requests"];
 /** Auth API routes that must always be accessible mid-flow. */
 const authPaths = ["/api/auth/login", "/api/auth/callback", "/api/auth/logout"];
 /** Set of roles that grant access to the admin app. */
-const allowedRoles = new Set(["owner", "manager", "staff", "viewer"]);
+const allowedRoles = new Set([
+  PlatformRole.PLATFORM_ADMIN,
+  PlatformRole.PLATFORM_STAFF,
+]);
 
 /** Session expiresAt is a Unix timestamp (seconds). Compare against wall clock. */
 function isSessionExpired(value: unknown): boolean {
@@ -93,8 +98,8 @@ export async function middleware(request: NextRequest) {
       ? session.user.roles.filter((value): value is string => typeof value === "string")
       : [];
 
-    // Reject users without any recognized staff role.
-    if (!roles.some((role) => allowedRoles.has(role))) {
+    // Reject users without any recognized admin-console role.
+    if (!roles.some(isAdminConsoleRole)) {
       const response = NextResponse.redirect(landingUrl);
       response.cookies.delete(ADMIN_SESSION_COOKIE);
       response.cookies.delete(ADMIN_TOKEN_COOKIE);

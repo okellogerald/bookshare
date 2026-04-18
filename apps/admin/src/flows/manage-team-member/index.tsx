@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useGrantTeamRole, useRevokeTeamRole } from "@/domain/team/queries";
+import { PlatformRole } from "@bookshare/shared";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import type { StaffDirectoryEntry } from "@/shared/api";
@@ -26,7 +27,9 @@ export function ManageTeamMemberFlow({
   const [currentRoles, setCurrentRoles] = useState<string[]>(
     entry.roles.map((assignment) => assignment.role)
   );
-  const [selectedRole, setSelectedRole] = useState<string>(manageableRoles[0] ?? "staff");
+  const [selectedRole, setSelectedRole] = useState<string>(
+    manageableRoles[0] ?? PlatformRole.PLATFORM_STAFF
+  );
   const grantRole = useGrantTeamRole();
   const revokeRole = useRevokeTeamRole();
 
@@ -39,7 +42,7 @@ export function ManageTeamMemberFlow({
       return;
     }
 
-    setSelectedRole(manageableRoles[0] ?? "staff");
+    setSelectedRole(manageableRoles[0] ?? PlatformRole.PLATFORM_STAFF);
   }, [manageableRoles, selectedRole]);
 
   const handleGrant = async () => {

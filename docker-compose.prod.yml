@@ -21,19 +21,16 @@ services:
           memory: 512M
 
   # ─── Read API (PostgREST) ─────────────────────────────────────
+  # PostgREST is internal-only. NestJS is the only caller and owns all
+  # application authorization before forwarding read queries.
   postgrest:
     image: postgrest/postgrest:latest
     restart: always
     environment:
       PGRST_DB_URI: postgresql://postgrest_authenticator:${POSTGREST_DB_PASSWORD}@postgres:5432/bookshare
       PGRST_DB_SCHEMAS: public
-      PGRST_DB_ANON_ROLE: postgrest_auth
-      PGRST_JWT_SECRET: ${OIDC_JWT_SECRET}
-      PGRST_JWT_SECRET_IS_BASE64: "false"
+      PGRST_DB_ANON_ROLE: postgrest_read_service
       PGRST_DB_MAX_ROWS: 1000
-      PGRST_DB_PRE_REQUEST: public.pgrst_auth_guard
-      PGRST_JWT_AUD: ""
-      PGRST_JWT_ROLE_CLAIM_KEY: ".role"
     depends_on:
       postgres:
         condition: service_healthy
@@ -130,6 +127,8 @@ services:
         condition: service_healthy
       workflows:
         condition: service_started
+      postgrest:
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -146,7 +145,6 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
-      POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
       AUTH_PROVIDER: ory
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}

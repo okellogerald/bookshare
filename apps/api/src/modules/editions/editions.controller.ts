@@ -1,13 +1,13 @@
 import { Controller, Post, Put, Delete, Body, Param } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { UserRole } from "@bookshare/shared";
+import { PlatformRole } from "@bookshare/shared";
 import { EditionsService } from "./editions.service";
 import { CreateEditionDto, UpdateEditionDto } from "./dto";
 import { Roles } from "../../common/decorators";
 
 @ApiTags("Editions")
 @ApiBearerAuth()
-@Roles(UserRole.OWNER, UserRole.MANAGER, UserRole.STAFF)
+@Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
 @Controller("editions")
 export class EditionsController {
   constructor(private readonly editionsService: EditionsService) {}

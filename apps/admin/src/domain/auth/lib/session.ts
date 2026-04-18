@@ -27,7 +27,7 @@ export async function setSession(
   accessToken?: string | null
 ): Promise<void> {
   const cookieStore = await cookies();
-  // Admin API authorization depends on the staff-role claims we inject into
+  // Admin API authorization depends on the platform-role claims we inject into
   // the ID token during Hydra consent. Prefer that token consistently here
   // instead of the access token, whose claim shape can lag during remembered
   // consent flows.

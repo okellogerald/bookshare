@@ -363,8 +363,8 @@ return requiredRoles.some(role => user.roles.includes(role));
 ```
 
 **Role extraction from JWT:**
-- Primary: `payload.roles` (direct array)
-- Fallback: `payload.realm_access.roles` (Keycloak-compatible)
+- Source: `payload.roles` (direct array)
+- Normalization: Nest treats every authenticated user as `user` and merges any elevated platform roles (`platform_admin`, `platform_staff`)
 
 **Risk mitigated:** Privilege escalation — a regular user cannot access admin endpoints
 
@@ -492,13 +492,12 @@ Drizzle generates parameterized SQL with `$1`, `$2` placeholders. User input nev
 
 **File:** `infra/postgres/init.sql`
 
-PostgREST provides a read-only REST API directly from PostgreSQL. It uses database roles and RLS for access control:
+PostgREST provides an internal read-only REST API directly from PostgreSQL. NestJS is the only caller, and PostgREST runs with a fixed read-only service role:
 
 ```sql
 -- Role hierarchy
 postgrest_authenticator (connects)
-  ├── postgrest_anon (no default table access)
-  └── postgrest_auth (SELECT on all tables)
+  └── postgrest_read_service (SELECT only)
 
 -- RLS helper
 CREATE FUNCTION current_user_id() RETURNS TEXT AS $$
@@ -507,13 +506,13 @@ $$ LANGUAGE sql STABLE;
 ```
 
 **How it works:**
-1. PostgREST validates the JWT from the `Authorization` header
-2. The JWT's `role` claim determines which database role is used
-3. `current_user_id()` extracts the `sub` claim for RLS policies
-4. Anonymous users (`postgrest_anon`) have no default table access
-5. Authenticated users (`postgrest_auth`) get SELECT only
+1. Clients always call NestJS, never PostgREST directly
+2. NestJS authenticates the user token and applies application authorization
+3. NestJS forwards approved read queries to internal PostgREST
+4. PostgREST executes them as `postgrest_read_service`, which has read-only DB privileges
+5. RLS is no longer the user-facing authorization boundary for application reads
 
-**Risk mitigated:** Unauthorized data access through the read API, write operations through PostgREST
+**Risk mitigated:** Unauthorized data access through the read API, write operations through PostgREST, accidental elevation to a broad database role
 
 ---
 
