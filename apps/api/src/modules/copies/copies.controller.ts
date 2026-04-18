@@ -12,6 +12,7 @@ import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { PlatformRole } from "@bookshare/shared";
 import { CopiesService } from "./copies.service";
 import {
+  AdminCreateCopyDto,
   AttachCopyImagesDto,
   CreateCopyDto,
   UpdateCopyDto,
@@ -91,6 +92,12 @@ export class CopiesController {
   }
 
   // ── Admin operations ───────────────────────────────────────
+
+  @Post("admin")
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  adminCreate(@Body() dto: AdminCreateCopyDto) {
+    return this.copiesService.adminCreate(dto);
+  }
 
   @Put(":id/admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)

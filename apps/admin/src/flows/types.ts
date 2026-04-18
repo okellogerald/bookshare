@@ -3,6 +3,9 @@ import type { CatalogEditionRecord, CatalogCopyRecord, CatalogWishRecord } from 
 
 export type AdminFlow =
   | { kind: "add-edition" }
+  | { kind: "add-title" }
+  | { kind: "add-copy" }
+  | { kind: "add-wish" }
   | { kind: "catalog-search" }
   | { kind: "import-batch" }
   | { kind: "add-team-member"; actorRoles: string[] }

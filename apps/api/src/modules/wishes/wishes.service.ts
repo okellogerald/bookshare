@@ -28,7 +28,7 @@ import {
 } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
 import { WorkflowEventsService } from "../workflow-events/workflow-events.service";
-import { CreateWishDto, UpdateWishDto } from "./dto";
+import { AdminCreateWishDto, CreateWishDto, UpdateWishDto } from "./dto";
 
 const activeCopyStatuses = [
   "available",
@@ -312,6 +312,36 @@ export class WishesService {
   }
 
   // ── Admin operations (no userId scoping) ──────────────────
+
+  async adminCreate(dto: AdminCreateWishDto) {
+    const existing = await this.db.query.wishes.findFirst({
+      where: and(
+        eq(wishes.userId, dto.userId),
+        eq(wishes.bookId, dto.bookId),
+        eq(wishes.status, "active")
+      ),
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        "Member already has an active want for this book."
+      );
+    }
+
+    const [wish] = await this.db
+      .insert(wishes)
+      .values({
+        userId: dto.userId,
+        bookId: dto.bookId,
+        editionId: dto.editionId ?? null,
+        notes: dto.notes,
+        status: "active",
+        lastConfirmedAt: new Date(),
+      })
+      .returning();
+
+    return this.findOneAdmin(wish.id);
+  }
 
   private async findOneAdmin(id: string) {
     const wish = await this.db.query.wishes.findFirst({

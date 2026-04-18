@@ -29,6 +29,7 @@ import { Select } from "@/shared/components/ui/select";
 import { Textarea } from "@/shared/components/ui/textarea";
 import type { PgBookWithAuthorsView } from "@/shared/api";
 import { AuthorPicker } from "./author-picker";
+import { FlowSummaryRow } from "@/shared/components/flow-summary-row";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp";
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -45,17 +46,6 @@ const stepItems: Array<{ step: AddEditionStep; label: string }> = [
 
 function formatAuthors(authors: Array<{ id: string; name: string }>) {
   return authors.length > 0 ? authors.map((author) => author.name).join(", ") : "No authors";
-}
-
-function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-border/75 bg-background px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <div className="mt-2 text-sm text-foreground">{value}</div>
-    </div>
-  );
 }
 
 export function AddEditionFlow({ onClose }: { onClose: () => void }) {
@@ -363,7 +353,7 @@ export function AddEditionFlow({ onClose }: { onClose: () => void }) {
                       type="button"
                       onClick={() => setSelectedBook(result)}
                       className={`w-full px-4 py-4 text-left transition hover:bg-muted/25 ${
-                        selectedBook?.id === result.id ? "bg-muted/35" : ""
+                        selectedBook?.id === result.id ? "bg-primary/[0.07] ring-1 ring-inset ring-primary/20" : ""
                       }`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -444,7 +434,7 @@ export function AddEditionFlow({ onClose }: { onClose: () => void }) {
           </div>
 
           {titleSource === "existing" && selectedBook ? (
-            <div className="space-y-4 rounded-2xl border border-border/75 bg-muted/20 p-4">
+            <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/[0.06] p-4">
               <div>
                 <p className="font-medium text-foreground">{selectedBook.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -649,9 +639,9 @@ export function AddEditionFlow({ onClose }: { onClose: () => void }) {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-2xl border border-border/75 bg-card px-5 py-1">
             {summaryItems.map((item) => (
-              <SummaryRow key={item.label} label={item.label} value={item.value} />
+              <FlowSummaryRow key={item.label} label={item.label} value={item.value} />
             ))}
           </div>
 

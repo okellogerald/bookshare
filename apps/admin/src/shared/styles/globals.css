@@ -32,7 +32,7 @@
   }
 
   html {
-      font-family:  "GT Pressura Trial", var(--font-geist-sans), Avenir, ui-sans-serif, system-ui, sans-serif;
+      font-family:  var(--font-geist-sans), Avenir, ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -42,8 +42,8 @@
     @apply bg-background text-foreground;
     min-height: 100vh;
     color-scheme: light;
-    font-family: "GT Pressura Trial", var(--font-geist-sans), Avenir, ui-sans-serif, system-ui, sans-serif;
-    font-weight: 400;
+    font-family: var(--font-geist-sans), Avenir, ui-sans-serif, system-ui, sans-serif;
+    font-weight: 500;
     line-height: 1.5;
   }
 
@@ -53,7 +53,7 @@
   h4,
   h5,
   h6 {
-    font-family: "GT Zirkon Trial", var(--font-geist-sans), Avenir, ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-geist-sans), Avenir, ui-sans-serif, system-ui, sans-serif;
     text-wrap: balance;
   }
 

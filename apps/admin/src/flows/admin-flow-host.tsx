@@ -4,6 +4,9 @@ import { RightPanel } from "@/shared/components/right-panel";
 import type { AdminFlow } from "./types";
 import { ManageTeamMemberFlow } from "./manage-team-member";
 import { AddEditionFlow } from "./add-edition";
+import { AddTitleFlow } from "./add-title";
+import { AddCopyFlow } from "./add-copy";
+import { AddWishFlow } from "./add-wish";
 import { AddTeamMemberFlow } from "./add-team-member";
 import { CatalogSearchFlow } from "./catalog-search";
 import { ImportBatchFlow } from "./import-batch";
@@ -16,6 +19,24 @@ import { EditWishFlow } from "./edit-wish";
 
 function getFlowChrome(flow: AdminFlow) {
   switch (flow.kind) {
+    case "add-title":
+      return {
+        title: "Add New Title",
+        description: "Create a new book record with title details and authors.",
+        size: "md" as const,
+      };
+    case "add-copy":
+      return {
+        title: "Add New Copy",
+        description: "Create a copy on behalf of a member by selecting a member, edition, and details.",
+        size: "moderate" as const,
+      };
+    case "add-wish":
+      return {
+        title: "Add New Wish",
+        description: "Create a wish on behalf of a member by selecting a member and book.",
+        size: "moderate" as const,
+      };
     case "add-edition":
       return {
         title: "Add New Edition",
@@ -110,7 +131,13 @@ export function AdminFlowHost({
       description={chrome.description}
       size={chrome.size}
     >
-      {activeFlow.kind === "add-edition" ? (
+      {activeFlow.kind === "add-title" ? (
+        <AddTitleFlow onClose={onClose} />
+      ) : activeFlow.kind === "add-copy" ? (
+        <AddCopyFlow onClose={onClose} />
+      ) : activeFlow.kind === "add-wish" ? (
+        <AddWishFlow onClose={onClose} />
+      ) : activeFlow.kind === "add-edition" ? (
         <AddEditionFlow onClose={onClose} />
       ) : activeFlow.kind === "catalog-search" ? (
         <CatalogSearchFlow />

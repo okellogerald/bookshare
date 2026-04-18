@@ -12,7 +12,7 @@ import {
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { PlatformRole } from "@bookshare/shared";
 import { WishesService } from "./wishes.service";
-import { CreateWishDto, UpdateWishDto } from "./dto";
+import { AdminCreateWishDto, CreateWishDto, UpdateWishDto } from "./dto";
 import { CurrentUser, Roles } from "../../common/decorators";
 
 @ApiTags("Wishes")
@@ -79,6 +79,12 @@ export class WishesController {
   }
 
   // ── Admin operations ───────────────────────────────────────
+
+  @Post("admin")
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  adminCreate(@Body() dto: AdminCreateWishDto) {
+    return this.wishesService.adminCreate(dto);
+  }
 
   @Put(":id/admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)

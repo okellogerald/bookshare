@@ -30,7 +30,7 @@ function IdentityResultCard({
       onClick={onSelect}
       className={cn(
         "w-full border-b py-4 text-left transition last:border-b-0",
-        selected ? "bg-muted/35" : "hover:bg-muted/20"
+        selected ? "bg-primary/[0.07] ring-1 ring-inset ring-primary/20" : "hover:bg-muted/20"
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3 px-1">

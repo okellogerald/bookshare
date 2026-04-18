@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Edit, Loader2, Plus, Trash } from "lucide-react";
+import { Archive, ArrowLeft, Edit, Plus } from "lucide-react";
 import {
   useCatalogBooks,
-  useAdminDeleteBook,
+  useAdminArchiveBook,
 } from "@/domain/catalog/queries";
 import { useAdminFlow } from "@/flows/admin-flow-provider";
 import type { PgBookWithAuthorsView } from "@/shared/api";
@@ -29,12 +29,12 @@ type TitlesSort = "title_asc" | "title_desc";
 
 function TitleRowActions({ book }: { book: PgBookWithAuthorsView }) {
   const { openFlow } = useAdminFlow();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const deleteMutation = useAdminDeleteBook();
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const archiveMutation = useAdminArchiveBook();
 
   return (
     <>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
         <Button
           type="button"
           variant="outline"
@@ -49,25 +49,25 @@ function TitleRowActions({ book }: { book: PgBookWithAuthorsView }) {
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 px-2 text-xs text-red-700 hover:border-red-300 hover:bg-red-50"
-          onClick={() => setConfirmDelete(true)}
+          className="h-7 px-2 text-xs"
+          onClick={() => setConfirmArchive(true)}
         >
-          <Trash className="h-4 w-4" />
-          Delete
+          <Archive className="h-4 w-4" />
+          Archive
         </Button>
       </div>
 
       <ConfirmDialog
-        open={confirmDelete}
-        title="Delete book?"
-        description={`"${book.title}" and all its data will be permanently removed.`}
-        confirmLabel="Delete"
+        open={confirmArchive}
+        title="Archive title?"
+        description={`"${book.title}" will be archived and hidden from active catalog views.`}
+        confirmLabel="Archive"
         onConfirm={async () => {
-          await deleteMutation.mutateAsync(book.id);
-          setConfirmDelete(false);
+          await archiveMutation.mutateAsync(book.id);
+          setConfirmArchive(false);
         }}
-        onCancel={() => setConfirmDelete(false)}
-        isLoading={deleteMutation.isPending}
+        onCancel={() => setConfirmArchive(false)}
+        isLoading={archiveMutation.isPending}
       />
     </>
   );
@@ -111,9 +111,14 @@ export function TitlesWorkspace() {
               </Link>
               Back to Catalog
             </Button>
-            <Button type="button" variant={"outline"} className="rounded-full px-4">
-                <Plus className="h-4 w-4" />
-                Add New Title
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full px-4"
+              onClick={() => openFlow({ kind: "add-title" })}
+            >
+              <Plus className="h-4 w-4" />
+              Add New Title
             </Button>
           </div>
         }
@@ -164,7 +169,7 @@ export function TitlesWorkspace() {
               </TableHeader>
               <TableBody>
                 {filtered.map((book) => (
-                  <TableRow key={book.id}>
+                  <TableRow key={book.id} className="group">
                     <TableCell className="min-w-[200px] whitespace-normal">
                       <p className="font-medium text-foreground">{book.title}</p>
                       {book.subtitle && (

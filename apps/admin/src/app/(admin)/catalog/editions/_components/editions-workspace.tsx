@@ -2,10 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Delete, Edit, Plus, Trash } from "lucide-react";
+import { Archive, ArrowLeft, Edit, Plus } from "lucide-react";
 import {
   useCatalogEditions,
-  useAdminDeleteEdition,
+  useAdminArchiveEdition,
   type CatalogEditionRecord,
 } from "@/domain/catalog/queries";
 import { useAdminFlow } from "@/flows/admin-flow-provider";
@@ -34,12 +34,12 @@ function formatDate(value: string | null) {
 
 function EditionRowActions({ edition }: { edition: CatalogEditionRecord }) {
   const { openFlow } = useAdminFlow();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const deleteMutation = useAdminDeleteEdition();
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const archiveMutation = useAdminArchiveEdition();
 
   return (
     <>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
         <Button
           type="button"
           variant="outline"
@@ -54,25 +54,25 @@ function EditionRowActions({ edition }: { edition: CatalogEditionRecord }) {
           type="button"
           variant="outline"
           size="sm"
-          className="h-7 px-2 text-xs text-red-700 hover:border-red-300 hover:bg-red-50"
-          onClick={() => setConfirmDelete(true)}
+          className="h-7 px-2 text-xs"
+          onClick={() => setConfirmArchive(true)}
         >
-          <Trash className="h-4 w-4" />
-          Delete
+          <Archive className="h-4 w-4" />
+          Archive
         </Button>
       </div>
 
       <ConfirmDialog
-        open={confirmDelete}
-        title="Delete edition?"
-        description={`This edition of "${edition.book?.title ?? "unknown"}" will be permanently removed.`}
-        confirmLabel="Delete"
+        open={confirmArchive}
+        title="Archive edition?"
+        description={`This edition of "${edition.book?.title ?? "unknown"}" will be archived and hidden from active views.`}
+        confirmLabel="Archive"
         onConfirm={async () => {
-          await deleteMutation.mutateAsync(edition.id);
-          setConfirmDelete(false);
+          await archiveMutation.mutateAsync(edition.id);
+          setConfirmArchive(false);
         }}
-        onCancel={() => setConfirmDelete(false)}
-        isLoading={deleteMutation.isPending}
+        onCancel={() => setConfirmArchive(false)}
+        isLoading={archiveMutation.isPending}
       />
     </>
   );
@@ -198,7 +198,7 @@ export function EditionsWorkspace() {
               </TableHeader>
               <TableBody>
                 {filtered.map((edition) => (
-                  <TableRow key={edition.id}>
+                  <TableRow key={edition.id} className="group">
                     <TableCell className="min-w-[200px] whitespace-normal">
                       <p className="font-medium text-foreground">{edition.book?.title ?? "Untitled"}</p>
                       {edition.book?.subtitle && (

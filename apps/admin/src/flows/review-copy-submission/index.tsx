@@ -454,7 +454,7 @@ function ReviewForm({
 
         {/* Resolved via selection — compact confirmation */}
         {selectedBook && (
-          <div className="ml-10 rounded-lg border border-primary/20 bg-primary/[0.03] px-4 py-3">
+          <div className="ml-10 rounded-lg border border-primary/25 bg-primary/[0.06] px-4 py-3">
             <p className="text-sm font-medium text-foreground">{selectedBook.title}</p>
             {selectedBook.subtitle && (
               <p className="text-xs text-muted-foreground">{selectedBook.subtitle}</p>
@@ -605,7 +605,7 @@ function ReviewForm({
 
           {/* Edition selected — compact confirmation */}
           {selectedEdition && (
-            <div className="ml-10 rounded-lg border border-primary/20 bg-primary/[0.03] px-4 py-3">
+            <div className="ml-10 rounded-lg border border-primary/25 bg-primary/[0.06] px-4 py-3">
               <p className="text-sm font-medium text-foreground">
                 {formatLabels[selectedEdition.format] ?? selectedEdition.format}
               </p>

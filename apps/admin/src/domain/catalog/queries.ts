@@ -473,6 +473,18 @@ export function useAdminDeleteBook() {
   });
 }
 
+export function useAdminArchiveBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/backend/books/${id}/archive`, { method: "PATCH" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-books"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
 // ── Admin edition mutations ─────────────────────────────────
 
 interface AdminUpdateEditionInput {
@@ -507,6 +519,18 @@ export function useAdminDeleteEdition() {
   return useMutation({
     mutationFn: (id: string) =>
       requestJson(`/api/backend/editions/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-editions"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
+export function useAdminArchiveEdition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/backend/editions/${id}/archive`, { method: "PATCH" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-editions"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
@@ -625,6 +649,56 @@ export function useAdminRestoreWish() {
       requestJson(`/api/backend/wishes/${id}/admin/restore`, { method: "PATCH" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
+    },
+  });
+}
+
+// ── Admin direct-create mutations ───────────────────────────
+
+export interface AdminCreateCopyInput {
+  userId: string;
+  editionId: string;
+  condition: string;
+  shareType?: string;
+  notes?: string;
+  contactNote?: string;
+}
+
+export function useAdminCreateCopy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AdminCreateCopyInput) =>
+      requestJson(`/api/backend/copies/admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-copies"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
+    },
+  });
+}
+
+export interface AdminCreateWishInput {
+  userId: string;
+  bookId: string;
+  editionId?: string;
+  notes?: string;
+}
+
+export function useAdminCreateWish() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AdminCreateWishInput) =>
+      requestJson(`/api/backend/wishes/admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-wishes"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalog-summary-counts"] });
     },
   });
 }

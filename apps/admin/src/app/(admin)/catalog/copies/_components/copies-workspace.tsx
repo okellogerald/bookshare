@@ -2,17 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Edit, Loader2, Plus } from "lucide-react";
 import {
   useCatalogCopies,
-  useAdminDeleteCopy,
   useAdminArchiveCopy,
   useAdminUnarchiveCopy,
   type CatalogCopyRecord,
 } from "@/domain/catalog/queries";
 import { useMemberDirectory } from "@/domain/members/queries";
 import { useAdminFlow } from "@/flows/admin-flow-provider";
-import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { PageIntro } from "@/shared/components/page-intro";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -37,10 +35,8 @@ function formatDate(value: string | null) {
 
 function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
   const { openFlow } = useAdminFlow();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
 
-  const deleteMutation = useAdminDeleteCopy();
   const archiveMutation = useAdminArchiveCopy();
   const unarchiveMutation = useAdminUnarchiveCopy();
   const busy = archiveMutation.isPending || unarchiveMutation.isPending;
@@ -68,7 +64,7 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
 
   return (
     <>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
         <Button
           type="button"
           variant="outline"
@@ -77,6 +73,7 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
           onClick={() => openFlow({ kind: "edit-copy", copy })}
           disabled={busy}
         >
+          <Edit className="h-4 w-4" />
           Edit
         </Button>
 
@@ -89,7 +86,12 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
             onClick={handleArchive}
             disabled={busy}
           >
-            {archiveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Archive"}
+            {archiveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            Archive
           </Button>
         )}
 
@@ -102,41 +104,23 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
             onClick={handleUnarchive}
             disabled={busy}
           >
-            {unarchiveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Unarchive"}
+            {unarchiveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ArchiveRestore className="h-4 w-4" />
+            )}
+            Unarchive
           </Button>
         )}
-
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-xs text-red-700 hover:border-red-300 hover:bg-red-50"
-          onClick={() => setConfirmDelete(true)}
-          disabled={busy}
-        >
-          Delete
-        </Button>
       </div>
 
       {rowError && <p className="mt-1 text-xs text-red-700">{rowError}</p>}
-
-      <ConfirmDialog
-        open={confirmDelete}
-        title="Delete copy?"
-        description={`This copy of "${copy.edition?.book?.title ?? "unknown"}" will be permanently removed.`}
-        confirmLabel="Delete"
-        onConfirm={async () => {
-          await deleteMutation.mutateAsync(copy.id);
-          setConfirmDelete(false);
-        }}
-        onCancel={() => setConfirmDelete(false)}
-        isLoading={deleteMutation.isPending}
-      />
     </>
   );
 }
 
 export function CopiesWorkspace() {
+  const { openFlow } = useAdminFlow();
   const copiesQuery = useCatalogCopies(200);
   const membersQuery = useMemberDirectory();
   const [query, setQuery] = useState("");
@@ -196,9 +180,14 @@ export function CopiesWorkspace() {
                 Back to Catalog
               </Link>
             </Button>
-            <Button type="button" variant={"outline"} className="rounded-full px-4">
-                <Plus className="h-4 w-4" />
-                Add New Copy
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full px-4"
+              onClick={() => openFlow({ kind: "add-copy" })}
+            >
+              <Plus className="h-4 w-4" />
+              Add New Copy
             </Button>
           </div>
         }
@@ -258,7 +247,7 @@ export function CopiesWorkspace() {
               </TableHeader>
               <TableBody>
                 {filtered.map((copy) => (
-                  <TableRow key={copy.id}>
+                  <TableRow key={copy.id} className="group">
                     <TableCell className="min-w-[200px] whitespace-normal">
                       <p className="font-medium text-foreground">
                         {copy.edition?.book?.title ?? "Untitled"}

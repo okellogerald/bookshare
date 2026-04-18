@@ -19,6 +19,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { userScope, userAnd } from "../../common/tenant/tenant-scope";
 import { WorkflowEventsService } from "../workflow-events/workflow-events.service";
 import {
+  AdminCreateCopyDto,
   AttachCopyImagesDto,
   CreateCopyDto,
   UpdateCopyDto,
@@ -603,6 +604,37 @@ export class CopiesService {
   }
 
   // ── Admin operations (no userId scoping) ──────────────────
+
+  async adminCreate(dto: AdminCreateCopyDto) {
+    const copyId = await this.db.transaction(async (tx) => {
+      const [copy] = await tx
+        .insert(copies)
+        .values({
+          userId: dto.userId,
+          editionId: dto.editionId,
+          condition: dto.condition as any,
+          status: "available",
+          notes: dto.notes,
+          shareType: dto.shareType as any,
+          contactNote: dto.contactNote,
+          lastConfirmedAt: new Date(),
+        })
+        .returning();
+
+      await tx.insert(copyEvents).values({
+        userId: dto.userId,
+        copyId: copy.id,
+        eventType: "listed",
+        toStatus: copy.status,
+        performedBy: "admin",
+        notes: "Copy added by admin on behalf of member",
+      });
+
+      return copy.id;
+    });
+
+    return this.findOneAdmin(copyId);
+  }
 
   private async findOneAdmin(id: string) {
     const copy = await this.db.query.copies.findFirst({
