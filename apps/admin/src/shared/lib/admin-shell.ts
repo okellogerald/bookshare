@@ -1,5 +1,6 @@
 import {
   BookCopy,
+  Building2,
   FolderKanban,
   Users,
   type LucideIcon,
@@ -37,9 +38,14 @@ export const adminNavItems: AdminNavItem[] = [
     icon: Users,
     description: "Search and manage community members from a dedicated operational directory.",
   },
+  {
+    href: "/bookstores",
+    label: "Bookstores",
+    icon: Building2,
+    description: "Review bookstore organizations, approve access, and inspect current operators.",
+  },
 ];
 
 export function isActiveAdminPath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
-

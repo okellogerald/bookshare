@@ -93,3 +93,29 @@ export const wantSubmissionStatusEnum = pgEnum("want_submission_status", [
   "approved",
   "rejected",
 ]);
+
+export const organizationTypeEnum = pgEnum("organization_type", [
+  "bookstore",
+]);
+
+export const organizationStatusEnum = pgEnum("organization_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "suspended",
+]);
+
+export const organizationMembershipRoleEnum = pgEnum(
+  "organization_membership_role",
+  ["owner", "member"]
+);
+
+export const organizationInviteStatusEnum = pgEnum(
+  "organization_invite_status",
+  ["pending", "accepted", "revoked"]
+);
+
+export const bookstoreProposalStatusEnum = pgEnum(
+  "bookstore_proposal_status",
+  ["active", "withdrawn", "expired"]
+);

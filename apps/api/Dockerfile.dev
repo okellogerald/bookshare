@@ -9,6 +9,7 @@ COPY packages/importer/package.json ./packages/importer/
 COPY apps/auth/package.json ./apps/auth/
 COPY apps/admin/package.json ./apps/admin/
 COPY apps/api/package.json ./apps/api/
+COPY apps/bookstores/package.json ./apps/bookstores/
 COPY apps/web/package.json ./apps/web/
 COPY apps/workflows/package.json ./apps/workflows/
 

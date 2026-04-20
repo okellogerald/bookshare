@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   NotificationType,
+  type BookstoreProposalNotificationMetadata,
+  type BookstorePublicProfile,
   type CopyAvailableNotificationMetadata,
   type NotificationBookSnapshot,
   type NotificationCopySnapshot,
@@ -37,6 +40,7 @@ import {
   useNotifications,
 } from "@/domains/notifications/queries";
 import { formatUiDateTime } from "@/shared/lib/date";
+import { nestjsFetch } from "@/shared/lib/fetch";
 
 const pageSize = 20;
 
@@ -175,6 +179,28 @@ function isWishMatchesCopyMetadata(
   );
 }
 
+function isBookstoreProposalMetadata(
+  value: unknown
+): value is BookstoreProposalNotificationMetadata {
+  return (
+    isRecord(value) &&
+    typeof value.proposalId === "string" &&
+    typeof value.organizationId === "string" &&
+    typeof value.organizationName === "string" &&
+    typeof value.wishId === "string" &&
+    isBookSnapshot(value.book) &&
+    isWishSnapshot(value.wish) &&
+    isNullableString(value.proposalMessage)
+  );
+}
+
+async function fetchBookstorePublicProfile(bookstoreId: string) {
+  return nestjsFetch<BookstorePublicProfile>(
+    `bookstores/public/${bookstoreId}`,
+    "GET"
+  );
+}
+
 function DetailSection({
   label,
   children,
@@ -192,6 +218,17 @@ function DetailSection({
   );
 }
 
+function ContactLine({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+
+  return (
+    <p className="text-sm">
+      <span className="text-muted-foreground">{label}: </span>
+      <span>{value}</span>
+    </p>
+  );
+}
+
 function DetailText({ label, value }: { label: string; value: string }) {
   return (
     <p className="text-sm">
@@ -206,6 +243,27 @@ function LongText({ label, value }: { label: string; value: string }) {
     <div className="space-y-1">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className="text-sm whitespace-pre-wrap">{value}</p>
+    </div>
+  );
+}
+
+function BookstoreContactSummary({
+  bookstore,
+}: {
+  bookstore: BookstorePublicProfile;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="font-medium">{bookstore.name}</p>
+      <ContactLine label="Website" value={bookstore.websiteUrl} />
+      <ContactLine label="Phone" value={bookstore.phone} />
+      <ContactLine label="Email" value={bookstore.email} />
+      <ContactLine label="WhatsApp" value={bookstore.whatsapp} />
+      <ContactLine label="Instagram" value={bookstore.instagram} />
+      <ContactLine label="Address" value={bookstore.address} />
+      {bookstore.contactNote ? (
+        <LongText label="Contact note" value={bookstore.contactNote} />
+      ) : null}
     </div>
   );
 }
@@ -282,6 +340,10 @@ function renderNotificationDetails(
   notification: {
     type: string;
     metadata: Record<string, unknown> | null;
+  },
+  options?: {
+    bookstoreProfile?: BookstorePublicProfile | null;
+    isBookstoreProfileLoading?: boolean;
   }
 ) {
   const metadata = notification.metadata;
@@ -381,6 +443,48 @@ function renderNotificationDetails(
     );
   }
 
+  if (
+    notification.type === NotificationType.BOOKSTORE_PROPOSAL &&
+    isBookstoreProposalMetadata(metadata)
+  ) {
+    return (
+      <div className="mt-4 space-y-3">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <DetailSection label="Book">
+            <BookSummary book={metadata.book} />
+          </DetailSection>
+          <DetailSection label="Proposal">
+            <p className="font-medium">{metadata.organizationName}</p>
+            {metadata.proposalMessage ? (
+              <LongText label="Message" value={metadata.proposalMessage} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No proposal note was attached.
+              </p>
+            )}
+          </DetailSection>
+        </div>
+        <DetailSection label="Current bookstore contact">
+          {options?.isBookstoreProfileLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading bookstore contact…
+            </div>
+          ) : options?.bookstoreProfile ? (
+            <BookstoreContactSummary bookstore={options.bookstoreProfile} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Contact details are unavailable right now.
+            </p>
+          )}
+        </DetailSection>
+        <DetailSection label="Your want">
+          <WishSummary wish={metadata.wish} />
+        </DetailSection>
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -396,6 +500,20 @@ export default function NotificationsPage() {
 
   const notifications = data?.items ?? [];
   const totalItems = data?.total ?? 0;
+  const selectedBookstoreId =
+    selectedNotification?.type === NotificationType.BOOKSTORE_PROPOSAL &&
+    selectedNotification.metadata &&
+    isBookstoreProposalMetadata(selectedNotification.metadata)
+      ? selectedNotification.metadata.organizationId
+      : null;
+  const {
+    data: selectedBookstoreProfile,
+    isLoading: isSelectedBookstoreProfileLoading,
+  } = useQuery({
+    queryKey: ["notifications", "bookstore-profile", selectedBookstoreId],
+    queryFn: () => fetchBookstorePublicProfile(selectedBookstoreId!),
+    enabled: !!selectedBookstoreId,
+  });
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,
     [notifications]
@@ -430,7 +548,10 @@ export default function NotificationsPage() {
   }
 
   const selectedNotificationDetails = selectedNotification
-    ? renderNotificationDetails(selectedNotification)
+    ? renderNotificationDetails(selectedNotification, {
+        bookstoreProfile: selectedBookstoreProfile ?? null,
+        isBookstoreProfileLoading: isSelectedBookstoreProfileLoading,
+      })
     : null;
 
   return (

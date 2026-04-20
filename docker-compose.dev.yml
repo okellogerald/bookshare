@@ -242,6 +242,8 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
       SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-}
+      AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
+      BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
     ports:
       - "3333:3333"
@@ -340,9 +342,69 @@ services:
     volumes:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
+      - ./apps/auth/package.json:/app/apps/auth/package.json:ro
+      - ./apps/api/package.json:/app/apps/api/package.json:ro
+      - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./apps/admin/package.json:/app/apps/admin/package.json:ro
+      - ./apps/bookstores/package.json:/app/apps/bookstores/package.json:ro
+      - ./apps/workflows/package.json:/app/apps/workflows/package.json:ro
       - ./apps/admin/next.config.ts:/app/apps/admin/next.config.ts:ro
       - ./apps/admin/src:/app/apps/admin/src
+      - ./packages/shared/package.json:/app/packages/shared/package.json:ro
+      - ./packages/db/package.json:/app/packages/db/package.json:ro
+      - ./packages/importer/package.json:/app/packages/importer/package.json:ro
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      api:
+        condition: service_healthy
+      auth:
+        condition: service_started
+      hydra:
+        condition: service_started
+      hydra-client-init:
+        condition: service_completed_successfully
+
+  # ─── Bookstores (Next.js) ────────────────────────────────────
+  bookstores:
+    build:
+      context: .
+      dockerfile: apps/bookstores/Dockerfile.dev
+    restart: unless-stopped
+    command: ["/bin/sh", "-lc", "cd /app && bun install --frozen-lockfile && bun run --cwd apps/bookstores dev"]
+    environment:
+      PORT: 3339
+      NEXT_PUBLIC_APP_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
+      NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_CLIENT_ID: ${BOOKSTORES_OIDC_CLIENT_ID:-bookshare-bookstores}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
+      OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
+      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
+      NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
+      SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
+    ports:
+      - "3339:3339"
+    volumes:
+      - ./package.json:/app/package.json:ro
+      - ./bun.lock:/app/bun.lock:ro
+      - ./apps/auth/package.json:/app/apps/auth/package.json:ro
+      - ./apps/api/package.json:/app/apps/api/package.json:ro
+      - ./apps/web/package.json:/app/apps/web/package.json:ro
+      - ./apps/admin/package.json:/app/apps/admin/package.json:ro
+      - ./apps/bookstores/package.json:/app/apps/bookstores/package.json:ro
+      - ./apps/workflows/package.json:/app/apps/workflows/package.json:ro
+      - ./apps/bookstores/next.config.ts:/app/apps/bookstores/next.config.ts:ro
+      - ./apps/bookstores/src:/app/apps/bookstores/src
+      - ./packages/shared/package.json:/app/packages/shared/package.json:ro
+      - ./packages/db/package.json:/app/packages/db/package.json:ro
+      - ./packages/importer/package.json:/app/packages/importer/package.json:ro
       - ./packages/shared/src:/app/packages/shared/src
     depends_on:
       api:

@@ -59,3 +59,4 @@ upsert_client() {
 
 upsert_client "bookshare-web" "http://localhost:3334"
 upsert_client "bookshare-admin" "http://localhost:3338"
+upsert_client "bookshare-bookstores" "http://localhost:3339"

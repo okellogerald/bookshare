@@ -8,6 +8,7 @@ import { AddTitleFlow } from "./add-title";
 import { AddCopyFlow } from "./add-copy";
 import { AddWishFlow } from "./add-wish";
 import { AddTeamMemberFlow } from "./add-team-member";
+import { CreateBookstoreFlow } from "./create-bookstore";
 import { CatalogSearchFlow } from "./catalog-search";
 import { ImportBatchFlow } from "./import-batch";
 import { ReviewCopySubmissionFlow } from "./review-copy-submission";
@@ -55,6 +56,13 @@ function getFlowChrome(flow: AdminFlow) {
       return {
         title: "Import Batch",
         description: "Choose the run type, validate the ZIP, and review the run before commit.",
+        size: "moderate" as const,
+      };
+    case "create-bookstore":
+      return {
+        title: "Create Bookstore",
+        description:
+          "Register a new bookstore organization, link an owner admin identity, and issue a first-time recovery link.",
         size: "moderate" as const,
       };
     case "add-team-member":
@@ -143,6 +151,8 @@ export function AdminFlowHost({
         <CatalogSearchFlow />
       ) : activeFlow.kind === "import-batch" ? (
         <ImportBatchFlow />
+      ) : activeFlow.kind === "create-bookstore" ? (
+        <CreateBookstoreFlow onClose={onClose} />
       ) : activeFlow.kind === "add-team-member" ? (
         <AddTeamMemberFlow actorRoles={activeFlow.actorRoles} onComplete={onClose} />
       ) : activeFlow.kind === "manage-team-member" ? (

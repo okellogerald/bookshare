@@ -4,11 +4,16 @@ import {
 } from "../constants/enums";
 import type {
   BookFormat,
+  BookstoreInviteStatus,
+  BookstoreMembershipRole,
+  BookstoreProposalStatus,
+  BookstoreStatus,
   CopyCondition,
   CopyStatus,
   CopyEventType,
   CopyLoanType,
   CounterpartyType,
+  OrganizationType,
   ShareType,
   WishClosureReason,
   WishStatus,
@@ -139,6 +144,237 @@ export interface Wish {
   updatedAt: Date;
 }
 
+// ─── Organization / Bookstores ───────────────────────────────
+export interface Organization {
+  id: string;
+  type: OrganizationType;
+  status: BookstoreStatus;
+  name: string;
+  websiteUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  whatsapp: string | null;
+  instagram: string | null;
+  address: string | null;
+  contactNote: string | null;
+  createdBy: string;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  reviewNote: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrganizationMembership {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: BookstoreMembershipRole;
+  createdAt: Date;
+}
+
+export interface OrganizationInvite {
+  id: string;
+  organizationId: string;
+  invitedEmail: string;
+  invitedBy: string;
+  acceptedBy: string | null;
+  status: BookstoreInviteStatus;
+  acceptedAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BookstoreProposal {
+  id: string;
+  organizationId: string;
+  wishId: string;
+  createdBy: string;
+  message: string | null;
+  status: BookstoreProposalStatus;
+  withdrawnAt: Date | null;
+  expiredAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BookstoreSummary {
+  id: string;
+  name: string;
+  status: BookstoreStatus;
+  websiteUrl: string | null;
+  email: string | null;
+  phone: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BookstoreDetail extends BookstoreSummary {
+  whatsapp: string | null;
+  instagram: string | null;
+  address: string | null;
+  contactNote: string | null;
+  createdBy: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  ownerActivatedAt: string | null;
+  myRole: BookstoreMembershipRole;
+  canManageMembers: boolean;
+  memberCount: number;
+  recentProposalCount: number;
+}
+
+export interface BookstoreBootstrapMembership {
+  organizationId: string;
+  role: BookstoreMembershipRole;
+  joinedAt: string;
+  organization: BookstoreSummary;
+}
+
+export interface BookstorePendingInvite {
+  id: string;
+  invitedEmail: string;
+  createdAt: string;
+  organization: BookstoreSummary;
+}
+
+export interface BookstoresBootstrapResponse {
+  memberships: BookstoreBootstrapMembership[];
+  pendingInvites: BookstorePendingInvite[];
+  user: {
+    id: string;
+    email: string | null;
+    emailVerified: boolean;
+  };
+}
+
+export interface BookstoreProposalSummary {
+  id: string;
+  organizationId: string;
+  wishId: string;
+  message: string | null;
+  status: BookstoreProposalStatus;
+  createdAt: string;
+  updatedAt: string;
+  withdrawnAt: string | null;
+}
+
+export interface BookstoreWantEdition {
+  id: string;
+  isbn: string | null;
+  format: BookFormat;
+  description: string | null;
+  coverImageUrl: string | null;
+}
+
+export interface BookstoreWanterSummary {
+  userId: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string;
+  location: string | null;
+  avatarUrl: string | null;
+}
+
+export interface BookstoreWantBookSummary {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+  primaryIsbn: string | null;
+  coverImageUrl: string | null;
+  editions: BookstoreWantEdition[];
+}
+
+export interface BookstoreWantRow {
+  id: string;
+  userId: string;
+  notes: string | null;
+  createdAt: string;
+  lastConfirmedAt: string | null;
+  latestActivityAt: string;
+  book: BookstoreWantBookSummary;
+  wanter: BookstoreWanterSummary;
+  activeProposal: Pick<
+    BookstoreProposalSummary,
+    "id" | "status" | "message" | "createdAt"
+  > | null;
+}
+
+export interface BookstoreMemberRecord {
+  userId: string;
+  role: BookstoreMembershipRole;
+  joinedAt: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  location: string | null;
+  avatarUrl: string | null;
+  displayName: string;
+}
+
+export interface BookstoreMembersResponse {
+  members: BookstoreMemberRecord[];
+  pendingInvites: Array<{
+    id: string;
+    invitedEmail: string;
+    createdAt: string;
+  }>;
+}
+
+export interface BookstorePublicProfile {
+  id: string;
+  name: string;
+  status: BookstoreStatus;
+  websiteUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  whatsapp: string | null;
+  instagram: string | null;
+  address: string | null;
+  contactNote: string | null;
+}
+
+export interface AdminBookstoreSummary extends BookstoreSummary {
+  memberCount: number;
+  ownerCount: number;
+  ownerNames: string[];
+  recentProposalCount: number;
+}
+
+export interface AdminBookstoreCreateResult {
+  bookstore: AdminBookstoreDetail;
+  owner: {
+    userId: string;
+    email: string;
+    createdIdentity: boolean;
+  };
+  emailSent: boolean;
+}
+
+export interface AdminBookstoreResendOwnerEmailResult {
+  emailSent: boolean;
+}
+
+export interface AdminBookstoreDetail
+  extends Omit<BookstoreDetail, "myRole" | "canManageMembers"> {
+  members: Array<{
+    userId: string;
+    role: BookstoreMembershipRole;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    displayName: string;
+    joinedAt: string;
+  }>;
+  memberCount: number;
+  ownerCount: number;
+  pendingInviteCount: number;
+  recentProposalCount: number;
+}
+
 // ─── Notification ───────────────────────────────────────────
 export interface Notification {
   id: string;
@@ -246,10 +482,22 @@ export interface WishMatchesCopyNotificationMetadata extends Record<string, unkn
   bookPath: string;
 }
 
+export interface BookstoreProposalNotificationMetadata
+  extends Record<string, unknown> {
+  proposalId: string;
+  organizationId: string;
+  organizationName: string;
+  wishId: string;
+  book: NotificationBookSnapshot;
+  wish: NotificationWishSnapshot;
+  proposalMessage: string | null;
+}
+
 export interface NotificationMetadataMap {
   [NotificationType.COPY_AVAILABLE]: CopyAvailableNotificationMetadata;
   [NotificationType.WISH_FULFILLED_IMMEDIATELY]: WishFulfilledImmediatelyNotificationMetadata;
   [NotificationType.WISH_MATCHES_COPY]: WishMatchesCopyNotificationMetadata;
+  [NotificationType.BOOKSTORE_PROPOSAL]: BookstoreProposalNotificationMetadata;
 }
 
 // Temporary alias while downstream modules finish the rename.

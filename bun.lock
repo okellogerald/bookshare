@@ -99,6 +99,32 @@
         "typescript": "^5.7.0",
       },
     },
+    "apps/bookstores": {
+      "name": "@bookshare/bookstores",
+      "version": "0.1.0",
+      "dependencies": {
+        "@bookshare/shared": "workspace:*",
+        "@radix-ui/react-slot": "^1.1.1",
+        "@tanstack/react-query": "^5.62.0",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
+        "lucide-react": "^0.468.0",
+        "next": "^15.1.0",
+        "openid-client": "^6.8.2",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "tailwind-merge": "^2.6.0",
+      },
+      "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "autoprefixer": "^10.4.20",
+        "postcss": "^8.4.49",
+        "tailwindcss": "^3.4.17",
+        "typescript": "^5.7.0",
+      },
+    },
     "apps/web": {
       "name": "@bookshare/web",
       "version": "0.1.2",
@@ -289,6 +315,8 @@
     "@bookshare/api": ["@bookshare/api@workspace:apps/api"],
 
     "@bookshare/auth": ["@bookshare/auth@workspace:apps/auth"],
+
+    "@bookshare/bookstores": ["@bookshare/bookstores@workspace:apps/bookstores"],
 
     "@bookshare/db": ["@bookshare/db@workspace:packages/db"],
 

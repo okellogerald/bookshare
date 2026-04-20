@@ -26,7 +26,7 @@ import {
 import { buildAuthPortalVerificationUrl } from "@/domain/auth/lib/auth-portal";
 
 /** Admin route prefixes that require a valid session with elevated roles. */
-const protectedPrefixes = ["/catalog", "/batches", "/members", "/team", "/staff", "/requests"];
+const protectedPrefixes = ["/catalog", "/batches", "/members", "/bookstores", "/team", "/staff", "/requests"];
 /** Auth API routes that must always be accessible mid-flow. */
 const authPaths = ["/api/auth/login", "/api/auth/callback", "/api/auth/logout"];
 /** Set of roles that grant access to the admin app. */

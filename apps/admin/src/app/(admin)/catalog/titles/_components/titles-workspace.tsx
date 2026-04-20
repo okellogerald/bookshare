@@ -75,6 +75,7 @@ function TitleRowActions({ book }: { book: PgBookWithAuthorsView }) {
 
 export function TitlesWorkspace() {
   const booksQuery = useCatalogBooks(200);
+  const { openFlow } = useAdminFlow();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<TitlesSort>("title_asc");
 

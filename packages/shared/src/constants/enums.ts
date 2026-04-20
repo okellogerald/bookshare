@@ -126,11 +126,56 @@ export type WantStatus = WishStatus;
 export const WantClosureReason = WishClosureReason;
 export type WantClosureReason = WishClosureReason;
 
+// ─── Organization / Bookstores ───────────────────────────────
+export const OrganizationType = {
+  BOOKSTORE: "bookstore",
+} as const;
+
+export type OrganizationType =
+  (typeof OrganizationType)[keyof typeof OrganizationType];
+
+export const BookstoreStatus = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  SUSPENDED: "suspended",
+} as const;
+
+export type BookstoreStatus =
+  (typeof BookstoreStatus)[keyof typeof BookstoreStatus];
+
+export const BookstoreMembershipRole = {
+  OWNER: "owner",
+  MEMBER: "member",
+} as const;
+
+export type BookstoreMembershipRole =
+  (typeof BookstoreMembershipRole)[keyof typeof BookstoreMembershipRole];
+
+export const BookstoreInviteStatus = {
+  PENDING: "pending",
+  ACCEPTED: "accepted",
+  REVOKED: "revoked",
+} as const;
+
+export type BookstoreInviteStatus =
+  (typeof BookstoreInviteStatus)[keyof typeof BookstoreInviteStatus];
+
+export const BookstoreProposalStatus = {
+  ACTIVE: "active",
+  WITHDRAWN: "withdrawn",
+  EXPIRED: "expired",
+} as const;
+
+export type BookstoreProposalStatus =
+  (typeof BookstoreProposalStatus)[keyof typeof BookstoreProposalStatus];
+
 // ─── Notification Type ───────────────────────────────────────
 export const NotificationType = {
   COPY_AVAILABLE: "copy_available",
   WISH_FULFILLED_IMMEDIATELY: "wish_fulfilled_immediately",
   WISH_MATCHES_COPY: "wish_matches_copy",
+  BOOKSTORE_PROPOSAL: "bookstore_proposal",
 } as const;
 
 export type NotificationType =

@@ -122,6 +122,8 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
       SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO}
+      AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL}
+      BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -159,6 +161,38 @@ services:
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  bookstores:
+    build:
+      context: .
+      dockerfile: apps/bookstores/Dockerfile.prod
+    restart: always
+    environment:
+      PORT: 3339
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${BOOKSTORES_PUBLIC_URL}
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
+      NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL}
+      OIDC_CLIENT_ID: ${BOOKSTORES_OIDC_CLIENT_ID}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT}
+      OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
+      AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
+      NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
+    ports:
+      - "3339:3339"
     depends_on:
       - api
     deploy:

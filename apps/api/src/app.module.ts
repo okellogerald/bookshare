@@ -20,6 +20,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { StaffModule } from "./modules/staff/staff.module";
 import { ImportsModule } from "./modules/imports/imports.module";
 import { ReadGatewayModule } from "./modules/read-gateway/read-gateway.module";
+import { BookstoresModule } from "./modules/bookstores/bookstores.module";
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ReadGatewayModule } from "./modules/read-gateway/read-gateway.module";
     StaffModule,
     ImportsModule,
     ReadGatewayModule,
+    BookstoresModule,
   ],
   providers: [
     AuthGuard,

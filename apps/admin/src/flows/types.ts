@@ -6,6 +6,7 @@ export type AdminFlow =
   | { kind: "add-title" }
   | { kind: "add-copy" }
   | { kind: "add-wish" }
+  | { kind: "create-bookstore" }
   | { kind: "catalog-search" }
   | { kind: "import-batch" }
   | { kind: "add-team-member"; actorRoles: string[] }

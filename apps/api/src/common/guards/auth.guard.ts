@@ -22,6 +22,7 @@ interface IdentityJwtPayload {
   aud: string[] | string;
   exp: number;
   iat: number;
+  email_verified?: boolean | string;
   email?: string;
   name?: string;
   preferred_username?: string;
@@ -35,6 +36,7 @@ interface IdentityJwtPayload {
 export interface AuthenticatedUser {
   id: string;
   email?: string;
+  emailVerified?: boolean;
   name?: string;
   username?: string;
   firstName?: string;
@@ -233,6 +235,9 @@ export class AuthGuard implements CanActivate {
     return {
       id: payload.sub,
       email: payload.email,
+      emailVerified:
+        payload.email_verified === true ||
+        payload.email_verified === "true",
       name: payload.name,
       username: payload.preferred_username,
       firstName: payload.given_name,
