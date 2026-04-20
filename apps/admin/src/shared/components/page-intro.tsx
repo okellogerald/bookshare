@@ -19,7 +19,7 @@ export function PageIntro({
         className
       )}
     >
-      <h1 className="font-display text-[2rem] font-semibold leading-[1.08] tracking-[-0.045em] text-foreground sm:text-[2.5rem]">
+      <h1 className="text-[2rem] font-semibold leading-[1.08] tracking-[-0.045em] text-foreground sm:text-[2.5rem]">
         {title}
       </h1>
       <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
