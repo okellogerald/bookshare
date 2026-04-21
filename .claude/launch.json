@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "apps/admin"],
       "port": 3338
+    },
+    {
+      "name": "bookstores",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "apps/bookstores"],
+      "port": 3339
     }
   ]
 }

@@ -21,9 +21,9 @@ export default async function LandingPage() {
               Bookstores
             </h1>
             <p className="max-w-md text-base leading-relaxed text-white/60">
-              Review active requests from the community, manage your bookstore
-              organization, and send proposals that route readers back to your
-              public contact card.
+              Review active requests from the community, manage your assigned
+              bookstore workspace, and send proposals that route readers back to
+              your public contact card.
             </p>
             <div className="grid max-w-xl gap-4 sm:grid-cols-2">
               {[
@@ -41,7 +41,7 @@ export default async function LandingPage() {
               ))}
             </div>
           </div>
-          <p className="text-xs text-white/30">Bookstore organization access</p>
+          <p className="text-xs text-white/30">Invite-based bookstore access</p>
         </section>
 
         <section className="flex flex-1 items-center justify-center bg-background px-8 py-12">
@@ -58,15 +58,15 @@ export default async function LandingPage() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Use your BookShare account to create or join a bookstore
-                organization.
+                Use your BookShare account to open bookstore workspaces you have
+                been invited to.
               </p>
             </div>
 
             <div className="space-y-3 rounded-2xl border border-border/75 bg-card px-5 py-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-3">
                 <Building2 className="h-4 w-4 text-primary" />
-                Bookstore organizations
+                Bookstore workspaces
               </div>
               <div className="h-px bg-border/60" />
               <div className="flex items-center gap-3">

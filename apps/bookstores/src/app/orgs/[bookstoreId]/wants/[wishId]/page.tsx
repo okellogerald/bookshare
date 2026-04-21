@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import { BookstoreStatus } from "@bookshare/shared";
 import {
   useBookstore,
@@ -17,10 +17,17 @@ import { Button } from "@/shared/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { formatUiDateTime } from "@/shared/lib/date";
 
@@ -29,6 +36,7 @@ export default function BookstoreWantDetailPage() {
   const bookstoreId = params.bookstoreId;
   const wishId = params.wishId;
   const [proposalMessage, setProposalMessage] = useState("");
+  const [proposalOpen, setProposalOpen] = useState(false);
 
   const bookstoreQuery = useBookstore(bookstoreId);
   const wantQuery = useBookstoreWant(bookstoreId, wishId, {
@@ -76,7 +84,7 @@ export default function BookstoreWantDetailPage() {
       <div className="space-y-4">
         <BookstoreStatusBanner status={bookstore.status} reviewNote={bookstore.reviewNote} />
         <Button asChild variant="outline">
-          <Link href={`/orgs/${bookstore.id}/settings`}>Open settings</Link>
+          <Link href={`/orgs/${bookstore.id}/profile`}>Open profile</Link>
         </Button>
       </div>
     );
@@ -108,6 +116,7 @@ export default function BookstoreWantDetailPage() {
       message: proposalMessage,
     });
     setProposalMessage("");
+    setProposalOpen(false);
   }
 
   return (
@@ -129,7 +138,18 @@ export default function BookstoreWantDetailPage() {
               : "Author not specified"}
           </p>
         </div>
-        {want.activeProposal ? <Badge>Proposal active</Badge> : <Badge variant="secondary">Open</Badge>}
+        <div className="flex items-center gap-2">
+          {want.activeProposal ? (
+            <Badge>Proposal active</Badge>
+          ) : (
+            <Badge variant="secondary">Open</Badge>
+          )}
+          {!want.activeProposal ? (
+            <Button type="button" onClick={() => setProposalOpen(true)}>
+              Send proposal
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {errorMessage ? (
@@ -138,175 +158,147 @@ export default function BookstoreWantDetailPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-6 sm:flex-row">
-              <div className="flex h-56 w-40 shrink-0 items-center justify-center overflow-hidden rounded-[1.2rem] bg-muted">
-                {want.book.coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={want.book.coverImageUrl}
-                    alt={want.book.title}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="px-4 text-center text-xs text-muted-foreground">
-                    No cover image
-                  </span>
-                )}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-6 sm:flex-row">
+            <div className="flex h-56 w-40 shrink-0 items-center justify-center overflow-hidden rounded-[1.2rem] bg-muted">
+              {want.book.coverImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={want.book.coverImageUrl}
+                  alt={want.book.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="px-4 text-center text-xs text-muted-foreground">
+                  No cover image
+                </span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-5">
+              <div className="space-y-2">
+                <p className="font-display text-xl font-semibold tracking-[-0.03em]">
+                  {want.book.title}
+                </p>
+                {want.book.subtitle ? (
+                  <p className="text-sm text-muted-foreground">
+                    {want.book.subtitle}
+                  </p>
+                ) : null}
+                <p className="text-sm text-muted-foreground">
+                  {want.book.authors.join(", ") || "Author not specified"}
+                </p>
               </div>
 
-              <div className="min-w-0 flex-1 space-y-5">
-                <div className="space-y-2">
-                  <p className="font-display text-xl font-semibold tracking-[-0.03em]">
-                    {want.book.title}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Wanter
                   </p>
-                  {want.book.subtitle ? (
-                    <p className="text-sm text-muted-foreground">
-                      {want.book.subtitle}
-                    </p>
-                  ) : null}
+                  <p>{want.wanter.displayName}</p>
                   <p className="text-sm text-muted-foreground">
-                    {want.book.authors.join(", ") || "Author not specified"}
+                    {want.wanter.location || "Location not shared"}
                   </p>
                 </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Wanter
-                    </p>
-                    <p>{want.wanter.displayName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {want.wanter.location || "Location not shared"}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Latest activity
-                    </p>
-                    <p>{formatUiDateTime(want.latestActivityAt)}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Created {formatUiDateTime(want.createdAt)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Editions
+                    Latest activity
                   </p>
-                  <div className="space-y-2">
-                    {want.book.editions.length > 0 ? (
-                      want.book.editions.map((edition) => (
-                        <div
-                          key={edition.id}
-                          className="rounded-[1rem] border border-border/75 bg-background/70 px-4 py-3 text-sm"
-                        >
-                          <p className="font-medium">{edition.format}</p>
-                          <p className="text-muted-foreground">
-                            {edition.isbn ? `ISBN ${edition.isbn}` : "No ISBN"}
-                          </p>
-                          {edition.description ? (
-                            <p className="mt-1 text-muted-foreground">
-                              {edition.description}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No specific editions are attached to this book yet.
-                      </p>
-                    )}
-                  </div>
+                  <p>{formatUiDateTime(want.latestActivityAt)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Created {formatUiDateTime(want.createdAt)}
+                  </p>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Wish notes
-                  </p>
-                  <p className="rounded-[1rem] border border-border/75 bg-background/70 px-4 py-3 text-sm">
-                    {want.notes || "No wish notes added."}
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Wish notes
+                </p>
+                <p className="rounded-[1rem] border border-border/75 bg-background/70 px-4 py-3 text-sm">
+                  {want.notes || "No wish notes added."}
+                </p>
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {want.activeProposal ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Active proposal</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sent {formatUiDateTime(want.activeProposal.createdAt)}
+            </p>
+            <p className="rounded-[1rem] border border-border/75 bg-background/70 px-4 py-3 text-sm">
+              {want.activeProposal.message || "No proposal message added."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => withdrawProposal.mutateAsync(want.activeProposal!.id)}
+              disabled={withdrawProposal.isPending}
+            >
+              {withdrawProposal.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Withdraw proposal
+            </Button>
           </CardContent>
         </Card>
+      ) : null}
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Privacy</CardTitle>
-              <CardDescription>
-                The wanter can see your bookstore and public contact card after you send a proposal.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Keep proposal notes concise. Readers contact the bookstore directly using the
-              public organization details in the app.
-            </CardContent>
-          </Card>
+      <Dialog open={proposalOpen} onOpenChange={setProposalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send proposal</DialogTitle>
+            <DialogDescription>
+              The reader is notified and can open your bookstore contact card.
+            </DialogDescription>
+          </DialogHeader>
 
-          {want.activeProposal ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Active proposal</CardTitle>
-                <CardDescription>
-                  Sent {formatUiDateTime(want.activeProposal.createdAt)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="rounded-[1rem] border border-border/75 bg-background/70 px-4 py-3 text-sm">
-                  {want.activeProposal.message || "No proposal message added."}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => withdrawProposal.mutateAsync(want.activeProposal!.id)}
-                  disabled={withdrawProposal.isPending}
-                >
-                  {withdrawProposal.isPending ? (
+          <div className="flex items-start gap-3 rounded-[1rem] border border-border/75 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              After you send, the wanter can see your bookstore and public contact
+              card. Keep the note concise.
+            </p>
+          </div>
+
+          <form className="space-y-4" onSubmit={handleSubmitProposal}>
+            <Textarea
+              rows={5}
+              value={proposalMessage}
+              onChange={(event) => setProposalMessage(event.target.value)}
+              placeholder="Optional note about stock, expected sourcing time, or next steps."
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setProposalOpen(false)}
+                disabled={createProposal.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createProposal.isPending}>
+                {createProposal.isPending ? (
+                  <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : null}
-                  Withdraw proposal
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Send proposal</CardTitle>
-                <CardDescription>
-                  The reader receives a notification and can open your bookstore contact card.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form className="space-y-4" onSubmit={handleSubmitProposal}>
-                  <Textarea
-                    rows={5}
-                    value={proposalMessage}
-                    onChange={(event) => setProposalMessage(event.target.value)}
-                    placeholder="Optional note about stock, expected sourcing time, or next steps."
-                  />
-                  <Button type="submit" disabled={createProposal.isPending}>
-                    {createProposal.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Sending proposal
-                      </>
-                    ) : (
-                      "Send proposal"
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+                    Sending proposal
+                  </>
+                ) : (
+                  "Send proposal"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

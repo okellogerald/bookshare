@@ -51,6 +51,7 @@ export class BookstoresController {
   }
 
   @Post()
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateBookstoreDto

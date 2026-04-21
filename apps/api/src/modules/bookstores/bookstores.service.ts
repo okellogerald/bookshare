@@ -101,6 +101,10 @@ export class BookstoresService {
   async getMyBookstores(user: AuthenticatedUser) {
     const normalizedEmail = this.normalizeEmail(user.email);
 
+    if (normalizedEmail !== null && user.emailVerified === true) {
+      await this.acceptPendingBookstoreInvitesForUser(normalizedEmail, user.id);
+    }
+
     const memberships = await this.db.query.organizationMemberships.findMany({
       where: eq(organizationMemberships.userId, user.id),
       with: {
@@ -172,6 +176,63 @@ export class BookstoresService {
         emailVerified: user.emailVerified === true,
       },
     };
+  }
+
+  private async acceptPendingBookstoreInvitesForUser(
+    normalizedEmail: string,
+    userId: string
+  ) {
+    const invites = await this.db.query.organizationInvites.findMany({
+      where: and(
+        eq(organizationInvites.invitedEmail, normalizedEmail),
+        eq(organizationInvites.status, "pending")
+      ),
+      with: {
+        organization: true,
+      },
+    });
+
+    const bookstoreInvites = invites.filter(
+      (invite) => invite.organization.type === OrganizationType.BOOKSTORE
+    );
+
+    if (bookstoreInvites.length === 0) {
+      return;
+    }
+
+    const now = new Date();
+
+    await this.db.transaction(async (tx) => {
+      for (const invite of bookstoreInvites) {
+        await tx
+          .insert(organizationMemberships)
+          .values({
+            organizationId: invite.organizationId,
+            userId,
+            role: BookstoreMembershipRole.MEMBER,
+          })
+          .onConflictDoNothing({
+            target: [
+              organizationMemberships.organizationId,
+              organizationMemberships.userId,
+            ],
+          });
+
+        await tx
+          .update(organizationInvites)
+          .set({
+            status: "accepted",
+            acceptedBy: userId,
+            acceptedAt: now,
+          })
+          .where(
+            and(
+              eq(organizationInvites.id, invite.id),
+              eq(organizationInvites.status, "pending")
+            )
+          );
+      }
+    });
   }
 
   async create(user: AuthenticatedUser, dto: CreateBookstoreDto) {

@@ -38,7 +38,7 @@ export function getBookstoreStatusTone(status: BookstoreStatus) {
 export function getBookstorePrimaryRoute(bookstore: Pick<BookstoreSummary, "id" | "status">) {
   return bookstore.status === BookstoreStatus.APPROVED
     ? `/orgs/${bookstore.id}/wants`
-    : `/orgs/${bookstore.id}/settings`;
+    : `/orgs/${bookstore.id}/profile`;
 }
 
 export function getMembershipRoleLabel(role: BookstoreMembershipRole) {

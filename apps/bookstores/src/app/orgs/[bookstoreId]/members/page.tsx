@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
   BookstoreMembershipRole,
   BookstoreStatus,
+  type BookstoreMemberRecord,
 } from "@bookshare/shared";
 import {
   useBookstore,
@@ -25,6 +26,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
@@ -37,11 +46,57 @@ import {
 } from "@/shared/components/ui/table";
 import { getMembershipRoleLabel } from "@/shared/lib/bookstores";
 import { formatUiDateTime } from "@/shared/lib/date";
+import { cn } from "@/shared/lib/utils";
+
+type MembersTab = "members" | "invites";
+
+type PendingAccessAction =
+  | { kind: "demote"; userId: string; label: string }
+  | { kind: "remove"; userId: string; label: string }
+  | { kind: "revokeInvite"; inviteId: string; label: string };
+
+function getActionDialogCopy(action: PendingAccessAction | null) {
+  switch (action?.kind) {
+    case "demote":
+      return {
+        title: "Demote owner?",
+        description: `${action.label} will lose owner access and can no longer manage bookstore details or members.`,
+        confirmLabel: "Demote owner",
+      };
+    case "remove":
+      return {
+        title: "Remove member?",
+        description: `${action.label} will lose access to this bookstore workspace.`,
+        confirmLabel: "Remove member",
+      };
+    case "revokeInvite":
+      return {
+        title: "Revoke invite?",
+        description: `The invite for ${action.label} will no longer be usable.`,
+        confirmLabel: "Revoke invite",
+      };
+    default:
+      return {
+        title: "Confirm action",
+        description: "Confirm this access change.",
+        confirmLabel: "Confirm",
+      };
+  }
+}
+
+function getMemberLabel(member: BookstoreMemberRecord) {
+  return member.displayName || member.email || member.userId;
+}
 
 export default function BookstoreMembersPage() {
   const params = useParams<{ bookstoreId: string }>();
   const bookstoreId = params.bookstoreId;
+  const [activeTab, setActiveTab] = useState<MembersTab>("members");
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [pendingAction, setPendingAction] =
+    useState<PendingAccessAction | null>(null);
+
   const bookstoreQuery = useBookstore(bookstoreId);
   const bookstore = bookstoreQuery.data;
   const membersQuery = useBookstoreMembers(bookstoreId, {
@@ -82,6 +137,12 @@ export default function BookstoreMembersPage() {
     );
   }
 
+  const members = membersQuery.data?.members ?? [];
+  const pendingInvites = membersQuery.data?.pendingInvites ?? [];
+  const actionCopy = getActionDialogCopy(pendingAction);
+  const actionPending =
+    removeMember.isPending || updateRole.isPending || revokeInvite.isPending;
+
   const errorMessage =
     (membersQuery.error as Error | null)?.message ||
     (createInvite.error as Error | null)?.message ||
@@ -90,72 +151,65 @@ export default function BookstoreMembersPage() {
     (removeMember.error as Error | null)?.message ||
     null;
 
-  async function handleInviteSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleInviteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await createInvite.mutateAsync({ email: inviteEmail });
     setInviteEmail("");
+    setInviteOpen(false);
+    setActiveTab("invites");
+  }
+
+  async function handleConfirmAction() {
+    if (!pendingAction) return;
+
+    switch (pendingAction.kind) {
+      case "demote":
+        await updateRole.mutateAsync({
+          userId: pendingAction.userId,
+          role: BookstoreMembershipRole.MEMBER,
+        });
+        break;
+      case "remove":
+        await removeMember.mutateAsync(pendingAction.userId);
+        break;
+      case "revokeInvite":
+        await revokeInvite.mutateAsync(pendingAction.inviteId);
+        break;
+    }
+
+    setPendingAction(null);
+  }
+
+  function handlePromote(member: BookstoreMemberRecord) {
+    void updateRole
+      .mutateAsync({
+        userId: member.userId,
+        role: BookstoreMembershipRole.OWNER,
+      })
+      .catch(() => undefined);
   }
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="font-display text-2xl font-semibold tracking-[-0.04em]">
-          Members
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Manage bookstore owners, members, and invite-only access.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="font-display text-2xl font-semibold tracking-[-0.04em]">
+            Members
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Manage who can access {bookstore.name}.
+          </p>
+        </div>
+        <Button type="button" onClick={() => setInviteOpen(true)}>
+          Create invite
+        </Button>
       </div>
-
-      <BookstoreStatusBanner status={bookstore.status} reviewNote={bookstore.reviewNote} />
 
       {errorMessage ? (
         <div className="rounded-[1.4rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
         </div>
       ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite member</CardTitle>
-          <CardDescription>
-            {bookstore.status === BookstoreStatus.APPROVED
-              ? "Send an in-app invite by email."
-              : "Invites unlock after the bookstore is approved."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleInviteSubmit}>
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="inviteEmail">Email</Label>
-              <Input
-                id="inviteEmail"
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                disabled={bookstore.status !== BookstoreStatus.APPROVED}
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              className="sm:mt-[1.65rem]"
-              disabled={
-                bookstore.status !== BookstoreStatus.APPROVED || createInvite.isPending
-              }
-            >
-              {createInvite.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending invite
-                </>
-              ) : (
-                "Create invite"
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
 
       {membersQuery.isLoading ? (
         <div className="flex min-h-[30vh] items-center justify-center text-muted-foreground">
@@ -167,109 +221,146 @@ export default function BookstoreMembersPage() {
           {(membersQuery.error as Error | null)?.message || "Failed to load members."}
         </div>
       ) : (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Current members</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {membersQuery.data.members.map((member) => (
-                    <TableRow key={member.userId}>
-                      <TableCell className="whitespace-normal">
-                        <div className="space-y-1">
-                          <p className="font-medium">{member.displayName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {member.email || "No email synced"}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            member.role === BookstoreMembershipRole.OWNER
-                              ? "default"
-                              : "secondary"
-                          }
-                        >
-                          {getMembershipRoleLabel(member.role)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatUiDateTime(member.joinedAt)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          {member.role === BookstoreMembershipRole.OWNER ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                updateRole.mutateAsync({
-                                  userId: member.userId,
-                                  role: BookstoreMembershipRole.MEMBER,
-                                })
-                              }
-                            >
-                              Demote
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                updateRole.mutateAsync({
-                                  userId: member.userId,
-                                  role: BookstoreMembershipRole.OWNER,
-                                })
-                              }
-                            >
-                              Promote
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => removeMember.mutateAsync(member.userId)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+            <div className="space-y-1">
+              <CardTitle>Access</CardTitle>
+              <CardDescription>
+                Members are active now. Invites are waiting for a matching sign-in.
+              </CardDescription>
+            </div>
+            <div className="inline-flex rounded-full bg-muted p-1">
+              {(
+                [
+                  ["members", `Members (${members.length})`],
+                  ["invites", `Pending (${pendingInvites.length})`],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "font-display rounded-full px-3 py-1.5 text-sm tracking-[-0.025em] transition",
+                    activeTab === tab
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </CardHeader>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending invites</CardTitle>
-            </CardHeader>
+          {activeTab === "members" ? (
+            <CardContent className="p-0">
+              {members.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground">
+                  No members yet.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member) => {
+                      const memberLabel = getMemberLabel(member);
+
+                      return (
+                        <TableRow key={member.userId}>
+                          <TableCell className="whitespace-normal">
+                            <div className="space-y-1">
+                              <p className="font-medium">{memberLabel}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {member.email || "No email synced"}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                member.role === BookstoreMembershipRole.OWNER
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {getMembershipRoleLabel(member.role)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {member.role === BookstoreMembershipRole.OWNER ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setPendingAction({
+                                      kind: "demote",
+                                      userId: member.userId,
+                                      label: memberLabel,
+                                    })
+                                  }
+                                  disabled={actionPending}
+                                >
+                                  Demote
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handlePromote(member)}
+                                  disabled={actionPending}
+                                >
+                                  Promote
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50"
+                                onClick={() =>
+                                  setPendingAction({
+                                    kind: "remove",
+                                    userId: member.userId,
+                                    label: memberLabel,
+                                  })
+                                }
+                                disabled={actionPending}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          ) : (
             <CardContent className="space-y-3">
-              {membersQuery.data.pendingInvites.length === 0 ? (
+              {pendingInvites.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No pending invites.
                 </p>
               ) : (
-                membersQuery.data.pendingInvites.map((invite) => (
+                pendingInvites.map((invite) => (
                   <div
                     key={invite.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-border/75 bg-background/70 px-4 py-3"
                   >
-                    <div className="space-y-1">
-                      <p className="font-medium">{invite.invitedEmail}</p>
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate font-medium">{invite.invitedEmail}</p>
                       <p className="text-sm text-muted-foreground">
                         Created {formatUiDateTime(invite.createdAt)}
                       </p>
@@ -278,7 +369,15 @@ export default function BookstoreMembersPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => revokeInvite.mutateAsync(invite.id)}
+                      className="border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50"
+                      onClick={() =>
+                        setPendingAction({
+                          kind: "revokeInvite",
+                          inviteId: invite.id,
+                          label: invite.invitedEmail,
+                        })
+                      }
+                      disabled={actionPending}
                     >
                       Revoke
                     </Button>
@@ -286,9 +385,104 @@ export default function BookstoreMembersPage() {
                 ))
               )}
             </CardContent>
-          </Card>
-        </>
+          )}
+        </Card>
       )}
+
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create invite</DialogTitle>
+            <DialogDescription>
+              {bookstore.status === BookstoreStatus.APPROVED
+                ? "Invite a teammate by email. They will be added automatically after signing in with that address."
+                : "Invites unlock after the bookstore is approved."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              void handleInviteSubmit(event).catch(() => undefined);
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="inviteEmail">Email</Label>
+              <Input
+                id="inviteEmail"
+                type="email"
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                disabled={bookstore.status !== BookstoreStatus.APPROVED}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setInviteOpen(false)}
+                disabled={createInvite.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  bookstore.status !== BookstoreStatus.APPROVED ||
+                  createInvite.isPending
+                }
+              >
+                {createInvite.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating invite
+                  </>
+                ) : (
+                  "Create invite"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !actionPending) {
+            setPendingAction(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{actionCopy.title}</DialogTitle>
+            <DialogDescription>{actionCopy.description}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingAction(null)}
+              disabled={actionPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 text-white shadow-none hover:bg-red-700"
+              onClick={() => {
+                void handleConfirmAction().catch(() => undefined);
+              }}
+              disabled={actionPending}
+            >
+              {actionPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {actionCopy.confirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
