@@ -7,6 +7,10 @@ import {
   type LoginPageModel,
 } from "./build-login-model";
 
+function isLikelyEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 // The page loader owns flow bootstrap and fallback behavior so the login form
 // receives a ready-to-render model instead of raw Kratos flow data.
 export async function loadLoginPageData(
@@ -23,6 +27,11 @@ export async function loadLoginPageData(
     redirect(createBrowserFlowUrl("login"));
   }
 
+  // Optional account-chooser / login-hint prefill. Accepted only when it looks
+  // like an email so we never leak a raw query value into the identifier field.
+  const rawEmailHint = getSingleParam(searchParams, "email")?.trim() ?? "";
+  const emailHint = isLikelyEmail(rawEmailHint) ? rawEmailHint : "";
+
   const links = {
     registerHref: "/register",
     recoveryHref: "/recovery",
@@ -30,7 +39,16 @@ export async function loadLoginPageData(
   };
 
   try {
-    return buildLoginModel(flow, links);
+    const model = buildLoginModel(flow, links);
+    if (emailHint && !model.identifierField.value) {
+      // Only apply the hint when the flow has no stronger signal of its own —
+      // e.g. Kratos did not already bind an identifier through CSRF refresh.
+      return {
+        ...model,
+        identifierField: { ...model.identifierField, value: emailHint },
+      };
+    }
+    return model;
   } catch (error) {
     const fallback: LoginErrorPageModel = {
       variant: "error",

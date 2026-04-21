@@ -54,13 +54,76 @@ import {
   getKratosSession,
   isKratosEmailVerified,
   isKratosProfileComplete,
+  type KratosSession,
 } from "@/shared/lib/kratos";
+import { upsertKnownAccount } from "@/shared/lib/known-accounts-cookie";
 
 interface HydraLoginRequest {
   /** True when Hydra has a cached login for this subject (remember=true). */
   skip?: boolean;
   /** The previously authenticated subject ID (only set when skip=true). */
   subject?: string;
+  /** OIDC `prompt`, `login_hint`, and similar hints forwarded by the RP. */
+  oidc_context?: {
+    login_hint?: string;
+    ui_locales?: string[];
+    acr_values?: string[];
+    /** Whitespace-separated OIDC prompt values (e.g. "none", "login", "select_account"). */
+    prompt?: string;
+  };
+  /** The original authorize request URL — inspected when oidc_context is sparse. */
+  request_url?: string;
+}
+
+/** Parse Hydra's OIDC `prompt` values (space-separated) into a set. */
+function getPromptValues(loginRequest: HydraLoginRequest): Set<string> {
+  const values = new Set<string>();
+
+  const direct = loginRequest.oidc_context?.prompt;
+  if (typeof direct === "string" && direct.trim()) {
+    for (const value of direct.trim().split(/\s+/)) {
+      values.add(value);
+    }
+  }
+
+  if (!values.size && typeof loginRequest.request_url === "string") {
+    try {
+      const parsed = new URL(loginRequest.request_url);
+      const raw = parsed.searchParams.get("prompt");
+      if (raw) {
+        for (const value of raw.trim().split(/\s+/)) {
+          values.add(value);
+        }
+      }
+    } catch {
+      // Ignore — request_url is informational, not all deployments populate it.
+    }
+  }
+
+  return values;
+}
+
+/** Extract the email trait from a Kratos session — empty string if absent. */
+function getSessionEmail(session: KratosSession | null): string {
+  const traits = session?.identity?.traits;
+  if (!traits || typeof traits !== "object") return "";
+  const raw = (traits as { email?: unknown }).email;
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+/** Extract the display name ("First Last") from a Kratos session — undefined if absent. */
+function getSessionDisplayName(session: KratosSession | null): string | undefined {
+  const traits = session?.identity?.traits;
+  if (!traits || typeof traits !== "object") return undefined;
+  const nameObj = (traits as { name?: unknown }).name;
+  if (!nameObj || typeof nameObj !== "object") return undefined;
+  const first = (nameObj as { first?: unknown }).first;
+  const last = (nameObj as { last?: unknown }).last;
+  const parts = [
+    typeof first === "string" ? first.trim() : "",
+    typeof last === "string" ? last.trim() : "",
+  ].filter((part) => part.length > 0);
+  return parts.length > 0 ? parts.join(" ") : undefined;
 }
 
 /** Build Auth-Portal URL for profile settings (incomplete profile gate). */
@@ -73,6 +136,39 @@ function buildSettingsUrl(requestUrl: string): string {
 /** Build a URL relative to the Auth-Portal's origin. */
 function buildAuthUrl(pathname: string, requestUrl: string): string {
   return new URL(pathname, requestUrl).toString();
+}
+
+/**
+ * Build the `/login` URL, prefilling the email field via a `login_hint`
+ * query param when Hydra (or a client) provided one. The login page forwards
+ * the value to the Kratos identifier input.
+ */
+function buildLoginUrl(requestUrl: string, loginHint: string): string {
+  const loginUrl = new URL(buildAuthUrl("/login", requestUrl));
+  if (loginHint) {
+    loginUrl.searchParams.set("email", loginHint);
+  }
+  return loginUrl.toString();
+}
+
+/**
+ * Persist the just-authenticated identity in the known-accounts cookie so
+ * the chooser can offer this account on the next visit. Silent no-op if
+ * the session lacks an email trait.
+ */
+async function rememberAccountFromSession(
+  response: NextResponse,
+  session: KratosSession | null
+): Promise<void> {
+  const sub = session?.identity?.id;
+  const email = getSessionEmail(session);
+  if (!sub || !email) return;
+
+  await upsertKnownAccount(response, {
+    sub,
+    email,
+    name: getSessionDisplayName(session),
+  });
 }
 
 /**
@@ -159,14 +255,37 @@ export async function GET(request: NextRequest) {
       { method: "GET" }
     );
 
+    const promptValues = getPromptValues(loginRequest);
+    const loginHint = loginRequest.oidc_context?.login_hint?.trim() || "";
+
+    // `prompt=select_account` (or explicit "switch account" links carrying it)
+    // asks the user which account to use — even if a valid session exists.
+    // Route through the chooser so the user can pick or add an account.
+    if (promptValues.has("select_account")) {
+      return redirectWithHydraChallenge(
+        buildAuthUrl("/chooser", request.url),
+        challenge
+      );
+    }
+
+    // `prompt=login` forces re-authentication even when a valid session exists.
+    // Route through /login with the hint (if provided) so the same identity is
+    // re-verified rather than letting the existing session auto-accept.
+    if (promptValues.has("login")) {
+      return redirectWithHydraChallenge(
+        buildLoginUrl(request.url, loginHint),
+        challenge
+      );
+    }
+
     // --- 3-Step Authorization Policy ---
     // Each failed check redirects to the appropriate Auth-Portal page,
     // carrying the challenge in a cookie for when the user comes back.
 
-    // Step 1: Authenticated? If no Kratos session → login page.
+    // Step 1: Authenticated? If no Kratos session → login page (with hint if available).
     if (!identityId) {
       return redirectWithHydraChallenge(
-        buildAuthUrl("/login", request.url),
+        buildLoginUrl(request.url, loginHint),
         challenge
       );
     }
@@ -201,7 +320,9 @@ export async function GET(request: NextRequest) {
         }
       );
 
-      return redirectAndClearHydraChallenge(accepted.redirect_to);
+      const response = redirectAndClearHydraChallenge(accepted.redirect_to);
+      await rememberAccountFromSession(response, session);
+      return response;
     }
 
     // Normal path: fresh login. Send the user's identity traits as context
@@ -221,7 +342,9 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    return redirectAndClearHydraChallenge(accepted.redirect_to);
+    const response = redirectAndClearHydraChallenge(accepted.redirect_to);
+    await rememberAccountFromSession(response, session);
+    return response;
   } catch (error) {
     console.error("OAuth login challenge handling failed", error);
 
