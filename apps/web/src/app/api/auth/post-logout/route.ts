@@ -11,7 +11,7 @@
  * lives on the Auth-Portal domain.
  *
  * @see `/api/auth/logout` — where the logout flow starts (Phase 1)
- * @see `apps/auth/src/app/logout/route.ts` — Kratos session cleanup (Phase 3)
+ * @see `auth/web/src/app/logout/route.ts` — Kratos session cleanup (Phase 3)
  */
 import { NextResponse } from "next/server";
 import { buildAuthPortalLogoutUrl } from "@/domains/auth/lib/auth-portal";

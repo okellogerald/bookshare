@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -89,6 +90,8 @@ function toIsoString(value: Date | null | undefined) {
 
 @Injectable()
 export class BookstoresService {
+  private readonly logger = new Logger(BookstoresService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly configService: ConfigService,
@@ -1791,7 +1794,11 @@ export class BookstoresService {
         text
       );
       return true;
-    } catch {
+    } catch (error) {
+      this.logger.error(
+        `Failed to send owner credentials email to ${input.email} for bookstore "${input.bookstoreName}"`,
+        error instanceof Error ? error.stack : String(error)
+      );
       return false;
     }
   }

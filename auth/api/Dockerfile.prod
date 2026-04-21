@@ -1,0 +1,37 @@
+FROM oven/bun:1 AS builder
+WORKDIR /app
+
+COPY package.json bun.lock ./
+COPY auth/api/package.json ./auth/api/
+COPY auth/web/package.json ./auth/web/
+COPY apps/admin/package.json ./apps/admin/
+COPY apps/api/package.json ./apps/api/
+COPY apps/bookstores/package.json ./apps/bookstores/
+COPY apps/web/package.json ./apps/web/
+COPY apps/workflows/package.json ./apps/workflows/
+COPY packages/db/package.json ./packages/db/
+COPY packages/importer/package.json ./packages/importer/
+COPY packages/shared/package.json ./packages/shared/
+
+RUN bun install --frozen-lockfile
+
+COPY auth/api ./auth/api
+COPY tsconfig.base.json ./
+
+WORKDIR /app/auth/api
+RUN bun run build
+
+FROM oven/bun:1-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/auth/api/dist ./auth/api/dist
+COPY --from=builder /app/auth/api/src/db ./auth/api/src/db
+COPY --from=builder /app/auth/api/package.json ./auth/api/package.json
+
+WORKDIR /app/auth/api
+
+EXPOSE 3340
+
+CMD ["bun", "run", "start:prod"]

@@ -1,0 +1,36 @@
+# BookShare development Hydra config.
+# Contributor guide: auth/infra/README.md
+
+strategies:
+  access_token: jwt
+
+serve:
+  cookies:
+    same_site_mode: Lax
+
+urls:
+  self:
+    # Public issuer used by OIDC discovery / token validation.
+    issuer: http://localhost:4444
+  # Where Hydra redirects users when OAuth errors occur.
+  error: http://localhost:3337/error
+  # Auth Portal challenge handlers (Hydra delegates login/consent/logout UI here).
+  consent: http://localhost:3337/oauth/consent
+  login: http://localhost:3337/oauth/login
+  logout: http://localhost:3337/oauth/logout
+  device:
+    verification: http://localhost:3337/oauth/device/verify
+    success: http://localhost:3337/oauth/device/success
+
+secrets:
+  system:
+    # Replace in non-dev environments.
+    - change-this-dev-secret
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - pairwise
+      - public
+    pairwise:
+      salt: change-this-dev-salt

@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import nodemailer, { type Transporter } from "nodemailer";
 
@@ -10,6 +10,7 @@ interface SendEmailInput {
 
 @Injectable()
 export class MailerService {
+  private readonly logger = new Logger(MailerService.name);
   private readonly transporter: Transporter | null;
   private readonly from: string | null;
   private readonly submissionsTo: string | null;
@@ -26,8 +27,6 @@ export class MailerService {
     if (
       !host?.trim() ||
       !port?.trim() ||
-      !user?.trim() ||
-      !pass?.trim() ||
       !from?.trim() ||
       !submissionsTo?.trim()
     ) {
@@ -37,16 +36,20 @@ export class MailerService {
       return;
     }
 
+    const trimmedUser = user?.trim();
+    const trimmedPass = pass?.trim();
+    const auth =
+      trimmedUser && trimmedPass
+        ? { user: trimmedUser, pass: trimmedPass }
+        : undefined;
+
     this.from = from.trim();
     this.submissionsTo = submissionsTo.trim();
     this.transporter = nodemailer.createTransport({
       host: host.trim(),
       port: parseInt(port, 10),
       secure,
-      auth: {
-        user: user.trim(),
-        pass: pass.trim(),
-      },
+      auth,
     });
   }
 
@@ -79,15 +82,23 @@ export class MailerService {
   private async sendEmail(input: SendEmailInput) {
     if (!this.transporter || !this.from) {
       throw new ServiceUnavailableException(
-        "SMTP configuration is missing. Set SMTP_* and SUBMISSIONS_EMAIL_TO."
+        "SMTP configuration is missing. Set SMTP_HOST, SMTP_PORT, SMTP_FROM, and SUBMISSIONS_EMAIL_TO."
       );
     }
 
-    await this.transporter.sendMail({
-      from: this.from,
-      to: input.to,
-      subject: input.subject,
-      text: input.text,
-    });
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to: input.to,
+        subject: input.subject,
+        text: input.text,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to send email to ${input.to} (subject: ${input.subject})`,
+        error instanceof Error ? error.stack : String(error)
+      );
+      throw error;
+    }
   }
 }

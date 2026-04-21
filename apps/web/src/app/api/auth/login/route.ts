@@ -21,7 +21,7 @@
  * it redirects back to `/api/auth/callback` with an authorization code.
  *
  * @see `/api/auth/callback` — where the code is exchanged for tokens
- * @see `apps/auth/src/app/oauth/login/route.ts` — Auth-Portal login challenge handler
+ * @see `auth/web/src/app/oauth/login/route.ts` — Auth-Portal login challenge handler
  */
 import { NextRequest, NextResponse } from "next/server";
 import {

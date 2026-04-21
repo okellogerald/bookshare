@@ -4,6 +4,7 @@
   "private": true,
   "workspaces": [
     "apps/*",
+    "auth/*",
     "packages/*"
   ],
   "scripts": {
@@ -18,6 +19,9 @@
     "db:push": "bun --filter @bookshare/db run push",
     "db:studio": "bun --filter @bookshare/db run studio",
     "db:seed": "bun --filter @bookshare/db run seed",
+    "auth:api:migrate": "bun run --cwd auth/api migrate",
+    "auth:api:typecheck": "bun run --cwd auth/api typecheck",
+    "auth:web:typecheck": "bun run --cwd auth/web typecheck",
     "import:validate": "bun run --cwd packages/importer src/cli.ts validate",
     "import:commit": "bun run --cwd packages/importer src/cli.ts commit",
     "import:report": "bun run --cwd packages/importer src/cli.ts report"

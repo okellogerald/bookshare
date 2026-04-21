@@ -136,6 +136,64 @@ services:
         limits:
           memory: 512M
 
+  auth-api:
+    build:
+      context: .
+      dockerfile: auth/api/Dockerfile.prod
+    restart: always
+    command: ["/bin/sh", "-lc", "bun run migrate && bun run start:prod"]
+    environment:
+      PORT: 3340
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bookshare
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
+      OIDC_ISSUER: ${OIDC_ISSUER_URL}
+      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      CORS_ORIGIN: ${AUTH_PORTAL_PUBLIC_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  auth:
+    build:
+      context: .
+      dockerfile: auth/web/Dockerfile.prod
+    restart: always
+    environment:
+      PORT: 3337
+      NODE_ENV: production
+      AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL}
+      BOOKSHARE_APP_PUBLIC_URL: ${BOOKSHARE_APP_PUBLIC_URL}
+      NEXT_PUBLIC_APP_URL: ${AUTH_PORTAL_PUBLIC_URL}
+      AUTH_API_INTERNAL_URL: ${AUTH_API_INTERNAL_URL:-http://auth-api:3340/api}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bookshare
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
+      KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL}
+      KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL}
+      HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL}
+      HYDRA_REMEMBER_FOR: ${HYDRA_REMEMBER_FOR:-3600}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL}
+      OIDC_CLIENT_ID: ${AUTH_OIDC_CLIENT_ID:-bookshare-auth}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT}
+      OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
+      SESSION_SECRET: ${SESSION_SECRET}
+    depends_on:
+      - auth-api
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   # ─── Web (Next.js) ───────────────────────────────────────────
   web:
     build:
@@ -163,6 +221,7 @@ services:
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL}
     depends_on:
       - api
+      - auth
     deploy:
       resources:
         limits:
@@ -195,6 +254,7 @@ services:
       - "3339:3339"
     depends_on:
       - api
+      - auth
     deploy:
       resources:
         limits:
@@ -210,6 +270,7 @@ services:
       - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api
+      - auth
       - web
     deploy:
       resources:

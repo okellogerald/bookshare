@@ -9,7 +9,7 @@
  * These URLs are used for redirects during login validation failures and
  * during the multi-phase logout process.
  *
- * @see `apps/auth/` — the Auth-Portal app itself
+ * @see `auth/web/` — the Auth-Portal app itself
  * @see `/api/auth/post-logout` — uses buildAuthPortalLogoutUrl()
  * @see `/api/auth/callback` — references buildAuthPortalVerificationUrl()
  */

@@ -9,8 +9,8 @@
  * `?error=forbidden` redirect.
  *
  * @see `apps/web/src/app/api/auth/callback/route.ts` — Web version
- * @see `apps/auth/src/app/oauth/consent/route.ts` — where roles are injected
- * @see `apps/auth/src/lib/staff-roles.ts` — role resolution logic
+ * @see `auth/web/src/app/oauth/consent/route.ts` — where roles are injected
+ * @see `auth/web/src/shared/lib/staff-roles.ts` — role resolution logic
  */
 import { NextRequest, NextResponse } from "next/server";
 import {

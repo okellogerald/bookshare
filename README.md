@@ -27,9 +27,13 @@ A closed-access platform where approved community members list books they're wil
 ├── packages/
 │   ├── db/           # Drizzle schema, migrations
 │   └── shared/       # Shared types, enums, constants
+├── auth/
+│   ├── api/          # Auth NestJS service (org-scoped auth)
+│   ├── web/          # Reusable Auth Portal (Kratos flows + Hydra challenges)
+│   ├── infra/        # Ory Hydra/Kratos config (default dev)
+│   └── docs/         # Auth flows + security references
 ├── infra/
 │   ├── postgres/     # init.sql + manual PostgREST recovery wrapper
-│   ├── ory/          # Ory Hydra/Kratos config (default dev)
 │   ├── minio/        # Object storage init
 │   └── nginx/        # Production reverse proxy
 ├── docker-compose.dev.yml
@@ -80,7 +84,7 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
 4. **Hydra OAuth client is auto-provisioned**
    - `hydra-client-init` creates/updates `bookshare-web` on startup.
    - Login, consent, and logout challenges are handled by Auth Portal at `http://localhost:3337`.
-   - Config reference for contributors: `infra/ory/README.md`
+   - Config reference for contributors: `auth/infra/README.md`
 
 5. **Register a user (first time)**
    - Open `http://localhost:3337/register`
@@ -131,7 +135,7 @@ The app is available at `http://localhost:3334`.
 
 ### Script Notes
 
-- `infra/ory/hydra/init-client.sh` is idempotent by design.
+- `auth/infra/hydra/init-client.sh` is idempotent by design.
 - It waits for `http://hydra:4445/health/ready`, then `POST`s `/admin/clients` on first boot and `PUT`s `/admin/clients/bookshare-web` on later boots.
 - Re-running compose does not duplicate clients; it keeps client config in sync.
 

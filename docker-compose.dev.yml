@@ -30,7 +30,7 @@ services:
     command: migrate -c /etc/config/hydra/hydra.yml sql up -e --yes
     volumes:
       - hydra_data:/var/lib/sqlite
-      - ./infra/ory/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
+      - ./auth/infra/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
 
   # Long-running Hydra OAuth2/OIDC server (public + admin APIs).
   hydra:
@@ -45,7 +45,7 @@ services:
       - "4445:4445" # admin
     volumes:
       - hydra_data:/var/lib/sqlite
-      - ./infra/ory/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
+      - ./auth/infra/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
     depends_on:
       hydra-migrate:
         condition: service_completed_successfully
@@ -57,7 +57,7 @@ services:
     restart: "no"
     command: ["/bin/sh", "/etc/config/hydra/init-client.sh"]
     volumes:
-      - ./infra/ory/hydra/init-client.sh:/etc/config/hydra/init-client.sh:ro
+      - ./auth/infra/hydra/init-client.sh:/etc/config/hydra/init-client.sh:ro
     depends_on:
       hydra:
         condition: service_started
@@ -72,7 +72,7 @@ services:
     command: -c /etc/config/kratos/kratos.yml migrate sql -e --yes
     volumes:
       - kratos_data:/var/lib/sqlite
-      - ./infra/ory/kratos:/etc/config/kratos:ro
+      - ./auth/infra/kratos:/etc/config/kratos:ro
 
   # Long-running Kratos identity/self-service engine.
   kratos:
@@ -87,7 +87,7 @@ services:
       - "4434:4434" # admin
     volumes:
       - kratos_data:/var/lib/sqlite
-      - ./infra/ory/kratos:/etc/config/kratos:ro
+      - ./auth/infra/kratos:/etc/config/kratos:ro
     depends_on:
       kratos-migrate:
         condition: service_completed_successfully
@@ -99,28 +99,66 @@ services:
   auth:
     build:
       context: .
-      dockerfile: apps/auth/Dockerfile.dev
+      dockerfile: auth/web/Dockerfile.dev
     restart: unless-stopped
     environment:
       PORT: 3337
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSHARE_APP_PUBLIC_URL: ${BOOKSHARE_APP_PUBLIC_URL:-http://localhost:3334}
+      NEXT_PUBLIC_APP_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
+      AUTH_API_INTERNAL_URL: ${AUTH_API_INTERNAL_URL:-http://auth-api:3340/api}
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL:-http://localhost:4433}
       KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://kratos:4433}
       HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://hydra:4445}
       HYDRA_REMEMBER_FOR: ${HYDRA_REMEMBER_FOR:-3600}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_CLIENT_ID: ${AUTH_OIDC_CLIENT_ID:-bookshare-auth}
+      OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
+      OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
+      SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
     ports:
       - "3337:3337"
     volumes:
-      - ./apps/auth/src:/app/apps/auth/src
+      - ./auth/web/src:/app/auth/web/src
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/db/src:/app/packages/db/src
     depends_on:
       hydra:
         condition: service_started
       kratos:
+        condition: service_started
+      auth-api:
+        condition: service_started
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: auth/api/Dockerfile.dev
+    restart: unless-stopped
+    command: ["/bin/sh", "-lc", "bun run migrate && bun run dev"]
+    environment:
+      PORT: 3340
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
+      OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
+      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      CORS_ORIGIN: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
+    ports:
+      - "3340:3340"
+    volumes:
+      - ./auth/api/src:/app/auth/api/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hydra:
         condition: service_started
 
   mailpit:
@@ -235,13 +273,13 @@ services:
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://127.0.0.1:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
       WORKFLOWS_URL: ${WORKFLOWS_URL:-http://workflows:3335}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_SECURE: ${SMTP_SECURE:-false}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-}
-      SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@bookshare.local}
+      SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-admin@bookshare.local}
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
@@ -270,6 +308,8 @@ services:
       workflows:
         condition: service_started
       postgrest:
+        condition: service_started
+      mailpit:
         condition: service_started
 
   # ─── Web (Next.js) ───────────────────────────────────────────
@@ -342,7 +382,8 @@ services:
     volumes:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
-      - ./apps/auth/package.json:/app/apps/auth/package.json:ro
+      - ./auth/web/package.json:/app/auth/web/package.json:ro
+      - ./auth/api/package.json:/app/auth/api/package.json:ro
       - ./apps/api/package.json:/app/apps/api/package.json:ro
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./apps/admin/package.json:/app/apps/admin/package.json:ro
@@ -394,7 +435,8 @@ services:
     volumes:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
-      - ./apps/auth/package.json:/app/apps/auth/package.json:ro
+      - ./auth/web/package.json:/app/auth/web/package.json:ro
+      - ./auth/api/package.json:/app/auth/api/package.json:ro
       - ./apps/api/package.json:/app/apps/api/package.json:ro
       - ./apps/web/package.json:/app/apps/web/package.json:ro
       - ./apps/admin/package.json:/app/apps/admin/package.json:ro

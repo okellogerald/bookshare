@@ -17,8 +17,8 @@
  * Result: all three sessions are destroyed — client app, Hydra, Kratos.
  *
  * @see `/api/auth/post-logout` — intermediate redirect after Hydra logout
- * @see `apps/auth/src/app/oauth/logout/route.ts` — Hydra logout challenge handler
- * @see `apps/auth/src/app/logout/route.ts` — Kratos session termination
+ * @see `auth/web/src/app/oauth/logout/route.ts` — Hydra logout challenge handler
+ * @see `auth/web/src/app/logout/route.ts` — Kratos session termination
  */
 import { NextResponse } from "next/server";
 import {

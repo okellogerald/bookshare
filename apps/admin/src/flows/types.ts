@@ -1,3 +1,4 @@
+import type { AdminBookstoreDetail } from "@bookshare/shared";
 import type { CopySubmissionRecord, StaffDirectoryEntry, WantSubmissionRecord, PgBookWithAuthorsView } from "@/shared/api";
 import type { CatalogEditionRecord, CatalogCopyRecord, CatalogWishRecord } from "@/domain/catalog/queries";
 
@@ -7,6 +8,7 @@ export type AdminFlow =
   | { kind: "add-copy" }
   | { kind: "add-wish" }
   | { kind: "create-bookstore" }
+  | { kind: "edit-bookstore"; bookstore: AdminBookstoreDetail }
   | { kind: "catalog-search" }
   | { kind: "import-batch" }
   | { kind: "add-team-member"; actorRoles: string[] }
