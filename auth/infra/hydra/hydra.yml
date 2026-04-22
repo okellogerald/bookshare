@@ -8,6 +8,11 @@ serve:
   cookies:
     same_site_mode: Lax
 
+log:
+  level: debug
+  format: json
+  leak_sensitive_values: false
+
 urls:
   self:
     # Public issuer used by OIDC discovery / token validation.

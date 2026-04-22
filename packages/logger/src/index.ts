@@ -1,10 +1,20 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createRequire } from "node:module";
 import pino, { type Logger, type LoggerOptions } from "pino";
+import pinoPretty from "pino-pretty";
 
-const require = createRequire(import.meta.url);
-
+/*
+ * Paths pino will automatically replace with "[REDACTED]". We intentionally
+ * DO NOT list `headers.authorization`, `headers.cookie`, or
+ * `headers['set-cookie']` here: those match the native-shape logs produced
+ * by `logHttpRequest` / `logHttpResponse`, which already do per-value
+ * redaction (masked cookie VALUES but visible cookie names). Blanket-
+ * redacting the whole field would throw away that fidelity.
+ *
+ * The `req.*` / `res.*` / `request.*` / `response.*` variants stay because
+ * they target the pino-http serializer shape used by NestJS/Express-style
+ * callers, which don't use the http-trace helper.
+ */
 const DEFAULT_REDACT_PATHS = [
   "authorization",
   "cookie",
@@ -24,9 +34,6 @@ const DEFAULT_REDACT_PATHS = [
   "loginChallenge",
   "logoutChallenge",
   "consentChallenge",
-  "headers.authorization",
-  "headers.cookie",
-  "headers['set-cookie']",
   "req.headers.authorization",
   "req.headers.cookie",
   "req.headers['set-cookie']",
@@ -85,18 +92,19 @@ export function createLogger(options: CreateLoggerOptions): Logger {
     },
   };
 
-  if (shouldUsePrettyLogs(options.pretty)) {
-    loggerOptions.transport = {
-      target: require.resolve("pino-pretty"),
-      options: {
-        colorize: true,
-        ignore: "pid,hostname",
-        translateTime: "SYS:standard",
-      },
-    };
+  if (!shouldUsePrettyLogs(options.pretty)) {
+    return pino(loggerOptions);
   }
 
-  return pino(loggerOptions);
+  return pino(
+    loggerOptions,
+    pinoPretty({
+      colorize: true,
+      ignore: "pid,hostname",
+      sync: true,
+      translateTime: "SYS:standard",
+    })
+  );
 }
 
 export function createPinoHttpLoggerOptions(
@@ -157,3 +165,6 @@ export function truncateForLog(value: string, maxLength = 500): string {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength)}...`;
 }
+
+export { logHttpRequest, logHttpResponse } from "./http-trace";
+export type { HttpTraceOptions } from "./http-trace";

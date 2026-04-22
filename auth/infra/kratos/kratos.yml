@@ -22,7 +22,6 @@ selfservice:
     - http://localhost:3334
     - http://localhost:3334/api/auth/login
     - http://localhost:3337/oauth/login
-
   methods:
     password:
       enabled: true
@@ -81,8 +80,9 @@ selfservice:
             - hook: show_verification_ui
 
 log:
-  level: info
-  format: text
+  level: debug
+  format: json
+  leak_sensitive_values: false
 
 secrets:
   cookie:

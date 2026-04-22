@@ -6,8 +6,10 @@
 # to update, so we create on first boot and update on subsequent boots.
 set -eu
 
+hydra_admin_url="${HYDRA_ADMIN_URL:-http://hydra:4445}"
+
 # Wait for Hydra admin API readiness before attempting client upsert.
-curl -fsS --retry 30 --retry-delay 1 --retry-connrefused http://hydra:4445/health/ready >/dev/null
+curl -fsS --retry 30 --retry-delay 1 --retry-connrefused "$hydra_admin_url/health/ready" >/dev/null
 
 response_file="$(mktemp)"
 trap 'rm -f "$response_file"' EXIT
@@ -34,14 +36,14 @@ upsert_client() {
   client_id="$1"
   base_url="$2"
   payload="$(build_payload "$client_id" "$base_url")"
-  status="$(request POST "http://hydra:4445/admin/clients" "$payload")"
+  status="$(request POST "$hydra_admin_url/admin/clients" "$payload")"
 
   case "$status" in
     201)
       echo "hydra-client-init: created OAuth client $client_id"
       ;;
     409)
-      status="$(request PUT "http://hydra:4445/admin/clients/$client_id" "$payload")"
+      status="$(request PUT "$hydra_admin_url/admin/clients/$client_id" "$payload")"
       if [ "$status" != "200" ]; then
         echo "hydra-client-init: failed to update OAuth client $client_id (status $status)" >&2
         cat "$response_file" >&2

@@ -18,6 +18,28 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── Observability ───────────────────────────────────────────
+  # Distributed tracing UI. Visit http://localhost:16686.
+  jaeger:
+    # v1.62.0 still includes the legacy UDP agent that Ory's Jaeger tracer uses.
+    image: jaegertracing/all-in-one:1.62.0
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+    ports:
+      - "16686:16686" # UI
+      - "5775:5775/udp" # Legacy Zipkin thrift agent
+      - "6831:6831/udp" # Legacy Jaeger compact thrift agent
+      - "6832:6832/udp" # Legacy Jaeger binary thrift agent
+      - "5778:5778" # Agent sampling endpoint
+      - "14250:14250" # Collector gRPC
+      - "14268:14268" # Collector HTTP
+      - "14269:14269" # Admin/metrics
+      - "4317:4317" # OTLP gRPC, useful for future app traces
+      - "4318:4318" # OTLP HTTP, useful for future app traces
+      - "9411:9411" # Zipkin collector
+
   # ─── Authentication (Ory) ─────────────────────────────────────
   # One-shot job: apply Hydra SQL schema before Hydra starts.
   # Required because Hydra expects its DB schema to exist at boot.
@@ -39,16 +61,32 @@ services:
     user: "0:0"
     environment:
       DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
+      LOG_LEVEL: ${ORY_LOG_LEVEL:-debug}
+      LOG_FORMAT: ${ORY_LOG_FORMAT:-json}
+      LOG_LEAK_SENSITIVE_VALUES: ${ORY_LOG_LEAK_SENSITIVE_VALUES:-false}
+      URLS_SELF_ISSUER: ${HYDRA_ISSUER_URL:-http://localhost:4444}
+      URLS_ERROR: ${HYDRA_ERROR_URL:-http://localhost:3337/error}
+      URLS_CONSENT: ${HYDRA_CONSENT_URL:-http://localhost:3337/oauth/consent}
+      URLS_LOGIN: ${HYDRA_LOGIN_URL:-http://localhost:3337/oauth/login}
+      URLS_LOGOUT: ${HYDRA_LOGOUT_URL:-http://localhost:3337/oauth/logout}
+      URLS_DEVICE_VERIFICATION: ${HYDRA_DEVICE_VERIFICATION_URL:-http://localhost:3337/oauth/device/verify}
+      URLS_DEVICE_SUCCESS: ${HYDRA_DEVICE_SUCCESS_URL:-http://localhost:3337/oauth/device/success}
+      TRACING_PROVIDER: jaeger
+      TRACING_SERVICE_NAME: hydra
+      TRACING_PROVIDERS_JAEGER_LOCAL_AGENT_ADDRESS: jaeger:6831
+      TRACING_PROVIDERS_JAEGER_SAMPLING_SERVER_URL: http://jaeger:5778/sampling
     command: serve -c /etc/config/hydra/hydra.yml all --dev
-    ports:
-      - "4444:4444" # public
-      - "4445:4445" # admin
+    expose:
+      - "4444" # public
+      - "4445" # admin
     volumes:
       - hydra_data:/var/lib/sqlite
       - ./auth/infra/hydra/hydra.yml:/etc/config/hydra/hydra.yml:ro
     depends_on:
       hydra-migrate:
         condition: service_completed_successfully
+      jaeger:
+        condition: service_started
 
   # One-shot job: upsert BookShare OAuth client in Hydra admin API.
   # Required so web login works without manual client registration.
@@ -56,10 +94,14 @@ services:
     image: curlimages/curl:8.12.1
     restart: "no"
     command: ["/bin/sh", "/etc/config/hydra/init-client.sh"]
+    environment:
+      HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://http-capture:4445}
     volumes:
       - ./auth/infra/hydra/init-client.sh:/etc/config/hydra/init-client.sh:ro
     depends_on:
       hydra:
+        condition: service_started
+      http-capture:
         condition: service_started
 
   # One-shot job: apply Kratos SQL schema before Kratos starts.
@@ -80,11 +122,18 @@ services:
     restart: unless-stopped
     environment:
       DSN: sqlite:///var/lib/sqlite/db.sqlite?_fk=true&mode=rwc
-      LOG_LEVEL: debug
+      LOG_LEVEL: ${ORY_LOG_LEVEL:-debug}
+      LOG_FORMAT: ${ORY_LOG_FORMAT:-json}
+      LOG_LEAK_SENSITIVE_VALUES: ${ORY_LOG_LEAK_SENSITIVE_VALUES:-false}
+      SERVE_PUBLIC_BASE_URL: ${KRATOS_PUBLIC_BASE_URL:-http://localhost:4433/}
+      TRACING_PROVIDER: jaeger
+      TRACING_SERVICE_NAME: kratos
+      TRACING_PROVIDERS_JAEGER_LOCAL_AGENT_ADDRESS: jaeger:6831
+      TRACING_PROVIDERS_JAEGER_SAMPLING_SERVER_URL: http://jaeger:5778/sampling
     command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
-    ports:
-      - "4433:4433" # public
-      - "4434:4434" # admin
+    expose:
+      - "4433" # public
+      - "4434" # admin
     volumes:
       - kratos_data:/var/lib/sqlite
       - ./auth/infra/kratos:/etc/config/kratos:ro
@@ -92,6 +141,8 @@ services:
       kratos-migrate:
         condition: service_completed_successfully
       mailpit:
+        condition: service_started
+      jaeger:
         condition: service_started
 
   # Long-running reusable Auth Portal UI/challenge handler.
@@ -108,28 +159,28 @@ services:
       ADMIN_PUBLIC_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
       BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       NEXT_PUBLIC_APP_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
-      AUTH_API_INTERNAL_URL: ${AUTH_API_INTERNAL_URL:-http://auth-api:3340/api}
+      AUTH_API_INTERNAL_URL: ${AUTH_API_INTERNAL_URL:-http://http-capture:3340/api}
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
       ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL:-http://localhost:4433}
-      KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://kratos:4433}
-      HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://hydra:4445}
+      KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://http-capture:4433}
+      HYDRA_ADMIN_URL: ${HYDRA_ADMIN_URL:-http://http-capture:4445}
       HYDRA_REMEMBER_FOR: ${HYDRA_REMEMBER_FOR:-3600}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
-      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://http-capture:4444}
       OIDC_CLIENT_ID: ${AUTH_OIDC_CLIENT_ID:-bookshare-auth}
       OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
-      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
-      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://http-capture:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://http-capture:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://http-capture:4444/userinfo}
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_PRETTY: ${LOG_PRETTY:-true}
-    ports:
-      - "3337:3337"
+    expose:
+      - "3337"
     volumes:
       - ./auth/web/src:/app/auth/web/src
       - ./packages/shared/src:/app/packages/shared/src
@@ -155,13 +206,13 @@ services:
       ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
-      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
+      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://http-capture:4444}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://http-capture:4444/.well-known/jwks.json}
       CORS_ORIGIN: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_PRETTY: ${LOG_PRETTY:-true}
-    ports:
-      - "3340:3340"
+    expose:
+      - "3340"
     volumes:
       - ./auth/api/src:/app/auth/api/src
       - ./packages/logger/src:/app/packages/logger/src
@@ -174,8 +225,8 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
-    ports:
-      - "4436:8025"
+    expose:
+      - "8025"
 
   # ─── Read API (PostgREST) ─────────────────────────────────────
   # PostgREST is internal-only. NestJS is the only caller and owns all
@@ -200,8 +251,9 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bookshare}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bookshare_dev}
+    expose:
+      - "9000"
     ports:
-      - "9002:9000"
       - "9003:9001"
     volumes:
       - minio_data:/data
@@ -234,9 +286,10 @@ services:
       PORT: 3335
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
     ports:
-      - "3335:3335"
       - "3112:3112"
       - "49134:49134"
+    expose:
+      - "3335"
     volumes:
       - ./apps/workflows:/app/apps/workflows
       - ./packages/shared/src:/app/packages/shared/src
@@ -272,10 +325,10 @@ services:
       ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
-      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
-      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-/userinfo}
-      KRATOS_ADMIN_URL: ${KRATOS_ADMIN_URL:-http://kratos:4434}
+      OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://http-capture:4444}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://http-capture:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://http-capture:4444/userinfo}
+      KRATOS_ADMIN_URL: ${KRATOS_ADMIN_URL:-http://http-capture:4434}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-bookshare}
@@ -283,7 +336,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET_DEV:-bookshare-media-dev}
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://127.0.0.1:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
-      WORKFLOWS_URL: ${WORKFLOWS_URL:-http://workflows:3335}
+      WORKFLOWS_URL: ${WORKFLOWS_URL:-http://http-capture:3335}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -293,11 +346,11 @@ services:
       SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-admin@bookshare.local}
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
-      POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
+      POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://http-capture:9300}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_PRETTY: ${LOG_PRETTY:-true}
-    ports:
-      - "3333:3333"
+    expose:
+      - "3333"
     healthcheck:
       test:
         [
@@ -335,16 +388,16 @@ services:
     environment:
       PORT: 3334
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
-      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://http-capture:3333/api}
       AUTH_PROVIDER: ory
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
-      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://http-capture:4444}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-bookshare-web}
       OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
-      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
-      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://http-capture:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://http-capture:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://http-capture:4444/userinfo}
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
@@ -353,8 +406,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_PRETTY: ${LOG_PRETTY:-true}
-    ports:
-      - "3334:3334"
+    expose:
+      - "3334"
     volumes:
       - ./apps/web/src:/app/apps/web/src
       - ./packages/shared/src:/app/packages/shared/src
@@ -381,24 +434,24 @@ services:
       PORT: 3338
       NEXT_PUBLIC_APP_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
-      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://http-capture:3333/api}
       ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
-      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://http-capture:4444}
       OIDC_CLIENT_ID: ${ADMIN_OIDC_CLIENT_ID:-bookshare-admin}
       OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
-      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
-      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://http-capture:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://http-capture:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://http-capture:4444/userinfo}
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_PRETTY: ${LOG_PRETTY:-true}
-    ports:
-      - "3338:3338"
+    expose:
+      - "3338"
     volumes:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
@@ -438,15 +491,15 @@ services:
       PORT: 3339
       NEXT_PUBLIC_APP_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
-      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://http-capture:3333/api}
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
-      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
+      OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://http-capture:4444}
       OIDC_CLIENT_ID: ${BOOKSTORES_OIDC_CLIENT_ID:-bookshare-bookstores}
       OIDC_AUTHORIZATION_ENDPOINT: ${OIDC_AUTHORIZATION_ENDPOINT:-http://localhost:4444/oauth2/auth}
-      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://hydra:4444/oauth2/token}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
-      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://hydra:4444/userinfo}
+      OIDC_TOKEN_ENDPOINT: ${OIDC_TOKEN_ENDPOINT:-http://http-capture:4444/oauth2/token}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://http-capture:4444/.well-known/jwks.json}
+      OIDC_USERINFO_ENDPOINT: ${OIDC_USERINFO_ENDPOINT:-http://http-capture:4444/userinfo}
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
@@ -454,8 +507,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_PRETTY: ${LOG_PRETTY:-true}
-    ports:
-      - "3339:3339"
+    expose:
+      - "3339"
     volumes:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
@@ -483,6 +536,84 @@ services:
         condition: service_started
       hydra-client-init:
         condition: service_completed_successfully
+
+  # ─── HTTP Capture (mitmproxy) ────────────────────────────────
+  # Default dev front door for HTTP request/response body capture.
+  # Web UI: http://localhost:8090, password: bookshare.
+  # The usual localhost service ports below are reverse-proxied to their
+  # containers so browser traffic and server-to-server calls are captured.
+  http-capture:
+    image: mitmproxy/mitmproxy:latest
+    restart: unless-stopped
+    command:
+      - mitmweb
+      - --web-host
+      - 0.0.0.0
+      - --web-port
+      - "8090"
+      - --listen-host
+      - 0.0.0.0
+      - --set
+      - block_global=false
+      - --set
+      - web_password=bookshare
+      - --mode
+      - reverse:http://hydra:4444@4444
+      - --mode
+      - reverse:http://hydra:4445@4445
+      - --mode
+      - reverse:http://kratos:4433@4433
+      - --mode
+      - reverse:http://kratos:4434@4434
+      - --mode
+      - reverse:http://auth:3337@3337
+      - --mode
+      - reverse:http://auth-api:3340@3340
+      - --mode
+      - reverse:http://web:3334@3334
+      - --mode
+      - reverse:http://admin:3338@3338
+      - --mode
+      - reverse:http://bookstores:3339@3339
+      - --mode
+      - reverse:http://api:3333@3333
+      - --mode
+      - reverse:http://workflows:3335@3335
+      - --mode
+      - reverse:http://postgrest:3000@9300
+      - --mode
+      - reverse:http://minio:9000@9002
+      - --mode
+      - reverse:http://mailpit:8025@4436
+    ports:
+      - "8090:8090" # mitmproxy UI
+      - "4444:4444" # Hydra public
+      - "4445:4445" # Hydra admin
+      - "4433:4433" # Kratos public
+      - "4434:4434" # Kratos admin
+      - "3337:3337" # Auth Portal
+      - "3340:3340" # Auth API
+      - "3334:3334" # Web
+      - "3338:3338" # Admin
+      - "3339:3339" # Bookstores
+      - "3333:3333" # API
+      - "3335:3335" # Workflows
+      - "9300:9300" # PostgREST
+      - "9002:9002" # MinIO API
+      - "4436:4436" # Mailpit UI
+  # ─── Log Viewer (Dozzle) ─────────────────────────────────────
+  # Web UI for browsing Docker logs across all services.
+  # Visit http://localhost:8080 — search/filter by traceId, container, etc.
+  # Read-only socket mount: Dozzle only reads container logs/metadata.
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    environment:
+      DOZZLE_NO_ANALYTICS: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   postgres_data:
