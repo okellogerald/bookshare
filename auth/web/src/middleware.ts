@@ -17,6 +17,15 @@ function isSessionExpired(value: unknown): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname === "/resolve") {
+    const redirectUrl = new URL("/oauth/login", request.url);
+    for (const [key, value] of request.nextUrl.searchParams.entries()) {
+      redirectUrl.searchParams.set(key, value);
+    }
+    return NextResponse.redirect(redirectUrl);
+  }
+
   if (authPaths.some((path) => pathname.startsWith(path))) {
     return NextResponse.next();
   }

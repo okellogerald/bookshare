@@ -18,6 +18,9 @@
       "@/*": ["./src/*"],
       "@bookshare/shared": [
         "../../packages/shared/src/index.ts"
+      ],
+      "@bookshare/logger": [
+        "../../packages/logger/src/index.ts"
       ]
     }
   },

@@ -28,6 +28,16 @@ export function getBookshareAppPublicUrl(): string {
   return process.env.BOOKSHARE_APP_PUBLIC_URL || "http://localhost:3334";
 }
 
+/** Admin app's public URL — used by login destination resolution. */
+export function getAdminAppPublicUrl(): string {
+  return process.env.ADMIN_PUBLIC_URL || "http://localhost:3338";
+}
+
+/** Bookstores app's public URL — used by login destination resolution. */
+export function getBookstoresAppPublicUrl(): string {
+  return process.env.BOOKSTORES_PUBLIC_URL || "http://localhost:3339";
+}
+
 /** Kratos public URL reachable by the browser (for form action URLs). */
 export function getKratosBrowserUrl(): string {
   return process.env.KRATOS_BROWSER_URL || "http://localhost:4433";

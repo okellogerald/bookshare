@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { encrypt, decrypt } from "./crypto";
 import {
+  BOOKSTORES_ACTIVE_ORG_COOKIE,
   BOOKSTORES_SESSION_COOKIE,
   BOOKSTORES_TOKEN_COOKIE,
 } from "./cookie-names";
@@ -93,4 +94,5 @@ export async function clearSession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(BOOKSTORES_SESSION_COOKIE);
   cookieStore.delete(BOOKSTORES_TOKEN_COOKIE);
+  cookieStore.delete(BOOKSTORES_ACTIVE_ORG_COOKIE);
 }

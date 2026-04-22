@@ -105,9 +105,12 @@ services:
       PORT: 3337
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSHARE_APP_PUBLIC_URL: ${BOOKSHARE_APP_PUBLIC_URL:-http://localhost:3334}
+      ADMIN_PUBLIC_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
+      BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       NEXT_PUBLIC_APP_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       AUTH_API_INTERNAL_URL: ${AUTH_API_INTERNAL_URL:-http://auth-api:3340/api}
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
+      ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       KRATOS_BROWSER_URL: ${KRATOS_BROWSER_URL:-http://localhost:4433}
       KRATOS_PUBLIC_INTERNAL_URL: ${KRATOS_PUBLIC_INTERNAL_URL:-http://kratos:4433}
@@ -123,12 +126,15 @@ services:
       OIDC_END_SESSION_ENDPOINT: ${OIDC_END_SESSION_ENDPOINT:-http://localhost:4444/oauth2/sessions/logout}
       OIDC_ADDITIONAL_SCOPES: ${OIDC_ADDITIONAL_SCOPES:-offline_access}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     ports:
       - "3337:3337"
     volumes:
       - ./auth/web/src:/app/auth/web/src
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/db/src:/app/packages/db/src
+      - ./packages/logger/src:/app/packages/logger/src
     depends_on:
       hydra:
         condition: service_started
@@ -146,15 +152,19 @@ services:
     environment:
       PORT: 3340
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
+      ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
       OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
       OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://hydra:4444/.well-known/jwks.json}
       CORS_ORIGIN: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     ports:
       - "3340:3340"
     volumes:
       - ./auth/api/src:/app/auth/api/src
+      - ./packages/logger/src:/app/packages/logger/src
     depends_on:
       postgres:
         condition: service_healthy
@@ -259,6 +269,7 @@ services:
       PORT: 3333
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookshare}:${POSTGRES_PASSWORD:-bookshare_dev}@postgres:5432/bookshare
       AUTH_PROVIDER: ory
+      ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
       OIDC_ISSUER: ${OIDC_ISSUER_URL:-http://localhost:4444}
       OIDC_ISSUER_INTERNAL: ${OIDC_ISSUER_INTERNAL:-http://hydra:4444}
@@ -283,6 +294,8 @@ services:
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://postgrest:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     ports:
       - "3333:3333"
     healthcheck:
@@ -302,6 +315,7 @@ services:
       - ./packages/shared/src:/app/packages/shared/src
       - ./packages/db/src:/app/packages/db/src
       - ./packages/importer/src:/app/packages/importer/src
+      - ./packages/logger/src:/app/packages/logger/src
     depends_on:
       postgres:
         condition: service_healthy
@@ -337,11 +351,14 @@ services:
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://127.0.0.1:9002}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     ports:
       - "3334:3334"
     volumes:
       - ./apps/web/src:/app/apps/web/src
       - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/logger/src:/app/packages/logger/src
     depends_on:
       api:
         condition: service_started
@@ -359,12 +376,13 @@ services:
       context: .
       dockerfile: apps/admin/Dockerfile.dev
     restart: unless-stopped
-    command: ["/bin/sh", "-lc", "cd /app && bun install --frozen-lockfile && bun run --cwd apps/admin dev"]
+    command: ["/bin/sh", "-lc", "cd /app && bun install --filter @bookshare/admin --frozen-lockfile && bun run --cwd apps/admin dev"]
     environment:
       PORT: 3338
       NEXT_PUBLIC_APP_URL: ${ADMIN_PUBLIC_URL:-http://localhost:3338}
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3333/api}
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:3333/api}
+      ADMIN_EMAIL_DOMAIN: ${ADMIN_EMAIL_DOMAIN:-bookshare.local}
       NEXT_PUBLIC_OIDC_ISSUER_URL: ${PUBLIC_OIDC_URL:-http://localhost:4444}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-http://localhost:4444}
       OIDC_INTERNAL_URL: ${OIDC_INTERNAL_URL:-http://hydra:4444}
@@ -377,6 +395,8 @@ services:
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     ports:
       - "3338:3338"
     volumes:
@@ -395,6 +415,8 @@ services:
       - ./packages/db/package.json:/app/packages/db/package.json:ro
       - ./packages/importer/package.json:/app/packages/importer/package.json:ro
       - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/logger/package.json:/app/packages/logger/package.json:ro
+      - ./packages/logger/src:/app/packages/logger/src
     depends_on:
       api:
         condition: service_healthy
@@ -411,7 +433,7 @@ services:
       context: .
       dockerfile: apps/bookstores/Dockerfile.dev
     restart: unless-stopped
-    command: ["/bin/sh", "-lc", "cd /app && bun install --frozen-lockfile && bun run --cwd apps/bookstores dev"]
+    command: ["/bin/sh", "-lc", "cd /app && bun install --filter @bookshare/bookstores --frozen-lockfile && bun run --cwd apps/bookstores dev"]
     environment:
       PORT: 3339
       NEXT_PUBLIC_APP_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
@@ -430,6 +452,8 @@ services:
       AUTH_PORTAL_URL: ${AUTH_PORTAL_URL:-http://localhost:3337}
       NEXT_PUBLIC_AUTH_PORTAL_URL: ${NEXT_PUBLIC_AUTH_PORTAL_URL:-http://localhost:3337}
       SESSION_SECRET: ${SESSION_SECRET:-bookshare-dev-session-secret-change-in-prod}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      LOG_PRETTY: ${LOG_PRETTY:-true}
     ports:
       - "3339:3339"
     volumes:
@@ -448,6 +472,8 @@ services:
       - ./packages/db/package.json:/app/packages/db/package.json:ro
       - ./packages/importer/package.json:/app/packages/importer/package.json:ro
       - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/logger/package.json:/app/packages/logger/package.json:ro
+      - ./packages/logger/src:/app/packages/logger/src
     depends_on:
       api:
         condition: service_healthy

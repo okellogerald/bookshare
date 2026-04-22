@@ -85,6 +85,7 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    - `hydra-client-init` creates/updates `bookshare-web` on startup.
    - Login, consent, and logout challenges are handled by Auth Portal at `http://localhost:3337`.
    - Config reference for contributors: `auth/infra/README.md`
+   - Login destination resolution is documented in `auth/docs/flows/login-resolution.md`.
 
 5. **Register a user (first time)**
    - Open `http://localhost:3337/register`

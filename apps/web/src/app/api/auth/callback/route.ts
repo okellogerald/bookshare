@@ -19,16 +19,22 @@ import {
   clearOIDCTransactionCookies,
   readOIDCTransaction,
 } from "@bookshare/shared";
+import { createLogger, truncateForLog } from "@bookshare/logger";
 import * as client from "openid-client";
 import { getOIDCConfig } from "@/domains/auth/lib/oidc";
 import { setSession } from "@/domains/auth/lib/session";
 import { decrypt } from "@/domains/auth/lib/crypto";
 import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
+import { buildAuthPortalResolveUrl } from "@/domains/auth/lib/auth-portal";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "http://api:3333/api";
+
+const logger = createLogger({ service: "web-auth" }).child({
+  route: "api.auth.callback",
+});
 
 function isJwtLike(token?: string | null): token is string {
   return !!token && token.split(".").length === 3;
@@ -59,6 +65,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!transaction) {
+    logger.warn("Missing OIDC transaction; redirecting to login");
     return NextResponse.redirect(new URL("/api/auth/login", request.url));
   }
 
@@ -78,6 +85,10 @@ export async function GET(request: NextRequest) {
     const emailVerified = toBoolean(claims.email_verified);
 
     if (!emailVerified) {
+      logger.warn(
+        { subject: claims.sub ?? null },
+        "OIDC callback rejected because email is not verified"
+      );
       const response = NextResponse.redirect(
         new URL("/auth/verification", request.url)
       );
@@ -115,6 +126,10 @@ export async function GET(request: NextRequest) {
             syncResponse.status === 401 &&
             syncErrorText.toLowerCase().includes("deactivated")
           ) {
+            logger.warn(
+              { subject: claims.sub ?? null },
+              "Profile sync rejected because account is deactivated"
+            );
             const blockedResponse = NextResponse.redirect(
               new URL("/?error=account_deactivated", request.url)
             );
@@ -122,22 +137,38 @@ export async function GET(request: NextRequest) {
             return blockedResponse;
           }
 
-          console.error(
-            `Profile sync failed with status ${syncResponse.status}: ${syncErrorText}`
+          logger.error(
+            {
+              status: syncResponse.status,
+              body: truncateForLog(syncErrorText),
+              subject: claims.sub ?? null,
+            },
+            "Profile sync failed during OAuth callback"
           );
         }
       } catch (syncError) {
-        console.error("Profile sync on callback failed:", syncError);
+        logger.error(
+          { err: syncError, subject: claims.sub ?? null },
+          "Profile sync request failed during OAuth callback"
+        );
       }
     }
 
     const response = NextResponse.redirect(
-      new URL(transaction.returnTo, request.url)
+      buildAuthPortalResolveUrl(transaction.returnTo)
     );
     clearOIDCTransactionCookies(response.cookies, WEB_OIDC_COOKIE_NAMES);
+    logger.info(
+      {
+        subject: claims.sub ?? null,
+        returnTo: transaction.returnTo,
+        emailVerified,
+      },
+      "OAuth callback completed"
+    );
     return response;
   } catch (error) {
-    console.error("OIDC callback error:", error);
+    logger.error({ err: error }, "OIDC callback failed");
     const response = NextResponse.redirect(
       new URL("/?error=auth_failed", request.url)
     );

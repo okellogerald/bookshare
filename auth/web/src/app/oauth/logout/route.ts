@@ -12,13 +12,19 @@
  * @see `/logout` (this app) — Phase 3 (Kratos session cleanup)
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createLogger, redactValue } from "@bookshare/logger";
 import { getAuthPortalPublicUrl } from "@/shared/lib/config";
 import { hydraAdminRequest } from "@/shared/lib/hydra";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "oauth.logout",
+});
 
 export async function GET(request: NextRequest) {
   const challenge = request.nextUrl.searchParams.get("logout_challenge");
 
   if (!challenge) {
+    logger.warn("Missing logout challenge");
     return NextResponse.json(
       { error: "missing logout_challenge" },
       { status: 400 }
@@ -34,9 +40,19 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    logger.info(
+      {
+        redirectTo: accepted.redirect_to,
+        challenge: redactValue(challenge),
+      },
+      "Hydra logout accepted"
+    );
     return NextResponse.redirect(accepted.redirect_to);
   } catch (error) {
-    console.error("OAuth logout challenge handling failed", error);
+    logger.error(
+      { err: error, challenge: redactValue(challenge) },
+      "OAuth logout challenge handling failed"
+    );
     return NextResponse.redirect(`${getAuthPortalPublicUrl()}/error`);
   }
 }

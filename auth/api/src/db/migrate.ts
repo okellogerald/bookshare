@@ -1,8 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createLogger } from "@bookshare/logger";
 import postgres from "postgres";
 
+const logger = createLogger({ service: "auth-api-migrations" });
 const databaseUrl = process.env.DATABASE_URL?.trim();
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is required to run auth API migrations.");
@@ -42,7 +44,7 @@ try {
       INSERT INTO auth_api_migrations (name) VALUES (${file})
     `;
 
-    console.log(`Applied auth API migration ${file}`);
+    logger.info({ migration: file }, "Applied auth API migration");
   }
 } finally {
   await sql.end();

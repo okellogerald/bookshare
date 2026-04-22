@@ -4,8 +4,6 @@ import {
   type BookstoreSummary,
 } from "@bookshare/shared";
 
-const LAST_USED_BOOKSTORE_KEY = "bookshare.bookstores.last-bookstore-id";
-
 export function getBookstoreStatusLabel(status: BookstoreStatus) {
   switch (status) {
     case BookstoreStatus.PENDING:
@@ -45,12 +43,23 @@ export function getMembershipRoleLabel(role: BookstoreMembershipRole) {
   return role === BookstoreMembershipRole.OWNER ? "Owner" : "Member";
 }
 
-export function setLastUsedBookstoreId(bookstoreId: string) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(LAST_USED_BOOKSTORE_KEY, bookstoreId);
+export async function setActiveBookstoreId(bookstoreId: string) {
+  await fetch("/api/session/active-org", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ organizationId: bookstoreId }),
+  });
 }
 
-export function getLastUsedBookstoreId() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(LAST_USED_BOOKSTORE_KEY);
+export async function getActiveBookstoreId() {
+  const response = await fetch("/api/session/active-org", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as { organizationId?: unknown };
+  return typeof payload.organizationId === "string"
+    ? payload.organizationId
+    : null;
 }

@@ -5,12 +5,17 @@ import {
   createLoginTransaction,
   persistOIDCTransaction,
 } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import * as client from "openid-client";
 import { encrypt } from "@/domain/auth/lib/crypto";
 import { getOIDCConfig, getRedirectUri } from "@/domain/auth/lib/oidc";
 import {
   BOOKSTORES_OIDC_COOKIE_NAMES,
 } from "@/domain/auth/lib/cookie-names";
+
+const logger = createLogger({ service: "bookstores-auth" }).child({
+  route: "api.auth.login",
+});
 
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
@@ -23,15 +28,20 @@ export async function GET(request: NextRequest) {
     requestedReturnTo: request.nextUrl.searchParams.get("returnTo"),
     defaultReturnTo: "/",
   });
-  const authorizationUrl = client.buildAuthorizationUrl(config, {
+  const authorizationParams: Record<string, string> = {
     redirect_uri: redirectUri,
     scope,
     code_challenge: transaction.codeChallenge,
     code_challenge_method: "S256",
     state: transaction.state,
-    prompt: "login",
-    max_age: "0",
-  });
+  };
+
+  if (request.nextUrl.searchParams.get("handoff") !== "1") {
+    authorizationParams.prompt = "login";
+    authorizationParams.max_age = "0";
+  }
+
+  const authorizationUrl = client.buildAuthorizationUrl(config, authorizationParams);
   const response = NextResponse.redirect(authorizationUrl.href);
 
   await persistOIDCTransaction({
@@ -41,6 +51,15 @@ export async function GET(request: NextRequest) {
     transaction,
   });
   clearLoggedOutMarker(response.cookies, BOOKSTORES_OIDC_COOKIE_NAMES.loggedOut);
+  logger.info(
+    {
+      returnTo: transaction.returnTo,
+      resolverHandoff: request.nextUrl.searchParams.get("handoff") === "1",
+      authorizationHost: authorizationUrl.host,
+      authorizationPath: authorizationUrl.pathname,
+    },
+    "Started bookstores OAuth login"
+  );
 
   return response;
 }

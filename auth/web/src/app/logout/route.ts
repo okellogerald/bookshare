@@ -20,6 +20,7 @@
  * @see `auth/web/src/app/oauth/logout/route.ts` — Phase 2
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createLogger } from "@bookshare/logger";
 import {
   getAuthPortalPublicUrl,
   getBookshareAppPublicUrl,
@@ -31,6 +32,10 @@ import {
   removeKnownAccount,
 } from "@/shared/lib/known-accounts-cookie";
 import { getKratosSession } from "@/shared/lib/kratos";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "logout",
+});
 
 /**
  * Sanitize the return_to URL against a whitelist of allowed origins.
@@ -140,9 +145,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (!response.ok) {
-      console.error("Kratos logout flow creation failed", {
-        status: response.status,
-      });
+      logger.error(
+        { status: response.status, returnTo },
+        "Kratos logout flow creation failed"
+      );
       const redirect = NextResponse.redirect(returnTo);
       await applyKnownAccountsPolicy(redirect, request, cookieHeader);
       return redirect;
@@ -159,7 +165,7 @@ export async function GET(request: NextRequest) {
     await applyKnownAccountsPolicy(redirect, request, cookieHeader);
     return redirect;
   } catch (error) {
-    console.error("Auth portal logout failed", error);
+    logger.error({ err: error, returnTo }, "Auth portal logout failed");
     const redirect = NextResponse.redirect(returnTo);
     await applyKnownAccountsPolicy(redirect, request, cookieHeader);
     return redirect;

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM oven/bun:1 AS base
 WORKDIR /app
 
@@ -11,10 +12,13 @@ COPY apps/web/package.json ./apps/web/
 COPY apps/workflows/package.json ./apps/workflows/
 COPY packages/db/package.json ./packages/db/
 COPY packages/importer/package.json ./packages/importer/
+COPY packages/logger/package.json ./packages/logger/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
+    bun install --filter @bookshare/auth-api --frozen-lockfile
 
+COPY packages/logger ./packages/logger
 COPY auth/api ./auth/api
 COPY tsconfig.base.json ./
 

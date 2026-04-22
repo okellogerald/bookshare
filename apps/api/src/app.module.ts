@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
+import { LoggerModule } from "nestjs-pino";
+import { createPinoHttpLoggerOptions } from "@bookshare/logger";
 import { DrizzleModule } from "./drizzle/drizzle.module";
 import { AuthGuard } from "./common/guards/auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -25,6 +27,9 @@ import { BookstoresModule } from "./modules/bookstores/bookstores.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    LoggerModule.forRoot({
+      pinoHttp: createPinoHttpLoggerOptions("bookshare-api"),
+    }),
     DrizzleModule,
     BooksModule,
     AuthorsModule,

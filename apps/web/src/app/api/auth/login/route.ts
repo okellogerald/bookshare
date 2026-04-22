@@ -12,8 +12,9 @@
  *    the OAuth redirect.
  * 3. Encrypts these values into short-lived cookies (10 min TTL) so they
  *    survive the browser redirect dance through Hydra and Auth-Portal.
- * 4. Builds the Hydra authorization URL with `prompt=login max_age=0` to
- *    force a fresh authentication every time (no silent re-auth).
+   * 4. Builds the Hydra authorization URL with `prompt=login max_age=0` for
+   *    normal logins. Auth-Portal resolver handoffs pass `handoff=1` and reuse
+   *    the fresh Kratos session without forcing another password entry.
  * 5. Redirects the browser to Hydra, kicking off the OAuth2 Authorization
  *    Code + PKCE flow.
  *
@@ -30,10 +31,15 @@ import {
   createLoginTransaction,
   persistOIDCTransaction,
 } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import * as client from "openid-client";
 import { getOIDCConfig, getRedirectUri } from "@/domains/auth/lib/oidc";
 import { encrypt } from "@/domains/auth/lib/crypto";
 import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
+
+const logger = createLogger({ service: "web-auth" }).child({
+  route: "api.auth.login",
+});
 
 export async function GET(request: NextRequest) {
   // Discover Hydra's OIDC metadata (authorization endpoint, token endpoint, etc.)
@@ -54,20 +60,26 @@ export async function GET(request: NextRequest) {
     defaultReturnTo: "/browse",
   });
 
+  const isResolverHandoff = request.nextUrl.searchParams.get("handoff") === "1";
+
   // Build the full authorization URL that the browser will be redirected to.
-  // - prompt=login: always show the login screen (never silently re-auth)
-  // - max_age=0: treat any existing Hydra session as expired
-  // These two together ensure the user always goes through Auth-Portal's
-  // login challenge, which re-validates their Kratos session state.
-  const authorizationUrl = client.buildAuthorizationUrl(config, {
+  // Normal user-initiated login forces a fresh login screen. Resolver handoff
+  // omits prompt/max_age so the just-validated Kratos session can be reused
+  // when moving the user from one first-party client to another.
+  const authorizationParams: Record<string, string> = {
     redirect_uri: redirectUri,
     scope,
     code_challenge: transaction.codeChallenge,
     code_challenge_method: "S256",
     state: transaction.state,
-    prompt: "login",
-    max_age: "0",
-  });
+  };
+
+  if (!isResolverHandoff) {
+    authorizationParams.prompt = "login";
+    authorizationParams.max_age = "0";
+  }
+
+  const authorizationUrl = client.buildAuthorizationUrl(config, authorizationParams);
   const response = NextResponse.redirect(authorizationUrl.href);
 
   // Encrypt and store the PKCE verifier, state, and returnTo as httpOnly
@@ -83,6 +95,17 @@ export async function GET(request: NextRequest) {
   // Clear any previous logged-out marker so middleware doesn't redirect
   // the user to the landing page after they've initiated a fresh login.
   clearLoggedOutMarker(response.cookies, WEB_OIDC_COOKIE_NAMES.loggedOut);
+
+  logger.info(
+    {
+      returnTo: transaction.returnTo,
+      resolverHandoff: isResolverHandoff,
+      authorizationHost: authorizationUrl.host,
+      authorizationPath: authorizationUrl.pathname,
+      scope,
+    },
+    "Started OAuth login"
+  );
 
   return response;
 }

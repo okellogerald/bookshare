@@ -14,8 +14,15 @@
  * @see `auth/web/src/app/logout/route.ts` — Kratos session cleanup (Phase 3)
  */
 import { NextResponse } from "next/server";
+import { createLogger } from "@bookshare/logger";
 import { buildAuthPortalLogoutUrl } from "@/domains/auth/lib/auth-portal";
 
+const logger = createLogger({ service: "web-auth" }).child({
+  route: "api.auth.post-logout",
+});
+
 export async function GET() {
-  return NextResponse.redirect(buildAuthPortalLogoutUrl());
+  const redirectTo = buildAuthPortalLogoutUrl();
+  logger.info({ redirectTo }, "Continuing web logout through auth portal");
+  return NextResponse.redirect(redirectTo);
 }

@@ -211,6 +211,20 @@ export function isAdminConsoleRole(role: string): role is AdminConsoleRole {
   return (AdminConsoleRole as readonly string[]).includes(role);
 }
 
+export const DEFAULT_ADMIN_EMAIL_DOMAIN = "bookshare.local";
+
+export function isAdminEmailAddress(
+  value: string | null | undefined,
+  domain = DEFAULT_ADMIN_EMAIL_DOMAIN
+): boolean {
+  const email = value?.trim().toLowerCase();
+  const normalizedDomain = domain.trim().toLowerCase().replace(/^@+/, "");
+
+  if (!email || !normalizedDomain) return false;
+
+  return email.endsWith(`@${normalizedDomain}`);
+}
+
 // Temporary alias while callers finish the rename.
 export const UserRole = PlatformRole;
 export type UserRole = PlatformRole;

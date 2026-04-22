@@ -1,44 +1,58 @@
 /**
  * Hydra Login Challenge Handler — Auth-Portal
  *
- * This is the central decision point of the authentication flow. Hydra
- * redirects the browser here when it needs to know WHO is logging in.
- * The challenge parameter is Hydra's way of saying: "I have a client that
- * wants access — tell me which user is behind this request."
+ * This is the central decision point of the authentication flow. The browser
+ * can arrive here in three distinct ways, and the handler must gracefully
+ * support all of them:
  *
- * The handler applies a strict 3-step authorization policy before accepting:
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ Arrival pattern           │ Trigger                   │ Challenge source │
+ * ├──────────────────────────────────────────────────────────────────────────┤
+ * │ 1. Fresh OAuth request    │ RP (Admin/Web/Bookstores) │ ?login_challenge │
+ * │                           │ hit Hydra's /oauth2/auth; │ query param      │
+ * │                           │ Hydra redirects here.     │                  │
+ * ├──────────────────────────────────────────────────────────────────────────┤
+ * │ 2. Return from Kratos     │ User completed /login,    │ httpOnly cookie  │
+ * │                           │ /verification, or         │ (set on the way  │
+ * │                           │ /settings and Kratos's    │ out, 15 min TTL) │
+ * │                           │ return_to lands here      │                  │
+ * │                           │ without the query param.  │                  │
+ * ├──────────────────────────────────────────────────────────────────────────┤
+ * │ 3. Standalone visit       │ User typed the portal     │ none             │
+ * │                           │ URL, or a post-logout /   │                  │
+ * │                           │ "pick an app" resolution  │                  │
+ * │                           │ (?source=, ?returnTo=).   │                  │
+ * └──────────────────────────────────────────────────────────────────────────┘
  *
- * 1. **Authenticated?** — Does the browser have a valid Kratos session?
- *    If not → redirect to Auth-Portal's `/login` page (Kratos login flow).
+ * Regardless of arrival pattern, a single 3-step authorization policy is
+ * applied before the user is considered "ready":
  *
- * 2. **Email verified?** — Does the Kratos identity have a verified email?
- *    If not → redirect to Auth-Portal's `/verification` page.
+ *   1. Authenticated?  (valid Kratos session)     → else /login
+ *   2. Email verified? (verifiable_addresses)     → else /verification
+ *   3. Profile complete? (first + last name)      → else /settings?section=profile
  *
- * 3. **Profile complete?** — Does the identity have first and last name?
- *    If not → redirect to Auth-Portal's `/settings?section=profile` page.
+ * When a Hydra challenge is present and the policy fails, the challenge is
+ * persisted in an httpOnly cookie before redirecting — so that when the user
+ * satisfies the failed step and Kratos redirects them back here, we can
+ * recover the challenge from the cookie and resume the OAuth flow.
  *
- * Each redirect persists the Hydra login_challenge as an httpOnly cookie
- * (15 min TTL) so that when the user satisfies the requirement and returns
- * to this handler, the challenge can be recovered without threading it
- * through every Kratos flow's return URL.
+ * When the policy passes:
+ *   - With a challenge → accept it via Hydra admin API, binding the OAuth2
+ *     tokens to the Kratos identity. `remember=true` lets Hydra skip the
+ *     login step on the next request from this browser.
+ *   - Without a challenge → resolve which first-party app should own the
+ *     session (see `resolveLoginDestination`) and redirect there.
  *
- * Once all checks pass, the handler accepts the challenge via Hydra's admin
- * API, passing the Kratos identity ID as the `subject`. This binds the
- * resulting OAuth2 tokens to this specific user.
- *
- * If `loginRequest.skip` is true, Hydra already has a cached login decision
- * for this user (from `remember: true` in a previous acceptance). In that
- * case, the handler fast-tracks acceptance without resending traits.
- *
- * Fallback: if no challenge is available (neither in query params nor cookie),
- * the handler acts as a standalone auth gate — redirecting based on the
- * same 3-step policy, with the final destination being the Web app.
+ * OIDC prompt handling (only relevant when a challenge is present):
+ *   - `prompt=select_account` → route through the /chooser page.
+ *   - `prompt=login`          → force re-authentication via /login.
  *
  * @see `apps/web/src/app/api/auth/login/route.ts` — what triggers Hydra to redirect here
- * @see `/oauth/consent` — the next step after login challenge acceptance
+ * @see `/oauth/consent` — the next step after a successful login acceptance
  * @see `hydra-login-context.ts` — challenge cookie persistence
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createLogger } from "@bookshare/logger";
 import {
   getAuthPortalPublicUrl,
   getBookshareAppPublicUrl,
@@ -57,6 +71,17 @@ import {
   type KratosSession,
 } from "@/shared/lib/kratos";
 import { upsertKnownAccount } from "@/shared/lib/known-accounts-cookie";
+import {
+  buildLoginDestinationUrl,
+  parseLoginResolutionSource,
+  resolveLoginDestination,
+} from "@/shared/lib/login-destination";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "oauth.login",
+});
+
+// ─── Types ─────────────────────────────────────────────────────────────────
 
 interface HydraLoginRequest {
   /** True when Hydra has a cached login for this subject (remember=true). */
@@ -75,35 +100,38 @@ interface HydraLoginRequest {
   request_url?: string;
 }
 
-/** Parse Hydra's OIDC `prompt` values (space-separated) into a set. */
-function getPromptValues(loginRequest: HydraLoginRequest): Set<string> {
-  const values = new Set<string>();
+/**
+ * Outcome of the 3-step authorization policy. Either the user is ready
+ * (`ok`) or a specific step failed and the handler must redirect them to
+ * the remediation page.
+ */
+type AuthPolicy =
+  | { step: "ok" }
+  | { step: "login"; reason: "NO_SESSION" }
+  | { step: "verification"; reason: "EMAIL_NOT_VERIFIED" }
+  | { step: "profile"; reason: "PROFILE_INCOMPLETE" };
 
-  const direct = loginRequest.oidc_context?.prompt;
-  if (typeof direct === "string" && direct.trim()) {
-    for (const value of direct.trim().split(/\s+/)) {
-      values.add(value);
-    }
-  }
+// ─── Logging helpers ───────────────────────────────────────────────────────
 
-  if (!values.size && typeof loginRequest.request_url === "string") {
-    try {
-      const parsed = new URL(loginRequest.request_url);
-      const raw = parsed.searchParams.get("prompt");
-      if (raw) {
-        for (const value of raw.trim().split(/\s+/)) {
-          values.add(value);
-        }
-      }
-    } catch {
-      // Ignore — request_url is informational, not all deployments populate it.
-    }
-  }
-
-  return values;
+function logInfo(event: string, data?: Record<string, unknown>) {
+  logger.info(data ?? {}, event);
 }
 
-/** Extract the email trait from a Kratos session — empty string if absent. */
+function logError(event: string, data?: Record<string, unknown>) {
+  const { error, ...rest } = data ?? {};
+  logger.error({ ...rest, err: error }, event);
+}
+
+/** Redact a challenge so logs are useful without leaking the full secret. */
+function redactChallenge(challenge: string | null | undefined): string | null {
+  if (!challenge) return null;
+  if (challenge.length <= 10) return "***";
+  return `${challenge.slice(0, 6)}...${challenge.slice(-4)}`;
+}
+
+// ─── Session trait readers ─────────────────────────────────────────────────
+
+/** Email trait — empty string if absent. */
 function getSessionEmail(session: KratosSession | null): string {
   const traits = session?.identity?.traits;
   if (!traits || typeof traits !== "object") return "";
@@ -111,7 +139,7 @@ function getSessionEmail(session: KratosSession | null): string {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
-/** Extract the display name ("First Last") from a Kratos session — undefined if absent. */
+/** Display name ("First Last") — undefined if absent. */
 function getSessionDisplayName(session: KratosSession | null): string | undefined {
   const traits = session?.identity?.traits;
   if (!traits || typeof traits !== "object") return undefined;
@@ -126,35 +154,106 @@ function getSessionDisplayName(session: KratosSession | null): string | undefine
   return parts.length > 0 ? parts.join(" ") : undefined;
 }
 
-/** Build Auth-Portal URL for profile settings (incomplete profile gate). */
-function buildSettingsUrl(requestUrl: string): string {
-  const settingsUrl = new URL(buildAuthUrl("/settings", requestUrl));
-  settingsUrl.searchParams.set("section", "profile");
-  return settingsUrl.toString();
-}
+// ─── URL builders ──────────────────────────────────────────────────────────
 
 /** Build a URL relative to the Auth-Portal's origin. */
 function buildAuthUrl(pathname: string, requestUrl: string): string {
   return new URL(pathname, requestUrl).toString();
 }
 
-/**
- * Build the `/login` URL, prefilling the email field via a `login_hint`
- * query param when Hydra (or a client) provided one. The login page forwards
- * the value to the Kratos identifier input.
- */
-function buildLoginUrl(requestUrl: string, loginHint: string): string {
-  const loginUrl = new URL(buildAuthUrl("/login", requestUrl));
-  if (loginHint) {
-    loginUrl.searchParams.set("email", loginHint);
-  }
-  return loginUrl.toString();
+/** /settings?section=profile — used when profile is incomplete. */
+function buildSettingsUrl(requestUrl: string): string {
+  const url = new URL(buildAuthUrl("/settings", requestUrl));
+  url.searchParams.set("section", "profile");
+  return url.toString();
 }
 
 /**
- * Persist the just-authenticated identity in the known-accounts cookie so
+ * /login with an optional `email` query param (pre-fills the Kratos
+ * identifier input when Hydra forwarded a login_hint from the RP).
+ */
+function buildLoginUrl(requestUrl: string, loginHint: string): string {
+  const url = new URL(buildAuthUrl("/login", requestUrl));
+  if (loginHint) url.searchParams.set("email", loginHint);
+  return url.toString();
+}
+
+// ─── OIDC prompt parsing ───────────────────────────────────────────────────
+
+/**
+ * Collect the OIDC `prompt` values from Hydra's login request. Hydra
+ * normally surfaces them in `oidc_context.prompt`, but some client libraries
+ * pass them only via the original authorize URL — we fall back to parsing
+ * `request_url` in that case.
+ */
+function getPromptValues(loginRequest: HydraLoginRequest): Set<string> {
+  const values = new Set<string>();
+
+  const direct = loginRequest.oidc_context?.prompt;
+  if (typeof direct === "string" && direct.trim()) {
+    for (const value of direct.trim().split(/\s+/)) values.add(value);
+  }
+
+  if (!values.size && typeof loginRequest.request_url === "string") {
+    try {
+      const parsed = new URL(loginRequest.request_url);
+      const raw = parsed.searchParams.get("prompt");
+      if (raw) {
+        for (const value of raw.trim().split(/\s+/)) values.add(value);
+      }
+    } catch {
+      logInfo("Unable to parse request_url for prompt values", {
+        requestUrlPresent: Boolean(loginRequest.request_url),
+      });
+    }
+  }
+
+  return values;
+}
+
+// ─── Auth policy ───────────────────────────────────────────────────────────
+
+/**
+ * Apply the 3-step authorization policy to a Kratos session snapshot.
+ * Pure function — no redirects, no side effects. The caller decides what
+ * to do with the outcome.
+ */
+function evaluateAuthPolicy(
+  hasSession: boolean,
+  emailVerified: boolean,
+  profileComplete: boolean
+): AuthPolicy {
+  if (!hasSession) return { step: "login", reason: "NO_SESSION" };
+  if (!emailVerified) return { step: "verification", reason: "EMAIL_NOT_VERIFIED" };
+  if (!profileComplete) return { step: "profile", reason: "PROFILE_INCOMPLETE" };
+  return { step: "ok" };
+}
+
+/**
+ * Map a failed policy step to the Auth-Portal page that can fix it.
+ * `loginHint` is only relevant for the "login" step.
+ */
+function buildPolicyRedirectUrl(
+  policy: Exclude<AuthPolicy, { step: "ok" }>,
+  requestUrl: string,
+  loginHint: string
+): string {
+  switch (policy.step) {
+    case "login":
+      return buildLoginUrl(requestUrl, loginHint);
+    case "verification":
+      return buildAuthUrl("/verification", requestUrl);
+    case "profile":
+      return buildSettingsUrl(requestUrl);
+  }
+}
+
+// ─── Known-account persistence ─────────────────────────────────────────────
+
+/**
+ * Record the just-authenticated identity in the known-accounts cookie so
  * the chooser can offer this account on the next visit. Silent no-op if
- * the session lacks an email trait.
+ * the session is missing a subject or an email trait.
  */
 async function rememberAccountFromSession(
   response: NextResponse,
@@ -162,14 +261,28 @@ async function rememberAccountFromSession(
 ): Promise<void> {
   const sub = session?.identity?.id;
   const email = getSessionEmail(session);
-  if (!sub || !email) return;
+  if (!sub || !email) {
+    logInfo("Skipping known-account persistence", {
+      hasSubject: Boolean(sub),
+      hasEmail: Boolean(email),
+    });
+    return;
+  }
 
   await upsertKnownAccount(response, {
     sub,
     email,
     name: getSessionDisplayName(session),
   });
+
+  logInfo("Known account persisted", {
+    subject: sub,
+    email,
+    hasDisplayName: Boolean(getSessionDisplayName(session)),
+  });
 }
+
+// ─── Redirect helpers ──────────────────────────────────────────────────────
 
 /**
  * Redirect while preserving the Hydra login challenge in a cookie.
@@ -181,189 +294,322 @@ function redirectWithHydraChallenge(
   destination: string,
   challenge: string
 ): NextResponse {
+  logInfo("Redirecting with Hydra challenge persisted", {
+    destination,
+    challenge: redactChallenge(challenge),
+  });
   const response = NextResponse.redirect(destination);
   persistHydraLoginChallenge(response, challenge);
   return response;
 }
 
 /**
- * Redirect and clear the challenge cookie — used after successful acceptance
- * or when the challenge is no longer valid (error fallback).
+ * Redirect and clear the challenge cookie — used after successful
+ * acceptance or when the challenge is no longer usable.
  */
 function redirectAndClearHydraChallenge(destination: string): NextResponse {
+  logInfo("Redirecting and clearing Hydra challenge", { destination });
   const response = NextResponse.redirect(destination);
   clearHydraLoginChallenge(response);
   return response;
 }
 
+// ─── Hydra admin calls ─────────────────────────────────────────────────────
+
 /**
- * Fallback: no Hydra challenge available (standalone visit or expired cookie).
- * Applies the same 3-step auth policy but redirects to the Web app as the
- * final destination instead of accepting a Hydra challenge.
+ * Accept a Hydra login challenge and return the URL the browser should be
+ * sent to next (usually Hydra's `/oauth2/auth` continuation).
+ *
+ * Two modes, selected by `includeTraits`:
+ *   - `false` (skip fast-path): Hydra already cached this subject's login
+ *     (`remember=true` on a previous acceptance). No need to resend traits.
+ *   - `true` (normal path): Fresh login. Attach the user's identity traits
+ *     as `context` so the consent handler can use them to build token claims.
  */
-function redirectWithoutHydraChallenge(
-  request: NextRequest,
-  hasSession: boolean,
-  isEmailVerified: boolean,
-  isProfileComplete: boolean
-): NextResponse {
-  if (!hasSession) {
-    return NextResponse.redirect(buildAuthUrl("/login", request.url));
+async function acceptHydraLogin(params: {
+  challenge: string;
+  subject: string;
+  traits: unknown;
+  includeTraits: boolean;
+}): Promise<string> {
+  const body: Record<string, unknown> = {
+    subject: params.subject,
+    remember: true,
+    remember_for: getHydraRememberFor(),
+  };
+  if (params.includeTraits) {
+    body.context = { traits: params.traits || {} };
   }
 
-  if (!isEmailVerified) {
-    return NextResponse.redirect(buildAuthUrl("/verification", request.url));
-  }
+  const accepted = await hydraAdminRequest<{ redirect_to: string }>(
+    `/admin/oauth2/auth/requests/login/accept?login_challenge=${encodeURIComponent(params.challenge)}`,
+    { method: "PUT", body: JSON.stringify(body) }
+  );
 
-  if (!isProfileComplete) {
-    return NextResponse.redirect(buildSettingsUrl(request.url));
-  }
-
-  // All checks pass — send the fully-authenticated user to the Web app.
-  return NextResponse.redirect(getBookshareAppPublicUrl());
+  return accepted.redirect_to;
 }
 
-export async function GET(request: NextRequest) {
-  // Recover the challenge: prefer the fresh one from query params (Hydra just
-  // redirected here), fall back to the cookie (user completed a Kratos flow
-  // and returned).
-  const queryChallenge = request.nextUrl.searchParams.get("login_challenge")?.trim();
-  const challenge = queryChallenge || (await getHydraLoginChallenge());
+// ─── Standalone (no-challenge) flow ────────────────────────────────────────
 
-  // Check who the user is in Kratos by forwarding the browser's cookies
-  // (which include ory_kratos_session) to Kratos's /sessions/whoami endpoint.
+/**
+ * Handle an arrival with no Hydra challenge (pattern #3 from the file header).
+ *
+ * The same 3-step policy applies — but because there's no challenge to
+ * preserve, failed steps just redirect without persisting a cookie. When the
+ * policy passes, `resolveLoginDestination` decides which first-party app
+ * (Admin / Web / Bookstores) the session should be landed on, optionally
+ * honoring `?source=` and `?returnTo=` query params.
+ */
+async function handleStandaloneRequest(
+  request: NextRequest,
+  session: KratosSession | null,
+  policy: AuthPolicy
+): Promise<NextResponse> {
+  logInfo("Applying standalone auth policy", {
+    policy: policy.step,
+    path: request.nextUrl.pathname,
+    source: request.nextUrl.searchParams.get("source"),
+    returnTo: request.nextUrl.searchParams.get("returnTo"),
+  });
+
+  if (policy.step !== "ok") {
+    const destination = buildPolicyRedirectUrl(policy, request.url, "");
+    logInfo("Standalone redirect → policy step", {
+      reason: policy.reason,
+      step: policy.step,
+      destination,
+    });
+    return NextResponse.redirect(destination);
+  }
+
+  // Policy passed ⇒ session is guaranteed to be non-null.
+  // Resolve which first-party app owns this session.
+  const destination = await resolveLoginDestination(session!);
+  const redirectTo = buildLoginDestinationUrl({
+    destination,
+    source: parseLoginResolutionSource(
+      request.nextUrl.searchParams.get("source")
+    ),
+    requestedReturnTo: request.nextUrl.searchParams.get("returnTo"),
+  });
+
+  logInfo("Standalone destination resolved", {
+    destination,
+    redirectTo,
+    subject: session!.identity?.id,
+  });
+
+  return NextResponse.redirect(redirectTo);
+}
+
+// ─── Challenge-backed flow ─────────────────────────────────────────────────
+
+/**
+ * Handle an arrival with a Hydra challenge (patterns #1 and #2). Fetches
+ * the challenge metadata from Hydra to inspect `skip` and OIDC `prompt`
+ * hints, then applies the same 3-step policy, persisting the challenge in
+ * a cookie on any redirect so the flow can resume on return.
+ */
+async function handleChallengeRequest(
+  request: NextRequest,
+  session: KratosSession | null,
+  policy: AuthPolicy,
+  challenge: string
+): Promise<NextResponse> {
+  logInfo("Fetching Hydra login request", {
+    challenge: redactChallenge(challenge),
+  });
+
+  const loginRequest = await hydraAdminRequest<HydraLoginRequest>(
+    `/admin/oauth2/auth/requests/login?login_challenge=${encodeURIComponent(challenge)}`,
+    { method: "GET" }
+  );
+
+  const promptValues = getPromptValues(loginRequest);
+  const loginHint = loginRequest.oidc_context?.login_hint?.trim() || "";
+
+  logInfo("Hydra login request received", {
+    skip: Boolean(loginRequest.skip),
+    hydraSubject: loginRequest.subject ?? null,
+    loginHintPresent: Boolean(loginHint),
+    promptValues: Array.from(promptValues),
+    hasRequestUrl: Boolean(loginRequest.request_url),
+  });
+
+  // OIDC prompt overrides come first — they explicitly bypass session reuse.
+
+  // `prompt=select_account` asks the user to pick an account even when
+  // a valid session exists. Route through the chooser.
+  if (promptValues.has("select_account")) {
+    const destination = buildAuthUrl("/chooser", request.url);
+    logInfo("Prompt → select_account (chooser)", { destination });
+    return redirectWithHydraChallenge(destination, challenge);
+  }
+
+  // `prompt=login` forces fresh authentication. Route through /login with
+  // the hint so the existing session can't auto-accept.
+  if (promptValues.has("login")) {
+    const destination = buildLoginUrl(request.url, loginHint);
+    logInfo("Prompt → login (force re-auth)", {
+      destination,
+      loginHintPresent: Boolean(loginHint),
+    });
+    return redirectWithHydraChallenge(destination, challenge);
+  }
+
+  // Apply the 3-step policy. Any failure preserves the challenge in a
+  // cookie so this handler can resume after the user fixes the step.
+  if (policy.step !== "ok") {
+    const destination = buildPolicyRedirectUrl(policy, request.url, loginHint);
+    logInfo("Policy redirect", {
+      reason: policy.reason,
+      step: policy.step,
+      destination,
+      subject: session?.identity?.id,
+    });
+    return redirectWithHydraChallenge(destination, challenge);
+  }
+
+  // Policy passed ⇒ session and identityId are non-null. Accept the challenge.
+  const identityId = session!.identity!.id;
+  const useSkipFastPath = Boolean(loginRequest.skip && loginRequest.subject);
+
+  logInfo("Accepting Hydra login challenge", {
+    mode: useSkipFastPath ? "skip" : "normal",
+    subject: identityId,
+    rememberedSubject: loginRequest.subject ?? null,
+    rememberFor: getHydraRememberFor(),
+    hasTraits: Boolean(session!.identity?.traits),
+  });
+
+  const redirectTo = await acceptHydraLogin({
+    challenge,
+    subject: identityId,
+    traits: session!.identity?.traits,
+    // Skip path doesn't resend traits — Hydra already has them cached.
+    includeTraits: !useSkipFastPath,
+  });
+
+  logInfo("Hydra login accepted", {
+    mode: useSkipFastPath ? "skip" : "normal",
+    subject: identityId,
+    redirectTo,
+  });
+
+  const response = redirectAndClearHydraChallenge(redirectTo);
+  await rememberAccountFromSession(response, session);
+  return response;
+}
+
+// ─── Entry point ───────────────────────────────────────────────────────────
+
+export async function GET(request: NextRequest) {
+  const startedAt = Date.now();
+
+  // Step 1: Recover the challenge.
+  //
+  // A resolution request (?source= or ?returnTo=) is an explicit "standalone"
+  // visit — we must NOT fall back to the cookie, otherwise a stale cookie
+  // from a previous OAuth flow could hijack a perfectly valid standalone
+  // redirect. Query-param challenges always win; cookies are a convenience
+  // for the Kratos-return case only.
+  const queryChallenge = request.nextUrl.searchParams.get("login_challenge")?.trim();
+  const isResolutionRequest =
+    request.nextUrl.searchParams.has("source") ||
+    request.nextUrl.searchParams.has("returnTo");
+  const challenge =
+    queryChallenge ||
+    (isResolutionRequest ? null : await getHydraLoginChallenge());
+
+  logInfo("Request received", {
+    method: request.method,
+    url: request.url,
+    path: request.nextUrl.pathname,
+    queryChallengePresent: Boolean(queryChallenge),
+    resolutionRequest: isResolutionRequest,
+    challengeSource: queryChallenge
+      ? "query"
+      : isResolutionRequest
+        ? "none_resolution_request"
+        : challenge
+          ? "cookie"
+          : "none",
+    challenge: redactChallenge(challenge),
+  });
+
+  // Step 2: Fetch the Kratos session by forwarding the browser's cookies
+  // (including ory_kratos_session) to Kratos's /sessions/whoami endpoint.
   const session = await getKratosSession(request.headers.get("cookie") ?? "");
   const identityId = session?.identity?.id;
   const hasSession = Boolean(identityId);
   const emailVerified = isKratosEmailVerified(session);
   const profileComplete = isKratosProfileComplete(session);
 
-  // No challenge at all — standalone visit. Apply policy without Hydra.
+  // Step 3: Evaluate the 3-step auth policy once. Both branches consume it.
+  const policy = evaluateAuthPolicy(hasSession, emailVerified, profileComplete);
+
+  logInfo("Session and policy resolved", {
+    identityId,
+    hasSession,
+    emailVerified,
+    profileComplete,
+    hasTraits: Boolean(session?.identity?.traits),
+    policy: policy.step,
+  });
+
+  // Step 4: Dispatch to the appropriate flow.
   if (!challenge) {
-    return redirectWithoutHydraChallenge(
-      request,
-      hasSession,
-      emailVerified,
-      profileComplete
-    );
+    const response = await handleStandaloneRequest(request, session, policy);
+    logInfo("Standalone flow completed", {
+      durationMs: Date.now() - startedAt,
+      location: response.headers.get("location"),
+    });
+    return response;
   }
 
   try {
-    // Fetch the login challenge details from Hydra to check if it can be skipped.
-    const loginRequest = await hydraAdminRequest<HydraLoginRequest>(
-      `/admin/oauth2/auth/requests/login?login_challenge=${encodeURIComponent(challenge)}`,
-      { method: "GET" }
+    const response = await handleChallengeRequest(
+      request,
+      session,
+      policy,
+      challenge
     );
-
-    const promptValues = getPromptValues(loginRequest);
-    const loginHint = loginRequest.oidc_context?.login_hint?.trim() || "";
-
-    // `prompt=select_account` (or explicit "switch account" links carrying it)
-    // asks the user which account to use — even if a valid session exists.
-    // Route through the chooser so the user can pick or add an account.
-    if (promptValues.has("select_account")) {
-      return redirectWithHydraChallenge(
-        buildAuthUrl("/chooser", request.url),
-        challenge
-      );
-    }
-
-    // `prompt=login` forces re-authentication even when a valid session exists.
-    // Route through /login with the hint (if provided) so the same identity is
-    // re-verified rather than letting the existing session auto-accept.
-    if (promptValues.has("login")) {
-      return redirectWithHydraChallenge(
-        buildLoginUrl(request.url, loginHint),
-        challenge
-      );
-    }
-
-    // --- 3-Step Authorization Policy ---
-    // Each failed check redirects to the appropriate Auth-Portal page,
-    // carrying the challenge in a cookie for when the user comes back.
-
-    // Step 1: Authenticated? If no Kratos session → login page (with hint if available).
-    if (!identityId) {
-      return redirectWithHydraChallenge(
-        buildLoginUrl(request.url, loginHint),
-        challenge
-      );
-    }
-
-    // Step 2: Email verified? If not → verification page.
-    if (!emailVerified) {
-      return redirectWithHydraChallenge(
-        buildAuthUrl("/verification", request.url),
-        challenge
-      );
-    }
-
-    // Step 3: Profile complete? If not → settings page.
-    if (!profileComplete) {
-      return redirectWithHydraChallenge(buildSettingsUrl(request.url), challenge);
-    }
-
-    // --- All checks passed: accept the login challenge ---
-
-    // Fast path: Hydra cached a previous login decision (remember=true).
-    // Accept without resending traits — Hydra already has them.
-    if (loginRequest.skip && loginRequest.subject) {
-      const accepted = await hydraAdminRequest<{ redirect_to: string }>(
-        `/admin/oauth2/auth/requests/login/accept?login_challenge=${encodeURIComponent(challenge)}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            subject: identityId,
-            remember: true,
-            remember_for: getHydraRememberFor(),
-          }),
-        }
-      );
-
-      const response = redirectAndClearHydraChallenge(accepted.redirect_to);
-      await rememberAccountFromSession(response, session);
-      return response;
-    }
-
-    // Normal path: fresh login. Send the user's identity traits as context
-    // so they're available to the consent handler (for building token claims).
-    const accepted = await hydraAdminRequest<{ redirect_to: string }>(
-      `/admin/oauth2/auth/requests/login/accept?login_challenge=${encodeURIComponent(challenge)}`,
-      {
-        method: "PUT",
-        body: JSON.stringify({
-          subject: identityId,
-          remember: true,
-          remember_for: getHydraRememberFor(),
-          context: {
-            traits: session?.identity?.traits || {},
-          },
-        }),
-      }
-    );
-
-    const response = redirectAndClearHydraChallenge(accepted.redirect_to);
-    await rememberAccountFromSession(response, session);
+    logInfo("Challenge flow completed", {
+      durationMs: Date.now() - startedAt,
+      location: response.headers.get("location"),
+    });
     return response;
   } catch (error) {
-    console.error("OAuth login challenge handling failed", error);
+    logError("OAuth login challenge handling failed", {
+      error,
+      challenge: redactChallenge(challenge),
+      queryChallengePresent: Boolean(queryChallenge),
+      identityId,
+      hasSession,
+      emailVerified,
+      profileComplete,
+      durationMs: Date.now() - startedAt,
+    });
 
-    // If the challenge came from a cookie (not query), it might be stale.
-    // Fall back to the no-challenge behavior.
+    // Cookie-sourced challenge: likely stale. Fall back to standalone flow
+    // so a past OAuth session doesn't trap the user on an error page.
     if (!queryChallenge) {
-      const destination = redirectWithoutHydraChallenge(
-        request,
-        hasSession,
-        emailVerified,
-        profileComplete
-      ).headers.get("location");
-
-      return redirectAndClearHydraChallenge(
-        destination || getBookshareAppPublicUrl()
-      );
+      logInfo("Hydra challenge likely stale; falling back to standalone flow");
+      const fallback = await handleStandaloneRequest(request, session, policy);
+      const destination =
+        fallback.headers.get("location") || getBookshareAppPublicUrl();
+      logInfo("Fallback destination resolved after Hydra failure", {
+        destination,
+      });
+      return redirectAndClearHydraChallenge(destination);
     }
 
-    // Fresh challenge from query failed — something is wrong with Hydra.
-    return redirectAndClearHydraChallenge(`${getAuthPortalPublicUrl()}/error`);
+    // Query-sourced challenge failed: something is actually wrong with
+    // Hydra. Send the user to the auth-portal error page.
+    const errorDestination = `${getAuthPortalPublicUrl()}/error`;
+    logError("Fresh Hydra challenge failed; redirecting to error page", {
+      destination: errorDestination,
+    });
+    return redirectAndClearHydraChallenge(errorDestination);
   }
 }

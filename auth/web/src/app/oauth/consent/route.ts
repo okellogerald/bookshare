@@ -28,6 +28,7 @@
  * @see `apps/web/src/app/api/auth/callback/route.ts` — where these claims are consumed
  */
 import { NextRequest, NextResponse } from "next/server";
+import { createLogger, redactValue } from "@bookshare/logger";
 import {
   getAuthPortalPublicUrl,
   getHydraRememberFor,
@@ -35,6 +36,10 @@ import {
 import { hydraAdminRequest } from "@/shared/lib/hydra";
 import { getKratosSession, isKratosEmailVerified } from "@/shared/lib/kratos";
 import { resolvePlatformRoles } from "@/shared/lib/staff-roles";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "oauth.consent",
+});
 
 interface HydraConsentRequest {
   subject: string;
@@ -90,7 +95,14 @@ function buildIdTokenClaims(
   if (fullName) claims.name = fullName;
   claims.roles = roles;
 
-  console.info("id token claims: ", claims)
+  logger.debug(
+    {
+      emailPresent: Boolean(email),
+      hasName: Boolean(fullName),
+      roles,
+    },
+    "Built ID token claims"
+  );
 
   return claims;
 }
@@ -126,7 +138,15 @@ function buildAccessTokenClaims(
   if (lastName) claims.family_name = lastName;
   if (fullName) claims.name = fullName;
 
-  console.info("access token claims: ", claims)
+  logger.debug(
+    {
+      subject,
+      emailPresent: Boolean(email),
+      hasName: Boolean(fullName),
+      roles,
+    },
+    "Built access token claims"
+  );
 
   return claims;
 }
@@ -135,6 +155,7 @@ export async function GET(request: NextRequest) {
   const challenge = request.nextUrl.searchParams.get("consent_challenge");
 
   if (!challenge) {
+    logger.warn("Missing consent challenge");
     return NextResponse.json(
       { error: "missing consent_challenge" },
       { status: 400 }
@@ -178,8 +199,21 @@ export async function GET(request: NextRequest) {
       ? await resolvePlatformRoles({
           userId: subject,
           email,
+          emailVerified,
         })
       : [];
+
+    logger.info(
+      {
+        subject,
+        emailPresent: Boolean(email),
+        emailVerified,
+        roles,
+        requestedScopes: consentRequest.requested_scope ?? [],
+        challenge: redactValue(challenge),
+      },
+      "Accepting Hydra consent request"
+    );
 
     // Accept consent — auto-approved for first-party apps.
     // The `session` field defines what claims appear in each token type.
@@ -209,9 +243,21 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    return NextResponse.redirect(accepted.redirect_to);
+    const response = NextResponse.redirect(accepted.redirect_to);
+    logger.info(
+      {
+        subject,
+        redirectTo: accepted.redirect_to,
+        challenge: redactValue(challenge),
+      },
+      "Hydra consent accepted"
+    );
+    return response;
   } catch (error) {
-    console.error("OAuth consent challenge handling failed", error);
+    logger.error(
+      { err: error, challenge: redactValue(challenge) },
+      "OAuth consent challenge handling failed"
+    );
     return NextResponse.redirect(`${getAuthPortalPublicUrl()}/error`);
   }
 }

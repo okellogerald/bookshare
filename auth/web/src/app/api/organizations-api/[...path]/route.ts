@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createLogger } from "@bookshare/logger";
 import {
   getOrganizationAccessToken,
   getOrganizationSession,
 } from "@/organizations/auth/session";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "api.organizations-api",
+});
 
 const AUTH_API_URL =
   process.env.AUTH_API_INTERNAL_URL || "http://localhost:3340/api";
@@ -11,6 +16,10 @@ async function proxyRequest(request: NextRequest, path: string[]) {
   const token = await getOrganizationAccessToken();
   const session = await getOrganizationSession();
   if (!token || !session) {
+    logger.warn(
+      { method: request.method, path: path.join("/") },
+      "Rejected organization API proxy request without session"
+    );
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -46,6 +55,14 @@ async function proxyRequest(request: NextRequest, path: string[]) {
     return new NextResponse(await response.text(), { status: response.status });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Auth API unavailable";
+    logger.error(
+      {
+        err: error,
+        method: request.method,
+        path: path.join("/"),
+      },
+      "Failed to reach auth API upstream"
+    );
     return NextResponse.json(
       { error: "Failed to reach auth API", detail },
       { status: 502 }

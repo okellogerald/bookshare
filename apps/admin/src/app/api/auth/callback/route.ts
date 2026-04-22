@@ -18,15 +18,27 @@ import {
   clearOIDCTransactionCookies,
   readOIDCTransaction,
 } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import * as client from "openid-client";
 import { decrypt } from "@/domain/auth/lib/crypto";
 import { getOIDCConfig } from "@/domain/auth/lib/oidc";
 import { setSession } from "@/domain/auth/lib/session";
-import { buildAuthPortalVerificationUrl } from "@/domain/auth/lib/auth-portal";
-import { isAdminConsoleRole } from "@bookshare/shared";
+import {
+  buildAuthPortalResolveUrl,
+  buildAuthPortalVerificationUrl,
+} from "@/domain/auth/lib/auth-portal";
+import {
+  PlatformRole,
+  isAdminConsoleRole,
+  isAdminEmailAddress,
+} from "@bookshare/shared";
 import {
   ADMIN_OIDC_COOKIE_NAMES,
 } from "@/domain/auth/lib/cookie-names";
+
+const logger = createLogger({ service: "admin-auth" }).child({
+  route: "api.auth.callback",
+});
 
 /** Normalizes claim values to boolean — Hydra may encode them as strings. */
 function toBoolean(value: unknown): boolean {
@@ -39,11 +51,24 @@ function toBoolean(value: unknown): boolean {
  * Extract platform roles from the ID token claims.
  */
 function extractRoles(claims: Record<string, unknown>): string[] {
+  const roles = new Set<string>();
+
   if (Array.isArray(claims.roles)) {
-    return claims.roles.filter((value): value is string => typeof value === "string");
+    for (const value of claims.roles) {
+      if (typeof value === "string") roles.add(value);
+    }
   }
 
-  return [];
+  if (
+    isAdminEmailAddress(
+      typeof claims.email === "string" ? claims.email : null,
+      process.env.ADMIN_EMAIL_DOMAIN
+    )
+  ) {
+    roles.add(PlatformRole.PLATFORM_STAFF);
+  }
+
+  return Array.from(roles);
 }
 
 export async function GET(request: NextRequest) {
@@ -56,6 +81,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!transaction) {
+    logger.warn("Missing admin OIDC transaction; redirecting to login");
     return NextResponse.redirect(new URL("/api/auth/login", request.url));
   }
 
@@ -76,6 +102,10 @@ export async function GET(request: NextRequest) {
 
     // Gate 1: email must be verified before admin access.
     if (!emailVerified) {
+      logger.warn(
+        { subject: claims.sub ?? null, roles },
+        "Admin OAuth callback rejected because email is not verified"
+      );
       const response = NextResponse.redirect(buildAuthPortalVerificationUrl());
       clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;
@@ -83,7 +113,13 @@ export async function GET(request: NextRequest) {
 
     // Gate 2: user must have an admin-console role.
     if (!roles.some(isAdminConsoleRole)) {
-      const response = NextResponse.redirect(new URL("/?error=forbidden", request.url));
+      logger.warn(
+        { subject: claims.sub ?? null, roles, returnTo: transaction.returnTo },
+        "Admin OAuth callback rejected because user lacks admin role"
+      );
+      const response = NextResponse.redirect(
+        buildAuthPortalResolveUrl(transaction.returnTo)
+      );
       clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;
     }
@@ -108,8 +144,17 @@ export async function GET(request: NextRequest) {
       new URL(transaction.returnTo, request.url)
     );
     clearOIDCTransactionCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
+    logger.info(
+      {
+        subject: claims.sub ?? null,
+        roles,
+        returnTo: transaction.returnTo,
+      },
+      "Admin OAuth callback completed"
+    );
     return response;
   } catch (error) {
+    logger.error({ err: error }, "Admin OAuth callback failed");
     const response = NextResponse.redirect(new URL("/?error=auth_failed", request.url));
     clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
     return response;

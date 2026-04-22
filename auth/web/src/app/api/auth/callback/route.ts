@@ -4,11 +4,16 @@ import {
   clearOIDCTransactionCookies,
   readOIDCTransaction,
 } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import * as client from "openid-client";
 import { decrypt } from "@/organizations/auth/crypto";
 import { AUTH_ORG_OIDC_COOKIE_NAMES } from "@/organizations/auth/cookie-names";
 import { getOIDCConfig } from "@/organizations/auth/oidc";
 import { setOrganizationSession } from "@/organizations/auth/session";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "api.auth.callback",
+});
 
 function toBoolean(value: unknown): boolean {
   if (typeof value === "boolean") return value;
@@ -31,6 +36,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!transaction) {
+    logger.warn("Missing organization OIDC transaction; redirecting to login");
     return NextResponse.redirect(new URL("/api/auth/login", request.url));
   }
 
@@ -48,6 +54,10 @@ export async function GET(request: NextRequest) {
     const claims = tokens.claims()!;
     const emailVerified = toBoolean(claims.email_verified);
     if (!emailVerified) {
+      logger.warn(
+        { subject: claims.sub ?? null },
+        "Organization OAuth callback rejected because email is not verified"
+      );
       const response = NextResponse.redirect(new URL("/verification", request.url));
       clearOIDCClientCookies(response.cookies, AUTH_ORG_OIDC_COOKIE_NAMES);
       return response;
@@ -73,8 +83,17 @@ export async function GET(request: NextRequest) {
       new URL(transaction.returnTo, request.url)
     );
     clearOIDCTransactionCookies(response.cookies, AUTH_ORG_OIDC_COOKIE_NAMES);
+    logger.info(
+      {
+        subject: claims.sub ?? null,
+        returnTo: transaction.returnTo,
+        roles: extractRoles(claims as Record<string, unknown>),
+      },
+      "Organization OAuth callback completed"
+    );
     return response;
-  } catch {
+  } catch (error) {
+    logger.error({ err: error }, "Organization OAuth callback failed");
     const response = NextResponse.redirect(
       new URL("/organizations?error=auth_failed", request.url)
     );

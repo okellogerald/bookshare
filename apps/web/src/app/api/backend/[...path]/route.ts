@@ -1,10 +1,15 @@
 import { getAccessToken, getSession } from "@/domains/auth/lib/session";
 import { isReadGatewayResourceName } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import {
   buildProxyBaseUrlCandidates,
   buildProxyRequestUrl,
 } from "@/shared/lib/proxy-targets";
 import { NextRequest, NextResponse } from "next/server";
+
+const logger = createLogger({ service: "web-auth" }).child({
+  route: "api.backend",
+});
 
 const API_URL_CANDIDATES = buildProxyBaseUrlCandidates(
   process.env.API_INTERNAL_URL,
@@ -23,6 +28,10 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     if (isReadOnly) {
       return proxyRequest(request, path, null);
     }
+    logger.warn(
+      { method: request.method, path: path.join("/") },
+      "Rejected authenticated API proxy request without session"
+    );
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -30,6 +39,14 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     if (isReadOnly) {
       return proxyRequest(request, path, null);
     }
+    logger.warn(
+      {
+        method: request.method,
+        path: path.join("/"),
+        subject: session.user.id,
+      },
+      "Rejected authenticated API proxy request for unverified user"
+    );
     return NextResponse.json(
       { error: "Email verification required" },
       { status: 403 }
@@ -110,6 +127,16 @@ async function proxyRequest(
     lastError instanceof Error
       ? lastError.message
       : "No reachable API upstream configured.";
+
+  logger.error(
+    {
+      err: lastError,
+      method: request.method,
+      apiPath,
+      upstream: lastUrl,
+    },
+    "Failed to reach API upstream"
+  );
 
   return NextResponse.json(
     { error: "Failed to reach API", detail, upstream: lastUrl },

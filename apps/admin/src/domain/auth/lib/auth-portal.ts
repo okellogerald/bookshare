@@ -23,6 +23,13 @@ export function buildAuthPortalVerificationUrl(): string {
   return new URL("/verification", getAuthPortalBaseUrl()).toString();
 }
 
+export function buildAuthPortalResolveUrl(returnTo: string): string {
+  const url = new URL("/oauth/login", getAuthPortalBaseUrl());
+  url.searchParams.set("source", "admin");
+  url.searchParams.set("returnTo", sanitizeReturnTo(returnTo));
+  return url.toString();
+}
+
 export function buildAuthPortalLogoutUrl(): string {
   const url = new URL("/logout", getAuthPortalBaseUrl());
   url.searchParams.set("return_to", getAppBaseUrl());

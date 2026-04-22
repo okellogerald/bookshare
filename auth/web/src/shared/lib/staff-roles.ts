@@ -4,14 +4,17 @@
  * Determines what platform roles a user has. Called during the consent
  * challenge handler to populate role claims in the ID and access tokens.
  *
- * Two sources of roles:
+ * Three sources of roles:
  *
  * 1. **Bootstrap admins** (BOOTSTRAP_ADMIN_EMAILS env var): A comma-separated
  *    list of emails that are automatically granted the platform-admin role.
  *    This solves the chicken-and-egg problem: you need an admin to create
  *    admins, but initially there are no admins.
  *
- * 2. **Database roles** (staff_roles table): Persistent roles assigned through
+ * 2. **Admin email domain** (ADMIN_EMAIL_DOMAIN env var): Any verified email
+ *    in this domain is granted platform-staff access to the Admin client.
+ *
+ * 3. **Database roles** (staff_roles table): Persistent roles assigned through
  *    the admin UI. Queried via Drizzle ORM. Supports platform_admin and
  *    platform_staff roles. These are the primary source after initial bootstrap.
  *
@@ -22,7 +25,7 @@
  * @see `apps/admin/src/middleware.ts` — where roles are enforced
  */
 import { createDb, staffRoles } from "@bookshare/db";
-import { PlatformRole } from "@bookshare/shared";
+import { PlatformRole, isAdminEmailAddress } from "@bookshare/shared";
 import { eq } from "drizzle-orm";
 
 type StaffRole = string;
@@ -77,10 +80,19 @@ function normalizeRole(role: string): StaffRole | null {
 export async function resolvePlatformRoles(params: {
   userId: string;
   email?: string | null;
+  emailVerified?: boolean;
 }): Promise<StaffRole[]> {
   const roles = new Set<StaffRole>([PlatformRole.USER]);
 
   const email = normalizeEmail(params.email);
+  if (
+    params.emailVerified !== false &&
+    email &&
+    isAdminEmailAddress(email, process.env.ADMIN_EMAIL_DOMAIN)
+  ) {
+    roles.add(PlatformRole.PLATFORM_STAFF);
+  }
+
   if (email && parseBootstrapEmails().has(email)) {
     roles.add(PlatformRole.PLATFORM_ADMIN);
   }

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules
+**/node_modules
+.pnp
+.pnp.js
+
+# Build output
+dist
+**/dist
+build
+**/build
+.next
+**/.next
+out
+**/out
+coverage
+**/coverage
+.turbo
+**/.turbo
+*.tsbuildinfo
+
+# Local/runtime state
+.git
+.DS_Store
+Thumbs.db
+*.log
+*.local
+*.tmp
+packages/importer/input
+apps/workflows/data
+
+# Environment files
+.env
+.env.*

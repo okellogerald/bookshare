@@ -5,10 +5,15 @@ import {
   createLoginTransaction,
   persistOIDCTransaction,
 } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import * as client from "openid-client";
 import { encrypt } from "@/organizations/auth/crypto";
 import { AUTH_ORG_OIDC_COOKIE_NAMES } from "@/organizations/auth/cookie-names";
 import { getOIDCConfig, getRedirectUri } from "@/organizations/auth/oidc";
+
+const logger = createLogger({ service: "auth-web" }).child({
+  route: "api.auth.login",
+});
 
 export async function GET(request: NextRequest) {
   const config = await getOIDCConfig();
@@ -39,6 +44,15 @@ export async function GET(request: NextRequest) {
   clearLoggedOutMarker(
     response.cookies,
     AUTH_ORG_OIDC_COOKIE_NAMES.loggedOut
+  );
+
+  logger.info(
+    {
+      returnTo: transaction.returnTo,
+      authorizationHost: authorizationUrl.host,
+      authorizationPath: authorizationUrl.pathname,
+    },
+    "Started organization OAuth login"
   );
 
   return response;

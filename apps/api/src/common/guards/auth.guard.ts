@@ -7,10 +7,11 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
+import { PinoLogger } from "nestjs-pino";
 import * as jwt from "jsonwebtoken";
 import jwksClient, { JwksClient } from "jwks-rsa";
 import { type Database, memberProfiles, staffRoles } from "@bookshare/db";
-import { PlatformRole } from "@bookshare/shared";
+import { PlatformRole, isAdminEmailAddress } from "@bookshare/shared";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
@@ -54,8 +55,10 @@ export class AuthGuard implements CanActivate {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly configService: ConfigService,
-    private readonly reflector: Reflector
+    private readonly reflector: Reflector,
+    private readonly logger: PinoLogger
   ) {
+    this.logger.setContext(AuthGuard.name);
     const issuer = this.getIssuer();
     const issuerInternal =
       this.configService.get<string>("OIDC_ISSUER_INTERNAL") || issuer;
@@ -102,6 +105,10 @@ export class AuthGuard implements CanActivate {
     if (!token) {
       request.user = null;
       if (optional) return null;
+      this.logger.warn(
+        { method: request.method, path: request.url },
+        "Missing authorization token"
+      );
       throw new UnauthorizedException("No authorization token provided");
     }
 
@@ -111,13 +118,33 @@ export class AuthGuard implements CanActivate {
       mappedUser.roles = await this.resolveAuthorizedRoles(mappedUser);
       await this.ensureActiveAccount(mappedUser.id);
       request.user = mappedUser;
+      this.logger.debug(
+        {
+          method: request.method,
+          path: request.url,
+          userId: mappedUser.id,
+          roles: mappedUser.roles,
+          optional,
+        },
+        "Authenticated request"
+      );
       return mappedUser;
     } catch (error) {
       request.user = null;
       if (error instanceof UnauthorizedException) {
+        if (!optional) {
+          this.logger.warn(
+            { err: error, method: request.method, path: request.url },
+            "Authentication rejected"
+          );
+        }
         throw error;
       }
       if (optional) return null;
+      this.logger.warn(
+        { err: error, method: request.method, path: request.url },
+        "Authorization token verification failed"
+      );
       throw new UnauthorizedException("Invalid or expired token");
     }
   }
@@ -159,8 +186,12 @@ export class AuthGuard implements CanActivate {
     );
   }
 
+  private getAdminEmailDomain() {
+    return this.configService.get<string>("ADMIN_EMAIL_DOMAIN");
+  }
+
   private async resolveAuthorizedRoles(
-    user: Pick<AuthenticatedUser, "id" | "email" | "roles">
+    user: Pick<AuthenticatedUser, "id" | "email" | "emailVerified" | "roles">
   ) {
     const roles = new Set<string>([PlatformRole.USER]);
     const email = this.normalizeEmail(user.email);
@@ -174,6 +205,14 @@ export class AuthGuard implements CanActivate {
 
     if (email && this.parseBootstrapEmails().has(email)) {
       roles.add(PlatformRole.PLATFORM_ADMIN);
+    }
+
+    if (
+      user.emailVerified === true &&
+      email &&
+      isAdminEmailAddress(email, this.getAdminEmailDomain())
+    ) {
+      roles.add(PlatformRole.PLATFORM_STAFF);
     }
 
     const persistedRoles = await this.db

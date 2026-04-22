@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decrypt } from "@/domain/auth/lib/crypto";
 import {
+  BOOKSTORES_ACTIVE_ORG_COOKIE,
   BOOKSTORES_LOGGED_OUT_COOKIE,
   BOOKSTORES_SESSION_COOKIE,
   BOOKSTORES_TOKEN_COOKIE,
@@ -57,6 +58,7 @@ export async function middleware(request: NextRequest) {
       const response = NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);
       response.cookies.delete(BOOKSTORES_SESSION_COOKIE);
       response.cookies.delete(BOOKSTORES_TOKEN_COOKIE);
+      response.cookies.delete(BOOKSTORES_ACTIVE_ORG_COOKIE);
       return response;
     }
 
@@ -64,7 +66,9 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(buildAuthPortalVerificationUrl());
     }
   } catch {
-    return NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);
+    const response = NextResponse.redirect(loggedOutMarker ? landingUrl : loginUrl);
+    response.cookies.delete(BOOKSTORES_ACTIVE_ORG_COOKIE);
+    return response;
   }
 
   return NextResponse.next();

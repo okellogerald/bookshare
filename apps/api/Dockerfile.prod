@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # ─── Build Stage ───────────────────────────────────────────────
 FROM oven/bun:1 AS builder
 WORKDIR /app
@@ -6,6 +8,7 @@ COPY package.json bun.lock ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/db/package.json ./packages/db/
 COPY packages/importer/package.json ./packages/importer/
+COPY packages/logger/package.json ./packages/logger/
 COPY auth/web/package.json ./auth/web/
 COPY auth/api/package.json ./auth/api/
 COPY apps/admin/package.json ./apps/admin/
@@ -14,11 +17,13 @@ COPY apps/bookstores/package.json ./apps/bookstores/
 COPY apps/web/package.json ./apps/web/
 COPY apps/workflows/package.json ./apps/workflows/
 
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
+    bun install --filter @bookshare/api --frozen-lockfile
 
 COPY packages/shared ./packages/shared
 COPY packages/db ./packages/db
 COPY packages/importer ./packages/importer
+COPY packages/logger ./packages/logger
 COPY apps/api ./apps/api
 COPY tsconfig.base.json ./
 
@@ -34,6 +39,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/packages/logger ./packages/logger
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./
 
 USER nestjs

@@ -5,8 +5,11 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { PinoLogger } from "nestjs-pino";
 import * as jwt from "jsonwebtoken";
 import jwksClient, { JwksClient } from "jwks-rsa";
+
+const DEFAULT_ADMIN_EMAIL_DOMAIN = "bookshare.local";
 
 interface IdentityJwtPayload {
   sub: string;
@@ -38,7 +41,11 @@ export interface AuthenticatedUser {
 export class AuthGuard implements CanActivate {
   private readonly jwksClient: JwksClient;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly logger: PinoLogger
+  ) {
+    this.logger.setContext(AuthGuard.name);
     const issuer = this.getIssuer();
     const issuerInternal =
       this.configService.get<string>("OIDC_ISSUER_INTERNAL") || issuer;
@@ -61,17 +68,34 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = this.extractBearerToken(request);
     if (!token) {
+      this.logger.warn(
+        { method: request.method, path: request.url },
+        "Missing authorization token"
+      );
       throw new UnauthorizedException("No authorization token provided");
     }
 
     try {
       const payload = await this.verifyToken(token);
       request.user = this.mapUser(payload);
+      this.logger.debug(
+        {
+          method: request.method,
+          path: request.url,
+          userId: request.user.id,
+          roles: request.user.roles,
+        },
+        "Authenticated request"
+      );
       return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
+      this.logger.warn(
+        { err: error, method: request.method, path: request.url },
+        "Authorization token verification failed"
+      );
       throw new UnauthorizedException("Invalid or expired token");
     }
   }
@@ -101,6 +125,19 @@ export class AuthGuard implements CanActivate {
     );
   }
 
+  private isAdminEmail(value: string | undefined) {
+    const email = this.normalizeEmail(value);
+    const domain = (
+      this.configService.get<string>("ADMIN_EMAIL_DOMAIN") ||
+      DEFAULT_ADMIN_EMAIL_DOMAIN
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/^@+/, "");
+
+    return Boolean(email && domain && email.endsWith(`@${domain}`));
+  }
+
   private mapUser(payload: IdentityJwtPayload): AuthenticatedUser {
     const roles = new Set(
       Array.isArray(payload.roles)
@@ -110,6 +147,13 @@ export class AuthGuard implements CanActivate {
     const email = this.normalizeEmail(payload.email) ?? undefined;
     if (email && this.parseBootstrapEmails().has(email)) {
       roles.add("platform_admin");
+    }
+
+    if (
+      (payload.email_verified === true || payload.email_verified === "true") &&
+      this.isAdminEmail(email)
+    ) {
+      roles.add("platform_staff");
     }
 
     return {

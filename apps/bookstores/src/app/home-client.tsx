@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, Loader2, Mail } from "lucide-react";
 import type { BookstoreBootstrapMembership } from "@bookshare/shared";
@@ -16,20 +15,20 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card";
 import {
+  getActiveBookstoreId,
   getBookstorePrimaryRoute,
-  getLastUsedBookstoreId,
-  setLastUsedBookstoreId,
+  setActiveBookstoreId,
 } from "@/shared/lib/bookstores";
 import { formatUiDateTime } from "@/shared/lib/date";
 import { BookstoreStatusBadge } from "@/shared/components/bookstore-status";
 
 function MembershipCard({
   membership,
+  onOpen,
 }: {
   membership: BookstoreBootstrapMembership;
+  onOpen: (membership: BookstoreBootstrapMembership) => void;
 }) {
-  const primaryRoute = getBookstorePrimaryRoute(membership.organization);
-
   return (
     <Card className="h-full">
       <CardHeader>
@@ -42,14 +41,13 @@ function MembershipCard({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button asChild className="w-full justify-between">
-          <Link
-            href={primaryRoute}
-            onClick={() => setLastUsedBookstoreId(membership.organization.id)}
-          >
-            Open workspace
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+        <Button
+          type="button"
+          className="w-full justify-between"
+          onClick={() => onOpen(membership)}
+        >
+          Open workspace
+          <ArrowRight className="h-4 w-4" />
         </Button>
       </CardContent>
     </Card>
@@ -59,32 +57,62 @@ function MembershipCard({
 export function BookstoresHomeClient() {
   const router = useRouter();
   const { data, isLoading, error } = useBookstoresMe();
+  const [activeBookstoreId, setActiveBookstoreIdState] = useState<
+    string | null | undefined
+  >(undefined);
   const memberships = data?.memberships ?? [];
 
-  const lastUsedMembership = useMemo(() => {
-    const lastUsedId = getLastUsedBookstoreId();
-    if (!lastUsedId) return null;
-    return memberships.find((entry) => entry.organizationId === lastUsedId) ?? null;
-  }, [memberships]);
+  const activeMembership = useMemo(() => {
+    if (!activeBookstoreId) return null;
+    return (
+      memberships.find((entry) => entry.organizationId === activeBookstoreId) ??
+      null
+    );
+  }, [activeBookstoreId, memberships]);
 
   useEffect(() => {
-    if (!data) return;
+    let cancelled = false;
+
+    void getActiveBookstoreId()
+      .catch(() => null)
+      .then((value) => {
+        if (!cancelled) setActiveBookstoreIdState(value);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!data || activeBookstoreId === undefined) return;
 
     if (memberships.length === 1) {
-      setLastUsedBookstoreId(memberships[0].organizationId);
-      router.replace(getBookstorePrimaryRoute(memberships[0].organization));
+      const membership = memberships[0];
+      void setActiveBookstoreId(membership.organizationId)
+        .catch(() => undefined)
+        .then(() => {
+          router.replace(getBookstorePrimaryRoute(membership.organization));
+        });
       return;
     }
 
-    if (memberships.length > 1 && lastUsedMembership) {
-      setLastUsedBookstoreId(lastUsedMembership.organizationId);
-      router.replace(getBookstorePrimaryRoute(lastUsedMembership.organization));
+    if (memberships.length > 1 && activeMembership) {
+      router.replace(getBookstorePrimaryRoute(activeMembership.organization));
     }
-  }, [data, lastUsedMembership, memberships, router]);
+  }, [activeBookstoreId, activeMembership, data, memberships, router]);
+
+  function openMembership(membership: BookstoreBootstrapMembership) {
+    void setActiveBookstoreId(membership.organizationId)
+      .catch(() => undefined)
+      .then(() => {
+        router.push(getBookstorePrimaryRoute(membership.organization));
+      });
+  }
 
   const errorMessage = (error as Error | null)?.message ?? null;
 
-  if (isLoading) {
+  if (isLoading || activeBookstoreId === undefined) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-3 text-muted-foreground">
@@ -95,7 +123,7 @@ export function BookstoresHomeClient() {
     );
   }
 
-  if (memberships.length === 1 || (memberships.length > 1 && lastUsedMembership)) {
+  if (memberships.length === 1 || (memberships.length > 1 && activeMembership)) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-3 text-muted-foreground">
@@ -131,6 +159,7 @@ export function BookstoresHomeClient() {
               <MembershipCard
                 key={membership.organizationId}
                 membership={membership}
+                onOpen={openMembership}
               />
             ))}
           </div>

@@ -47,6 +47,4 @@ packages/importer/input/
 *.local
 
 *.claude/
-
-# ─── Licensed Local Fonts ────────────────────────────────────
-assets/fonts/GT-Walsheim/
+*.tmp/

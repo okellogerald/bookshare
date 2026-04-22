@@ -17,7 +17,7 @@ import { useMyProfile, useSyncMyProfile } from "@/shared/queries/profile";
 import { Select } from "@/shared/components/ui/select";
 import {
   getBookstorePrimaryRoute,
-  setLastUsedBookstoreId,
+  setActiveBookstoreId,
 } from "@/shared/lib/bookstores";
 import { cn } from "@/shared/lib/utils";
 
@@ -91,9 +91,9 @@ export function BookstoresShellClient({
 
   useEffect(() => {
     if (currentOrganization) {
-      setLastUsedBookstoreId(currentOrganization.id);
+      void setActiveBookstoreId(currentOrganization.id).catch(() => undefined);
     }
-  }, [currentOrganization]);
+  }, [currentOrganization?.id]);
 
   useEffect(() => {
     if (!isEmailVerified || syncedProfile.current) {
@@ -174,8 +174,11 @@ export function BookstoresShellClient({
                   (entry) => entry.organization.id === event.target.value
                 );
                 if (!next) return;
-                setLastUsedBookstoreId(next.organization.id);
-                router.push(getBookstorePrimaryRoute(next.organization));
+                void setActiveBookstoreId(next.organization.id)
+                  .catch(() => undefined)
+                  .then(() => {
+                    router.push(getBookstorePrimaryRoute(next.organization));
+                  });
               }}
             >
               {memberships.map((membership) => (

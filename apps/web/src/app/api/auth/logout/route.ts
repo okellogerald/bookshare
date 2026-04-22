@@ -26,6 +26,7 @@ import {
   clearOIDCClientCookies,
   setLoggedOutMarker,
 } from "@bookshare/shared";
+import { createLogger } from "@bookshare/logger";
 import * as client from "openid-client";
 import {
   getOIDCConfig,
@@ -33,6 +34,10 @@ import {
 import { buildAppPostLogoutUrl } from "@/domains/auth/lib/auth-portal";
 import { getSession } from "@/domains/auth/lib/session";
 import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
+
+const logger = createLogger({ service: "web-auth" }).child({
+  route: "api.auth.logout",
+});
 
 export async function GET() {
   // After Hydra completes its logout, it will redirect the browser here.
@@ -54,7 +59,11 @@ export async function GET() {
   let redirectTarget = postLogoutRedirectUri;
   try {
     redirectTarget = client.buildEndSessionUrl(config, params).href;
-  } catch {
+  } catch (error) {
+    logger.warn(
+      { err: error },
+      "Failed to build Hydra end-session URL; falling back to post-logout"
+    );
     redirectTarget = postLogoutRedirectUri;
   }
 
@@ -66,6 +75,10 @@ export async function GET() {
   // Set a marker so middleware knows the user explicitly logged out and
   // should see the landing page (not be auto-redirected to login).
   setLoggedOutMarker(response.cookies, WEB_OIDC_COOKIE_NAMES.loggedOut);
+  logger.info(
+    { hasIdTokenHint: Boolean(session?.idToken) },
+    "Started web logout"
+  );
 
   return response;
 }

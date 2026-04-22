@@ -48,6 +48,14 @@ export function buildAuthPortalVerificationUrl(): string {
   return url.toString();
 }
 
+/** Auth-Portal login resolver — chooses Web, Admin, or Bookstores after auth. */
+export function buildAuthPortalResolveUrl(returnTo: string): string {
+  const url = new URL("/oauth/login", getAuthPortalBaseUrl());
+  url.searchParams.set("source", "web");
+  url.searchParams.set("returnTo", sanitizeReturnTo(returnTo));
+  return url.toString();
+}
+
 /** Auth-Portal settings page — redirected here when profile is incomplete. */
 export function buildAuthPortalSettingsUrl(
   section?: "profile" | "password"
