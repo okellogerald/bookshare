@@ -29,6 +29,9 @@ export default function HomePage() {
         <NextLink href="/organizations" className="auth-home-link">
           Organizations
         </NextLink>
+        <NextLink href="/logout" className="auth-home-link">
+          Log Out
+        </NextLink>
       </div>
     </AuthShell>
   );

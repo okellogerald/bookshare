@@ -19,14 +19,17 @@ export function sanitizeReturnTo(value: string | null | undefined): string {
   return sanitizeRelativeReturnTo(value, "/");
 }
 
-export function buildAuthPortalVerificationUrl(): string {
-  return new URL("/verification", getAuthPortalBaseUrl()).toString();
+function buildAppLoginUrl(returnTo: string): string {
+  const url = new URL("/api/auth/login", getAppBaseUrl());
+  url.searchParams.set("returnTo", sanitizeReturnTo(returnTo));
+  return url.toString();
 }
 
-export function buildAuthPortalResolveUrl(returnTo: string): string {
-  const url = new URL("/oauth/login", getAuthPortalBaseUrl());
-  url.searchParams.set("source", "bookstores");
-  url.searchParams.set("returnTo", sanitizeReturnTo(returnTo));
+export function buildAuthPortalVerificationUrl(returnTo?: string): string {
+  const url = new URL("/verification", getAuthPortalBaseUrl());
+  if (returnTo) {
+    url.searchParams.set("return_to", buildAppLoginUrl(returnTo));
+  }
   return url.toString();
 }
 

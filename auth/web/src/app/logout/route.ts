@@ -27,11 +27,6 @@ import {
   getKratosBrowserUrl,
   getKratosInternalPublicUrl,
 } from "@/shared/lib/config";
-import {
-  clearKnownAccounts,
-  removeKnownAccount,
-} from "@/shared/lib/known-accounts-cookie";
-import { getKratosSession } from "@/shared/lib/kratos";
 
 const logger = createLogger({ service: "auth-web" }).child({
   route: "logout",
@@ -71,39 +66,6 @@ function toKratosBrowserUrl(value: string): URL {
   return new URL(value, getKratosBrowserUrl());
 }
 
-/**
- * Apply the caller's known-accounts bookkeeping choice to the response:
- *   - `forget_accounts=all`   → clear the entire chooser cookie
- *   - `forget_accounts=current` (or `forget=1`) → remove just the active
- *     identity so they stop appearing in the chooser on this device
- *   - default                 → preserve chips so quick re-auth still works
- */
-async function applyKnownAccountsPolicy(
-  response: NextResponse,
-  request: NextRequest,
-  cookieHeader: string
-): Promise<void> {
-  const params = request.nextUrl.searchParams;
-  const mode =
-    params.get("forget_accounts")?.trim().toLowerCase() ||
-    (params.get("forget")?.trim() === "1" ? "current" : "");
-
-  if (!mode) return;
-
-  if (mode === "all") {
-    clearKnownAccounts(response);
-    return;
-  }
-
-  if (mode === "current") {
-    const session = await getKratosSession(cookieHeader);
-    const sub = session?.identity?.id;
-    if (sub) {
-      await removeKnownAccount(response, sub);
-    }
-  }
-}
-
 export async function GET(request: NextRequest) {
   const returnTo = sanitizeReturnTo(
     request.nextUrl.searchParams.get("return_to")
@@ -133,15 +95,11 @@ export async function GET(request: NextRequest) {
 
     const location = response.headers.get("location");
     if (location) {
-      const redirect = NextResponse.redirect(toKratosBrowserUrl(location));
-      await applyKnownAccountsPolicy(redirect, request, cookieHeader);
-      return redirect;
+      return NextResponse.redirect(toKratosBrowserUrl(location));
     }
 
     if (response.status === 401) {
-      const redirect = NextResponse.redirect(returnTo);
-      await applyKnownAccountsPolicy(redirect, request, cookieHeader);
-      return redirect;
+      return NextResponse.redirect(returnTo);
     }
 
     if (!response.ok) {
@@ -149,25 +107,17 @@ export async function GET(request: NextRequest) {
         { status: response.status, returnTo },
         "Kratos logout flow creation failed"
       );
-      const redirect = NextResponse.redirect(returnTo);
-      await applyKnownAccountsPolicy(redirect, request, cookieHeader);
-      return redirect;
+      return NextResponse.redirect(returnTo);
     }
 
     const body = (await response.json()) as { logout_url?: unknown };
     if (typeof body.logout_url === "string" && body.logout_url.trim().length > 0) {
-      const redirect = NextResponse.redirect(toKratosBrowserUrl(body.logout_url));
-      await applyKnownAccountsPolicy(redirect, request, cookieHeader);
-      return redirect;
+      return NextResponse.redirect(toKratosBrowserUrl(body.logout_url));
     }
 
-    const redirect = NextResponse.redirect(returnTo);
-    await applyKnownAccountsPolicy(redirect, request, cookieHeader);
-    return redirect;
+    return NextResponse.redirect(returnTo);
   } catch (error) {
     logger.error({ err: error, returnTo }, "Auth portal logout failed");
-    const redirect = NextResponse.redirect(returnTo);
-    await applyKnownAccountsPolicy(redirect, request, cookieHeader);
-    return redirect;
+    return NextResponse.redirect(returnTo);
   }
 }

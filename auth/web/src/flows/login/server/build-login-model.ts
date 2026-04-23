@@ -2,7 +2,9 @@ import type { KratosBrowserFlow, KratosUiMessage, KratosUiNode } from "@/shared/
 import {
   findSubmitNode,
   findVisibleFieldNode,
+  getOptionalSingleNode,
   getResolvedNodeValue,
+  isFieldNode,
   normalizeGroup,
   resolveHiddenFields,
 } from "@/shared/lib/kratos-ui";
@@ -74,6 +76,35 @@ function resolveField(
       `Login flow expected exactly one visible '${definition.name}' node.`
     ),
     definition
+  );
+}
+
+function resolveIdentifierField(flow: KratosBrowserFlow): LoginFieldModel {
+  const visibleNode = getOptionalSingleNode(
+    flow.ui.nodes,
+    (node) => isFieldNode(node, LOGIN_IDENTIFIER_FIELD.name) && node.attributes.type !== "hidden",
+    "Login flow expected at most one visible 'identifier' node."
+  );
+
+  if (visibleNode) {
+    return toFieldModel(flow, visibleNode, LOGIN_IDENTIFIER_FIELD);
+  }
+
+  const hiddenNode = getOptionalSingleNode(
+    flow.ui.nodes,
+    (node) => isFieldNode(node, LOGIN_IDENTIFIER_FIELD.name) && node.attributes.type === "hidden",
+    "Login flow expected at most one hidden 'identifier' node."
+  );
+
+  if (hiddenNode && flow.refresh) {
+    return {
+      ...toFieldModel(flow, hiddenNode, LOGIN_IDENTIFIER_FIELD),
+      disabled: true,
+    };
+  }
+
+  throw new Error(
+    "Login flow expected one visible 'identifier' node, or one hidden 'identifier' node for a refresh login flow."
   );
 }
 
@@ -208,7 +239,7 @@ export function buildLoginModel(
     method: flow.ui.method.toLowerCase(),
     messages: flow.ui.messages ?? [],
     hiddenFields: resolveHiddenFields(flow) as LoginHiddenField[],
-    identifierField: resolveField(flow, LOGIN_IDENTIFIER_FIELD),
+    identifierField: resolveIdentifierField(flow),
     passwordField: resolveField(flow, LOGIN_PASSWORD_FIELD),
     submit: toSubmitModel(submit),
     registerHref: links.registerHref,

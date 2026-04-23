@@ -14,31 +14,11 @@
  *       (the callback route consumes them to finalize the exchange).
  *    3. Clears any "you just logged out" marker so the middleware doesn't
  *       loop the user back to the landing page.
- *    4. Builds Hydra's /oauth2/auth URL with the right OIDC prompts.
+ *    4. Builds Hydra's /oauth2/auth URL with fresh-login OIDC prompts.
  *    5. Redirects the browser to Hydra.
- *
- *  ┌──────────────┬──────────────────────────────────┬─────────────────────┐
- *  │ Scenario     │ Who calls                         │ How we know         │
- *  ├──────────────┼──────────────────────────────────┼─────────────────────┤
- *  │ A — NORMAL   │ A user clicking "sign in", or     │ No ?handoff=1 on    │
- *  │              │ middleware bouncing an unauth'd   │ the query string    │
- *  │              │ request here. We force a full     │                     │
- *  │              │ login screen (prompt=login,       │                     │
- *  │              │ max_age=0) — the browser has no   │                     │
- *  │              │ session we trust.                 │                     │
- *  ├──────────────┼──────────────────────────────────┼─────────────────────┤
- *  │ B — HANDOFF  │ Auth-Portal's                     │ ?handoff=1          │
- *  │              │ resolveLoginDestination() just    │                     │
- *  │              │ moved a freshly-authenticated     │                     │
- *  │              │ user from one first-party client  │                     │
- *  │              │ to this one. We skip prompt=login │                     │
- *  │              │ so the existing Kratos session is │                     │
- *  │              │ reused — no second password entry.│                     │
- *  └──────────────┴──────────────────────────────────┴─────────────────────┘
  *
  *  @see `/api/auth/callback`                              — exchanges the code
  *  @see `auth/web/src/app/oauth/login/route.ts`           — Hydra login side
- *  @see `auth/web/src/shared/lib/login-destination.ts`    — emits ?handoff=1
  * ═══════════════════════════════════════════════════════════════════════════
  */
 import { randomUUID } from "node:crypto";
@@ -76,7 +56,7 @@ const logger = createLogger({ service: "web-auth" }).child({
 const requestContext = new AsyncLocalStorage<{ traceId: string }>();
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ENTRY POINT — classify the request, hand off to the right scenario
+// ENTRY POINT — start a fresh login transaction
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
@@ -87,30 +67,16 @@ export async function GET(request: NextRequest) {
 async function handleRequest(request: NextRequest): Promise<NextResponse> {
   const startedAt = Date.now();
 
-  const isResolverHandoff =
-    request.nextUrl.searchParams.get("handoff") === "1";
-
   // --- REQUEST bookend ---
   logHttpRequest(logger, request, {
     root: rootContext(),
-    context: { resolverHandoff: isResolverHandoff },
   });
 
-  // --- Dispatch: exactly one of these two runs ---
-  let scenario: "A" | "B";
-  let response: NextResponse;
   try {
-    if (isResolverHandoff) {
-      scenario = "B";
-      response = await handleScenarioB_ResolverHandoff(request);
-    } else {
-      scenario = "A";
-      response = await handleScenarioA_NormalLogin(request);
-    }
+    const response = await processLoginTransaction(request);
     logHttpResponse(logger, response, {
       startedAt,
       root: rootContext(),
-      context: { scenario },
     });
     return response;
   } catch (error) {
@@ -123,91 +89,19 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SCENARIO A — Normal login (force a fresh auth screen)
-// ═══════════════════════════════════════════════════════════════════════════
-/*
- * WHO LANDS HERE
- *   A user clicking "sign in", or the middleware redirecting an
- *   unauthenticated request to this route. We can't trust any existing
- *   Kratos session, so we tell Hydra "show them the login screen".
- *
- * REQUEST SHAPE
- *   GET /api/auth/login
- *   GET /api/auth/login?returnTo=/some/relative/path    (optional)
- *
- * WHAT THE BROWSER EXPECTS FROM US
- *   A 307 to Hydra's /oauth2/auth endpoint with the PKCE challenge,
- *   `state`, and `prompt=login max_age=0` (belt-and-braces "ignore any
- *   cached auth"). Also the three transient cookies so the callback
- *   route can verify the response.
- *
- * POSSIBLE OUTCOMES
- *   ┌───────────────────────────────────┬─────────────────────────────────┐
- *   │ Condition                         │ What we return                  │
- *   ├───────────────────────────────────┼─────────────────────────────────┤
- *   │ All good                          │ 307 Hydra authorize URL         │
- *   │                                   │ + 3 OIDC cookies set            │
- *   │                                   │ + logged-out marker cleared     │
- *   ├───────────────────────────────────┼─────────────────────────────────┤
- *   │ OIDC config / crypto throws       │ error propagates → Next.js 500  │
- *   │                                   │ (logged via the outer catch)    │
- *   └───────────────────────────────────┴─────────────────────────────────┘
- */
-async function handleScenarioA_NormalLogin(
-  request: NextRequest
-): Promise<NextResponse> {
-  return processLoginTransaction(request, { forceFreshAuth: true });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SCENARIO B — Resolver handoff (reuse existing Kratos session)
-// ═══════════════════════════════════════════════════════════════════════════
-/*
- * WHO LANDS HERE
- *   Auth-Portal's resolveLoginDestination() routine. The user just
- *   completed a successful login on a *different* first-party client
- *   (Admin, Bookstores, or Auth-Portal itself) and the resolver decided
- *   the Web app is where they should actually land. Re-prompting for
- *   credentials would be rude — the Kratos session is fresh and valid.
- *
- * REQUEST SHAPE
- *   GET /api/auth/login?handoff=1
- *   GET /api/auth/login?handoff=1&returnTo=/some/path
- *
- * WHAT THE BROWSER EXPECTS FROM US
- *   A 307 to Hydra's /oauth2/auth endpoint — BUT without prompt=login,
- *   so Hydra's login challenge handler can short-circuit via its
- *   "skip" fast-path using the existing session. Same three transient
- *   cookies as Scenario A.
- *
- * POSSIBLE OUTCOMES
- *   Same as Scenario A (success → 307, error → 500). The only thing that
- *   changes is whether the Hydra URL carries prompt/max_age.
- */
-async function handleScenarioB_ResolverHandoff(
-  request: NextRequest
-): Promise<NextResponse> {
-  return processLoginTransaction(request, { forceFreshAuth: false });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SHARED: the login-transaction dance used by both scenarios
+// SHARED: the login-transaction dance
 // ═══════════════════════════════════════════════════════════════════════════
 /*
  * Five numbered steps:
  *   1. Load OIDC config + redirect URI.
  *   2. Create the login transaction (PKCE material, state, sanitized returnTo).
- *   3. Build the Hydra authorization URL (with or without forced re-auth).
+ *   3. Build the Hydra authorization URL with forced re-auth.
  *   4. Persist the transaction into encrypted cookies for the callback.
  *   5. Clear the logged-out marker (we're starting fresh).
  *
- * `forceFreshAuth=true` adds prompt=login and max_age=0 to the URL — used
- * by Scenario A. Scenario B omits both, letting Hydra's skip path kick in.
+ * `prompt=login` and `max_age=0` keep each client-initiated login fresh.
  */
-async function processLoginTransaction(
-  request: NextRequest,
-  opts: { forceFreshAuth: boolean }
-): Promise<NextResponse> {
+async function processLoginTransaction(request: NextRequest): Promise<NextResponse> {
   // Step 1: discover Hydra's OIDC metadata.
   const config = await getOIDCConfig();
   const redirectUri = getRedirectUri();
@@ -229,19 +123,16 @@ async function processLoginTransaction(
     codeChallengeLength: transaction.codeChallenge.length,
   });
 
-  // Step 3: build the authorization URL. Scenario A forces a full login
-  // screen; Scenario B omits those so Hydra can reuse the session.
+  // Step 3: build the authorization URL and force a full login screen.
   const authorizationParams: Record<string, string> = {
     redirect_uri: redirectUri,
     scope,
     code_challenge: transaction.codeChallenge,
     code_challenge_method: "S256",
     state: transaction.state,
+    prompt: "login",
+    max_age: "0",
   };
-  if (opts.forceFreshAuth) {
-    authorizationParams.prompt = "login";
-    authorizationParams.max_age = "0";
-  }
 
   const authorizationUrl = client.buildAuthorizationUrl(
     config,
@@ -250,7 +141,7 @@ async function processLoginTransaction(
   logInfo("Authorization URL built", {
     authorizationHost: authorizationUrl.host,
     authorizationPath: authorizationUrl.pathname,
-    forceFreshAuth: opts.forceFreshAuth,
+    forceFreshAuth: true,
   });
 
   // Step 4: prepare the response and persist the transaction cookies.

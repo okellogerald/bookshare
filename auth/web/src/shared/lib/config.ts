@@ -23,17 +23,17 @@ export function getAuthPortalPublicUrl(): string {
   return process.env.AUTH_PORTAL_PUBLIC_URL || "http://localhost:3337";
 }
 
-/** Web app's public URL — used as the final redirect after policy checks pass. */
+/** Web app's public URL — used as the default standalone redirect. */
 export function getBookshareAppPublicUrl(): string {
   return process.env.BOOKSHARE_APP_PUBLIC_URL || "http://localhost:3334";
 }
 
-/** Admin app's public URL — used by login destination resolution. */
+/** Admin app's public URL — used when validating client return URLs. */
 export function getAdminAppPublicUrl(): string {
   return process.env.ADMIN_PUBLIC_URL || "http://localhost:3338";
 }
 
-/** Bookstores app's public URL — used by login destination resolution. */
+/** Bookstores app's public URL — used when validating client return URLs. */
 export function getBookstoresAppPublicUrl(): string {
   return process.env.BOOKSTORES_PUBLIC_URL || "http://localhost:3339";
 }
@@ -55,8 +55,8 @@ export function getHydraAdminUrl(): string {
 
 /**
  * How long (seconds) Hydra should cache login/consent decisions.
- * Defaults to 3600 (1 hour). During this window, subsequent login attempts
- * for the same user skip re-authentication (loginRequest.skip=true).
+ * Defaults to 3600 (1 hour). Client-initiated logins still request fresh
+ * authentication with prompt=login and a Kratos refresh flow.
  */
 export function getHydraRememberFor(): number {
   return parseInteger(process.env.HYDRA_REMEMBER_FOR, 3600);

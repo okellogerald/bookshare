@@ -18,28 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Observability ───────────────────────────────────────────
-  # Distributed tracing UI. Visit http://localhost:16686.
-  jaeger:
-    # v1.62.0 still includes the legacy UDP agent that Ory's Jaeger tracer uses.
-    image: jaegertracing/all-in-one:1.62.0
-    restart: unless-stopped
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
-      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
-    ports:
-      - "16686:16686" # UI
-      - "5775:5775/udp" # Legacy Zipkin thrift agent
-      - "6831:6831/udp" # Legacy Jaeger compact thrift agent
-      - "6832:6832/udp" # Legacy Jaeger binary thrift agent
-      - "5778:5778" # Agent sampling endpoint
-      - "14250:14250" # Collector gRPC
-      - "14268:14268" # Collector HTTP
-      - "14269:14269" # Admin/metrics
-      - "4317:4317" # OTLP gRPC, useful for future app traces
-      - "4318:4318" # OTLP HTTP, useful for future app traces
-      - "9411:9411" # Zipkin collector
-
   # ─── Authentication (Ory) ─────────────────────────────────────
   # One-shot job: apply Hydra SQL schema before Hydra starts.
   # Required because Hydra expects its DB schema to exist at boot.
@@ -71,10 +49,6 @@ services:
       URLS_LOGOUT: ${HYDRA_LOGOUT_URL:-http://localhost:3337/oauth/logout}
       URLS_DEVICE_VERIFICATION: ${HYDRA_DEVICE_VERIFICATION_URL:-http://localhost:3337/oauth/device/verify}
       URLS_DEVICE_SUCCESS: ${HYDRA_DEVICE_SUCCESS_URL:-http://localhost:3337/oauth/device/success}
-      TRACING_PROVIDER: jaeger
-      TRACING_SERVICE_NAME: hydra
-      TRACING_PROVIDERS_JAEGER_LOCAL_AGENT_ADDRESS: jaeger:6831
-      TRACING_PROVIDERS_JAEGER_SAMPLING_SERVER_URL: http://jaeger:5778/sampling
     command: serve -c /etc/config/hydra/hydra.yml all --dev
     expose:
       - "4444" # public
@@ -85,8 +59,6 @@ services:
     depends_on:
       hydra-migrate:
         condition: service_completed_successfully
-      jaeger:
-        condition: service_started
 
   # One-shot job: upsert BookShare OAuth client in Hydra admin API.
   # Required so web login works without manual client registration.
@@ -126,10 +98,6 @@ services:
       LOG_FORMAT: ${ORY_LOG_FORMAT:-json}
       LOG_LEAK_SENSITIVE_VALUES: ${ORY_LOG_LEAK_SENSITIVE_VALUES:-false}
       SERVE_PUBLIC_BASE_URL: ${KRATOS_PUBLIC_BASE_URL:-http://localhost:4433/}
-      TRACING_PROVIDER: jaeger
-      TRACING_SERVICE_NAME: kratos
-      TRACING_PROVIDERS_JAEGER_LOCAL_AGENT_ADDRESS: jaeger:6831
-      TRACING_PROVIDERS_JAEGER_SAMPLING_SERVER_URL: http://jaeger:5778/sampling
     command: serve -c /etc/config/kratos/kratos.yml --dev --watch-courier
     expose:
       - "4433" # public
@@ -141,8 +109,6 @@ services:
       kratos-migrate:
         condition: service_completed_successfully
       mailpit:
-        condition: service_started
-      jaeger:
         condition: service_started
 
   # Long-running reusable Auth Portal UI/challenge handler.

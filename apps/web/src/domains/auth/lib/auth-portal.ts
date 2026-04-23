@@ -11,7 +11,7 @@
  *
  * @see `auth/web/` — the Auth-Portal app itself
  * @see `/api/auth/post-logout` — uses buildAuthPortalLogoutUrl()
- * @see `/api/auth/callback` — references buildAuthPortalVerificationUrl()
+ * @see `/api/auth/callback` — uses returnTo directly after a successful login
  */
 import { sanitizeRelativeReturnTo } from "@bookshare/shared";
 
@@ -43,16 +43,11 @@ export function buildAppLoginUrl(returnTo: string): string {
 }
 
 /** Auth-Portal email verification page — redirected here when email is unverified. */
-export function buildAuthPortalVerificationUrl(): string {
+export function buildAuthPortalVerificationUrl(returnTo?: string): string {
   const url = new URL("/verification", getAuthPortalBaseUrl());
-  return url.toString();
-}
-
-/** Auth-Portal login resolver — chooses Web, Admin, or Bookstores after auth. */
-export function buildAuthPortalResolveUrl(returnTo: string): string {
-  const url = new URL("/oauth/login", getAuthPortalBaseUrl());
-  url.searchParams.set("source", "web");
-  url.searchParams.set("returnTo", sanitizeReturnTo(returnTo));
+  if (returnTo) {
+    url.searchParams.set("return_to", buildAppLoginUrl(returnTo));
+  }
   return url.toString();
 }
 

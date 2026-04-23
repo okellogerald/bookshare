@@ -24,7 +24,6 @@ import { decrypt } from "@/domain/auth/lib/crypto";
 import { getOIDCConfig } from "@/domain/auth/lib/oidc";
 import { setSession } from "@/domain/auth/lib/session";
 import {
-  buildAuthPortalResolveUrl,
   buildAuthPortalVerificationUrl,
 } from "@/domain/auth/lib/auth-portal";
 import {
@@ -106,7 +105,9 @@ export async function GET(request: NextRequest) {
         { subject: claims.sub ?? null, roles },
         "Admin OAuth callback rejected because email is not verified"
       );
-      const response = NextResponse.redirect(buildAuthPortalVerificationUrl());
+      const response = NextResponse.redirect(
+        buildAuthPortalVerificationUrl(transaction.returnTo)
+      );
       clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;
     }
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
         "Admin OAuth callback rejected because user lacks admin role"
       );
       const response = NextResponse.redirect(
-        buildAuthPortalResolveUrl(transaction.returnTo)
+        new URL("/?error=forbidden", request.url)
       );
       clearOIDCClientCookies(response.cookies, ADMIN_OIDC_COOKIE_NAMES);
       return response;

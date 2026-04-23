@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createBrowserFlowUrl, getBrowserFlow } from "@/shared/lib/kratos";
+import { getAuthPortalPublicUrl } from "@/shared/lib/config";
 import { type AuthSearchParams, getSingleParam } from "@/shared/lib/search-params";
 import {
   buildLoginModel,
@@ -17,25 +18,29 @@ export async function loadLoginPageData(
   searchParams: AuthSearchParams
 ): Promise<LoginPageModel> {
   const flowId = getSingleParam(searchParams, "flow");
+  const refreshParam = getSingleParam(searchParams, "refresh");
+  const forceRefresh = refreshParam === "1" || refreshParam === "true";
+  const defaultReturnTo = new URL("/oauth/login", getAuthPortalPublicUrl()).toString();
 
   if (!flowId) {
-    redirect(createBrowserFlowUrl("login"));
+    redirect(createBrowserFlowUrl("login", defaultReturnTo, { refresh: forceRefresh }));
   }
 
   const flow = await getBrowserFlow("login", flowId);
   if (!flow) {
-    redirect(createBrowserFlowUrl("login"));
+    redirect(createBrowserFlowUrl("login", defaultReturnTo, { refresh: forceRefresh }));
   }
+  const isRefreshFlow = Boolean(flow.refresh || forceRefresh);
 
-  // Optional account-chooser / login-hint prefill. Accepted only when it looks
-  // like an email so we never leak a raw query value into the identifier field.
+  // Optional login-hint prefill. Accepted only when it looks like an email so
+  // we never leak a raw query value into the identifier field.
   const rawEmailHint = getSingleParam(searchParams, "email")?.trim() ?? "";
   const emailHint = isLikelyEmail(rawEmailHint) ? rawEmailHint : "";
 
   const links = {
     registerHref: "/register",
     recoveryHref: "/recovery",
-    retryHref: "/login",
+    retryHref: isRefreshFlow ? "/login?refresh=1" : "/login",
   };
 
   try {

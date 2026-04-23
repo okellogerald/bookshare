@@ -38,6 +38,10 @@ export type KratosFlowKind =
   | "verification"
   | "settings";
 
+interface BrowserFlowUrlOptions {
+  refresh?: boolean;
+}
+
 export interface KratosUiMessage {
   id?: number;
   text: string;
@@ -69,6 +73,7 @@ export interface KratosUiNode {
 export interface KratosBrowserFlow {
   id: string;
   state?: string;
+  refresh?: boolean;
   active?: string;
   return_to?: string;
   identity?: {
@@ -127,21 +132,32 @@ async function createCookieHeader(): Promise<string> {
 }
 
 /** Append a return_to param to a Kratos flow URL so the user comes back here. */
-export function withOptionalReturnTo(url: URL, returnTo?: string): string {
+export function withOptionalReturnTo(
+  url: URL,
+  returnTo?: string,
+  options?: BrowserFlowUrlOptions
+): string {
   if (returnTo && returnTo.trim().length > 0) {
     url.searchParams.set("return_to", returnTo);
+  }
+  if (options?.refresh) {
+    url.searchParams.set("refresh", "true");
   }
 
   return url.toString();
 }
 
 /** Build the public-facing URL that the browser uses to start a Kratos flow. */
-export function createBrowserFlowUrl(kind: KratosFlowKind, returnTo?: string): string {
+export function createBrowserFlowUrl(
+  kind: KratosFlowKind,
+  returnTo?: string,
+  options?: BrowserFlowUrlOptions
+): string {
   const baseUrl = new URL(
     `/self-service/${kind}/browser`,
     getKratosBrowserUrl()
   );
-  return withOptionalReturnTo(baseUrl, returnTo);
+  return withOptionalReturnTo(baseUrl, returnTo, options);
 }
 
 /** Extract the flow ID from a Kratos redirect Location header. */
@@ -168,7 +184,8 @@ function extractFlowIdFromLocation(location: string): string | null {
  */
 export async function initBrowserFlow(
   kind: KratosFlowKind,
-  returnTo?: string
+  returnTo?: string,
+  options?: BrowserFlowUrlOptions
 ): Promise<string | null> {
   const url = new URL(
     `/self-service/${kind}/browser`,
@@ -177,6 +194,9 @@ export async function initBrowserFlow(
 
   if (returnTo && returnTo.trim().length > 0) {
     url.searchParams.set("return_to", returnTo);
+  }
+  if (options?.refresh) {
+    url.searchParams.set("refresh", "true");
   }
 
   const cookieHeader = await createCookieHeader();

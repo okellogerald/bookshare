@@ -34,12 +34,9 @@ export async function GET(request: NextRequest) {
     code_challenge: transaction.codeChallenge,
     code_challenge_method: "S256",
     state: transaction.state,
+    prompt: "login",
+    max_age: "0",
   };
-
-  if (request.nextUrl.searchParams.get("handoff") !== "1") {
-    authorizationParams.prompt = "login";
-    authorizationParams.max_age = "0";
-  }
 
   const authorizationUrl = client.buildAuthorizationUrl(config, authorizationParams);
   const response = NextResponse.redirect(authorizationUrl.href);
@@ -54,7 +51,6 @@ export async function GET(request: NextRequest) {
   logger.info(
     {
       returnTo: transaction.returnTo,
-      resolverHandoff: request.nextUrl.searchParams.get("handoff") === "1",
       authorizationHost: authorizationUrl.host,
       authorizationPath: authorizationUrl.pathname,
     },

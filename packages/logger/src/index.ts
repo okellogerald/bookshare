@@ -132,9 +132,6 @@ export function createPinoHttpLoggerOptions(
       if (res.statusCode >= 400) return "warn";
       return "info";
     },
-    customProps(req: IncomingMessage & { id?: unknown }) {
-      return { requestId: typeof req.id === "string" ? req.id : undefined };
-    },
     customReceivedMessage(req: IncomingMessage) {
       return `${req.method ?? "UNKNOWN"} ${req.url ?? ""} started`;
     },

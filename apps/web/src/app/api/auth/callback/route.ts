@@ -7,7 +7,7 @@
  *  started at /api/auth/login. The browser is bouncing back from Hydra with
  *  an authorization `code` and the original `state`; our job is to swap the
  *  code for tokens, establish a Web session, and hand control to the
- *  Auth-Portal resolver so the user ends up on the right first-party client.
+ *  client-owned returnTo path.
  *
  *  ┌──────────────┬──────────────────────────────────┬─────────────────────┐
  *  │ Scenario     │ Who calls                         │ How we know         │
@@ -27,7 +27,6 @@
  *
  *  @see `../login/route.ts`                               — sets the transaction
  *  @see `@/domains/auth/lib/session`                      — where session cookies land
- *  @see `@/domains/auth/lib/auth-portal#buildAuthPortalResolveUrl`
  * ═══════════════════════════════════════════════════════════════════════════
  */
 import { randomUUID } from "node:crypto";
@@ -44,12 +43,14 @@ import { getOIDCConfig } from "@/domains/auth/lib/oidc";
 import { setSession } from "@/domains/auth/lib/session";
 import { decrypt } from "@/domains/auth/lib/crypto";
 import { WEB_OIDC_COOKIE_NAMES } from "@/domains/auth/lib/cookie-names";
-import { buildAuthPortalResolveUrl } from "@/domains/auth/lib/auth-portal";
+import { buildAuthPortalVerificationUrl } from "@/domains/auth/lib/auth-portal";
 
 const API_URL =
   process.env.API_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "http://api:3333/api";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3333"
 
 const logger = createLogger({ service: "web-auth" }).child({
   route: "api.auth.callback",
@@ -125,16 +126,15 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
  * WHAT THE BROWSER EXPECTS FROM US
  *   Swap the code for ID + access tokens, verify the user's email is
  *   verified, establish a session, call the API's /profiles/sync to upsert
- *   the profile row, and redirect to the Auth-Portal resolver so the user
- *   can land on whichever first-party client `returnTo` pointed at. On any
- *   failure, clear the partial state and send them somewhere sane.
+ *   the profile row, and redirect to the client-owned `returnTo` path. On
+ *   any failure, clear the partial state and send them somewhere sane.
  *
  * POSSIBLE OUTCOMES
  *   ┌───────────────────────────────────┬─────────────────────────────────┐
  *   │ Condition                         │ What we return                  │
  *   ├───────────────────────────────────┼─────────────────────────────────┤
- *   │ Exchange OK + email verified +    │ 302 auth-portal /resolve(       │
- *   │ profile sync OK (or non-fatal     │   returnTo)                     │
+ *   │ Exchange OK + email verified +    │ 302 returnTo                    │
+ *   │ profile sync OK (or non-fatal     │                                 │
  *   │ failure)                          │ + session cookies set           │
  *   │                                   │ + transaction cookies cleared   │
  *   ├───────────────────────────────────┼─────────────────────────────────┤
@@ -199,7 +199,7 @@ async function handleScenarioA_CallbackReturn(
       subject,
     });
     const response = NextResponse.redirect(
-      new URL("/auth/verification", request.url)
+      buildAuthPortalVerificationUrl(transaction.returnTo)
     );
     clearOIDCClientCookies(response.cookies, WEB_OIDC_COOKIE_NAMES);
     logInfo("OIDC cookies cleared (email unverified)");
@@ -250,10 +250,11 @@ async function handleScenarioA_CallbackReturn(
     return response;
   }
 
-  // --- Outcome 1: happy path — resolve via auth-portal ---
+  // --- Outcome 1: happy path — land on the client-owned returnTo path ---
   const response = NextResponse.redirect(
-    buildAuthPortalResolveUrl(transaction.returnTo)
+    new URL(transaction.returnTo, request.url)
   );
+
   // Session is set — we only need to clear the transaction cookies now.
   clearOIDCTransactionCookies(response.cookies, WEB_OIDC_COOKIE_NAMES);
   logInfo("Transaction cookies cleared (successful login)", {

@@ -1,6 +1,6 @@
 # Development observability
 
-The dev stack has three layers for understanding auth and application flows.
+The dev stack has two layers for understanding auth and application flows.
 
 ## 1. Logs
 
@@ -25,18 +25,7 @@ docker compose -f docker-compose.dev.yml logs -f --timestamps --tail=0 \
 
 Hydra and Kratos emit JSON debug logs in dev. Sensitive values remain redacted.
 
-## 2. Distributed traces
-
-Jaeger starts with the normal dev stack:
-
-```text
-http://localhost:16686
-```
-
-Use the `hydra` and `kratos` services in the Jaeger search UI to see request
-spans, status codes, timing, and database spans produced by Ory.
-
-## 3. Full HTTP capture
+## 2. Full HTTP capture
 
 mitmproxy starts with the normal dev stack and owns the usual localhost service
 ports. Keep using the normal URLs; the traffic is routed through the capture

@@ -82,10 +82,10 @@ Monorepo managed with **bun workspaces**. All services run in **Docker** for bot
    ```
 
 4. **Hydra OAuth client is auto-provisioned**
-   - `hydra-client-init` creates/updates `bookshare-web` on startup.
+   - `hydra-client-init` creates/updates the BookShare OAuth clients on startup.
    - Login, consent, and logout challenges are handled by Auth Portal at `http://localhost:3337`.
    - Config reference for contributors: `auth/infra/README.md`
-   - Login destination resolution is documented in `auth/docs/flows/login-resolution.md`.
+   - Client-owned login return behavior is documented in `auth/docs/flows/login-resolution.md`.
 
 5. **Register a user (first time)**
    - Open `http://localhost:3337/register`
@@ -125,7 +125,7 @@ The app is available at `http://localhost:3334`.
 |---|---|---|---|
 | `hydra-migrate` | One-shot migration job | Hydra will fail or behave unpredictably if DB schema is missing/outdated. | Runs `hydra migrate sql up` against Hydra's SQLite DB volume before `hydra` starts. |
 | `kratos-migrate` | One-shot migration job | Kratos requires its SQL schema to exist before serving self-service/session APIs. | Runs `kratos migrate sql` against Kratos's SQLite DB volume before `kratos` starts. |
-| `hydra-client-init` | One-shot bootstrap job | Without this, OAuth login fails with `invalid_client` because `bookshare-web` client does not exist. | Calls Hydra Admin API to create/update client `bookshare-web` with callback/logout URLs and grant settings. |
+| `hydra-client-init` | One-shot bootstrap job | Without this, OAuth login fails with `invalid_client` because the BookShare OAuth clients do not exist. | Calls Hydra Admin API to create/update the web, auth, admin, and bookstores clients with callback/logout URLs, client names, consent settings, and default return metadata. |
 
 ### Startup Order
 
@@ -137,7 +137,7 @@ The app is available at `http://localhost:3334`.
 ### Script Notes
 
 - `auth/infra/hydra/init-client.sh` is idempotent by design.
-- It waits for `http://hydra:4445/health/ready`, then `POST`s `/admin/clients` on first boot and `PUT`s `/admin/clients/bookshare-web` on later boots.
+- It waits for `http://hydra:4445/health/ready`, then `POST`s `/admin/clients` on first boot and `PUT`s `/admin/clients/{client_id}` on later boots.
 - Re-running compose does not duplicate clients; it keeps client config in sync.
 
 ## Submission Behavior (V1)

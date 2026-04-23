@@ -16,10 +16,12 @@ trap 'rm -f "$response_file"' EXIT
 
 build_payload() {
   client_id="$1"
-  base_url="$2"
+  client_name="$2"
+  base_url="$3"
+  default_return_to="$4"
 
-  printf '{"client_id":"%s","grant_types":["authorization_code","refresh_token"],"response_types":["code","id_token"],"scope":"openid profile email offline_access","token_endpoint_auth_method":"none","redirect_uris":["%s/api/auth/callback"],"post_logout_redirect_uris":["%s","%s/api/auth/post-logout"]}' \
-    "$client_id" "$base_url" "$base_url" "$base_url"
+  printf '{"client_id":"%s","client_name":"%s","grant_types":["authorization_code","refresh_token"],"response_types":["code","id_token"],"scope":"openid profile email offline_access","token_endpoint_auth_method":"none","redirect_uris":["%s/api/auth/callback"],"post_logout_redirect_uris":["%s","%s/api/auth/post-logout"],"skip_consent":true,"skip_logout_consent":true,"metadata":{"default_return_to":"%s","app_base_url":"%s"}}' \
+    "$client_id" "$client_name" "$base_url" "$base_url" "$base_url" "$default_return_to" "$base_url"
 }
 
 request() {
@@ -34,8 +36,10 @@ request() {
 
 upsert_client() {
   client_id="$1"
-  base_url="$2"
-  payload="$(build_payload "$client_id" "$base_url")"
+  client_name="$2"
+  base_url="$3"
+  default_return_to="$4"
+  payload="$(build_payload "$client_id" "$client_name" "$base_url" "$default_return_to")"
   status="$(request POST "$hydra_admin_url/admin/clients" "$payload")"
 
   case "$status" in
@@ -59,7 +63,7 @@ upsert_client() {
   esac
 }
 
-upsert_client "bookshare-web" "http://localhost:3334"
-upsert_client "bookshare-auth" "http://localhost:3337"
-upsert_client "bookshare-admin" "http://localhost:3338"
-upsert_client "bookshare-bookstores" "http://localhost:3339"
+upsert_client "bookshare-web" "BookShare Web" "http://localhost:3334" "/browse"
+upsert_client "bookshare-auth" "BookShare Auth" "http://localhost:3337" "/organizations"
+upsert_client "bookshare-admin" "BookShare Admin" "http://localhost:3338" "/catalog"
+upsert_client "bookshare-bookstores" "BookShare Bookstores" "http://localhost:3339" "/"

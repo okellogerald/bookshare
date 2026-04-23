@@ -21,6 +21,10 @@ selfservice:
     - http://localhost:3337
     - http://localhost:3334
     - http://localhost:3334/api/auth/login
+    - http://localhost:3338
+    - http://localhost:3338/api/auth/login
+    - http://localhost:3339
+    - http://localhost:3339/api/auth/login
     - http://localhost:3337/oauth/login
   methods:
     password:
@@ -51,6 +55,9 @@ selfservice:
       enabled: true
       ui_url: http://localhost:3337/recovery
       use: code
+      after:
+        hooks:
+          - hook: revoke_active_sessions
 
     verification:
       enabled: true
