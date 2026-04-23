@@ -20,7 +20,7 @@ export async function loadLoginPageData(
   const flowId = getSingleParam(searchParams, "flow");
   const refreshParam = getSingleParam(searchParams, "refresh");
   const forceRefresh = refreshParam === "1" || refreshParam === "true";
-  const defaultReturnTo = new URL("/oauth/login", getAuthPortalPublicUrl()).toString();
+  const defaultReturnTo = new URL("/oauth/resume", getAuthPortalPublicUrl()).toString();
 
   if (!flowId) {
     redirect(createBrowserFlowUrl("login", defaultReturnTo, { refresh: forceRefresh }));

@@ -9,10 +9,11 @@
  *
  * This module solves that by persisting the challenge as an httpOnly cookie
  * (15-minute TTL). The login challenge handler checks this cookie when no
- * `login_challenge` query parameter is present, allowing the flow to resume
- * after Kratos operations complete.
+ * `login_challenge` query parameter is present, allowing `/oauth/resume` to
+ * continue the flow after Kratos operations complete.
  *
- * @see `/oauth/login/route.ts` — reads and writes the challenge cookie
+ * @see `/oauth/login/route.ts` — writes the challenge cookie
+ * @see `/oauth/resume/route.ts` — reads the challenge cookie
  */
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";

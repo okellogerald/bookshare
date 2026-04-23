@@ -90,7 +90,9 @@ This means the profile/password split does **not** require extra Ory customizati
 5. `auth/web/src/app/setup/page.tsx`
    Legacy compatibility redirect to profile settings.
 6. `auth/web/src/app/oauth/login/route.ts`
-   Hydra login gatekeeper. Redirects incomplete users to verification or profile settings before accepting the login challenge.
+   Accepts fresh Hydra login challenges.
+7. `auth/web/src/app/oauth/resume/route.ts`
+   Resumes a pending Hydra login challenge after Kratos login, verification, or profile completion.
 
 ### Web App
 

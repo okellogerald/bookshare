@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   // servicing a Hydra login transaction, resume that transaction first.
   const hydraChallenge = await getHydraLoginChallenge();
   if (hydraChallenge) {
-    return NextResponse.redirect(new URL("/oauth/login", request.url));
+    return NextResponse.redirect(new URL("/oauth/resume", request.url));
   }
 
   const session = await getKratosSession(request.headers.get("cookie") ?? "");

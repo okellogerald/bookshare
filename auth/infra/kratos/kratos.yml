@@ -26,6 +26,7 @@ selfservice:
     - http://localhost:3339
     - http://localhost:3339/api/auth/login
     - http://localhost:3337/oauth/login
+    - http://localhost:3337/oauth/resume
   methods:
     password:
       enabled: true
@@ -74,7 +75,7 @@ selfservice:
       ui_url: http://localhost:3337/login
       lifespan: 10m
       after:
-        default_browser_return_url: http://localhost:3337/oauth/login
+        default_browser_return_url: http://localhost:3337/oauth/resume
 
     registration:
       # Keep enough time for users to complete the registration form.

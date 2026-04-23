@@ -21,7 +21,7 @@
  * address like http://kratos:4433), while browser-facing URLs use
  * `KRATOS_BROWSER_URL` (like http://localhost:4433).
  *
- * @see `/oauth/login/route.ts` — uses getKratosSession and policy helpers
+ * @see `oauth-login-flow.ts` — uses getKratosSession and policy helpers
  * @see `/oauth/consent/route.ts` — uses getKratosSession for fresh traits
  */
 import { cookies } from "next/headers";

@@ -74,7 +74,7 @@ export async function loadSettingsPageData(
   }
 
   if (!isRecoveryReset && hasSuccessMessage) {
-    redirect(hasPendingHydraLogin ? "/oauth/login" : profileHref);
+    redirect(hasPendingHydraLogin ? "/oauth/resume" : profileHref);
   }
 
   const activeSection = isRecoveryReset ? "password" : requestedSection;
