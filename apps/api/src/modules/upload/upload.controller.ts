@@ -1,13 +1,16 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { PlatformRole } from "@bookshare/shared";
+import {
+  AuthorizationPermission,
+  PlatformRole,
+} from "@bookshare/shared";
 import { UploadService } from "./upload.service";
 import {
   CreateCopyImagePresignDto,
   CreateEditionCoverPresignDto,
   CreateProfileAvatarPresignDto,
 } from "./dto";
-import { CurrentUser, Roles } from "../../common/decorators";
+import { CurrentUser, Permissions, Roles } from "../../common/decorators";
 
 @ApiTags("Upload")
 @ApiBearerAuth()
@@ -38,6 +41,7 @@ export class UploadController {
 
   @Post("edition-cover-presign")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.CATALOG_WRITE)
   createEditionCoverPresign(
     @Body() dto: CreateEditionCoverPresignDto,
     @CurrentUser("id") userId: string

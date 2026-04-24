@@ -16,13 +16,20 @@ import { TeamRoleBadge } from "@/domain/team/team-role-badge";
 
 export function ManageTeamMemberFlow({
   actorRoles,
+  actorUserId,
   entry,
   onClose,
 }: {
   actorRoles: string[];
+  actorUserId: string;
   entry: StaffDirectoryEntry;
   onClose: () => void;
 }) {
+  // Self-lockout / self-escalation guard: the signed-in admin must never be
+  // able to change their own roles from this flow. The directory hides the
+  // entry point for this case, so we only reach here via stale state — in
+  // which case we render a read-only explanation and block every mutation.
+  const isSelf = entry.userId === actorUserId;
   const manageableRoles = useMemo(() => getManageableRoles(actorRoles), [actorRoles]);
   const [currentRoles, setCurrentRoles] = useState<string[]>(
     entry.roles.map((assignment) => assignment.role)
@@ -46,7 +53,7 @@ export function ManageTeamMemberFlow({
   }, [manageableRoles, selectedRole]);
 
   const handleGrant = async () => {
-    if (!selectedRole || currentRoles.includes(selectedRole)) {
+    if (isSelf || !selectedRole || currentRoles.includes(selectedRole)) {
       return;
     }
 
@@ -58,6 +65,10 @@ export function ManageTeamMemberFlow({
   };
 
   const handleRevoke = async (role: string) => {
+    if (isSelf) {
+      return;
+    }
+
     await revokeRole.mutateAsync({
       userId: entry.userId,
       role,
@@ -76,6 +87,13 @@ export function ManageTeamMemberFlow({
         </p>
       </div>
 
+      {isSelf ? (
+        <p className="rounded-md border border-border/75 bg-muted/30 p-3 text-sm text-muted-foreground">
+          You can&rsquo;t modify your own roles. Ask another admin to grant or
+          revoke roles on your account.
+        </p>
+      ) : null}
+
       <section className="space-y-3">
         <h3 className="text-sm font-medium text-muted-foreground">Current roles</h3>
 
@@ -88,7 +106,7 @@ export function ManageTeamMemberFlow({
                 key={`${entry.userId}-${role}`}
                 role={role}
                 onRemove={
-                  canManageRole(actorRoles, role)
+                  !isSelf && canManageRole(actorRoles, role)
                     ? () => void handleRevoke(role)
                     : undefined
                 }
@@ -99,7 +117,7 @@ export function ManageTeamMemberFlow({
         )}
       </section>
 
-      {manageableRoles.length > 0 ? (
+      {!isSelf && manageableRoles.length > 0 ? (
         <fieldset className="space-y-4 border-t pt-5">
           <legend className="text-sm font-medium text-muted-foreground">Add role</legend>
 
@@ -157,17 +175,19 @@ export function ManageTeamMemberFlow({
         <Button type="button" variant="ghost" onClick={onClose}>
           Close
         </Button>
-        <Button
-          type="button"
-          onClick={() => void handleGrant()}
-          disabled={grantRole.isPending || !selectedRole || currentRoles.includes(selectedRole)}
-        >
-          {currentRoles.includes(selectedRole)
-            ? `${formatRole(selectedRole)} already assigned`
-            : grantRole.isPending
-              ? "Granting role..."
-              : `Grant ${formatRole(selectedRole)}`}
-        </Button>
+        {!isSelf ? (
+          <Button
+            type="button"
+            onClick={() => void handleGrant()}
+            disabled={grantRole.isPending || !selectedRole || currentRoles.includes(selectedRole)}
+          >
+            {currentRoles.includes(selectedRole)
+              ? `${formatRole(selectedRole)} already assigned`
+              : grantRole.isPending
+                ? "Granting role..."
+                : `Grant ${formatRole(selectedRole)}`}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

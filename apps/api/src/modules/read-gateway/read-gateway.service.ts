@@ -5,11 +5,18 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PlatformRole, type ReadGatewayResourceName } from "@bookshare/shared";
+import {
+  createPlatformScope,
+  type AuthorizationPermission,
+  PlatformRole,
+  type ReadGatewayResourceName,
+} from "@bookshare/shared";
+import { AuthorizationService } from "../../common/authorization/authorization.service";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
   READ_RESOURCE_CONFIG,
   type ReadAccessLevel,
+  type ReadGatewayClientAudience,
 } from "./read-resources";
 
 interface ReadGatewayHeaders {
@@ -22,7 +29,10 @@ interface ReadGatewayHeaders {
 export class ReadGatewayService {
   private readonly postgrestUrl: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly authorizationService: AuthorizationService
+  ) {
     this.postgrestUrl =
       this.configService.get<string>("POSTGREST_INTERNAL_URL") ||
       "http://postgrest:3000";
@@ -30,13 +40,16 @@ export class ReadGatewayService {
 
   async read(
     resourceName: ReadGatewayResourceName,
+    audience: ReadGatewayClientAudience,
     user: AuthenticatedUser | null,
     searchParams: URLSearchParams,
     headers: ReadGatewayHeaders = {}
   ) {
     const resource = READ_RESOURCE_CONFIG[resourceName];
 
+    this.enforceAudience(audience, resource.docs.callableBy);
     this.enforceAccess(resource.access, user);
+    this.enforcePermission(resource.permissionByAudience?.[audience], user);
 
     const params = new URLSearchParams(searchParams);
     this.applyBlockedParams(params, resource.blockedParams);
@@ -127,7 +140,7 @@ export class ReadGatewayService {
   ) {
     const resource = READ_RESOURCE_CONFIG[resourceName];
 
-    if (resource.scopeMode !== "self_unless_platform_staff") {
+    if (resource.scopeMode !== "self_unless_elevated") {
       return;
     }
 
@@ -135,7 +148,10 @@ export class ReadGatewayService {
       throw new UnauthorizedException("Authentication required");
     }
 
-    if (this.hasPlatformStaffAccess(user)) {
+    if (
+      resource.elevatedScopePermission &&
+      this.hasRequiredPermission(user, resource.elevatedScopePermission)
+    ) {
       return;
     }
 
@@ -150,8 +166,12 @@ export class ReadGatewayService {
     const resource = READ_RESOURCE_CONFIG[resourceName];
 
     if (
-      !resource.hideBootstrapAdminsUnlessPlatformStaff ||
-      this.hasPlatformStaffAccess(user) ||
+      !resource.hideBootstrapAdminsUnlessPermission ||
+      (user !== null &&
+        this.hasRequiredPermission(
+          user,
+          resource.hideBootstrapAdminsUnlessPermission
+        )) ||
       !Array.isArray(data)
     ) {
       return data;
@@ -212,12 +232,58 @@ export class ReadGatewayService {
     throw new ForbiddenException("You do not have access to this resource");
   }
 
+  private enforcePermission(
+    permission:
+      | AuthorizationPermission
+      | AuthorizationPermission[]
+      | undefined,
+    user: AuthenticatedUser | null
+  ) {
+    if (!permission) {
+      return;
+    }
+
+    if (!user) {
+      throw new UnauthorizedException("Authentication required");
+    }
+
+    if (!this.hasRequiredPermission(user, permission)) {
+      throw new ForbiddenException("You do not have access to this resource");
+    }
+  }
+
+  private enforceAudience(
+    audience: ReadGatewayClientAudience,
+    allowedAudiences: ReadGatewayClientAudience[]
+  ) {
+    if (!allowedAudiences.includes(audience)) {
+      throw new ForbiddenException("That read resource is not available here.");
+    }
+  }
+
   private hasPlatformStaffAccess(user: AuthenticatedUser | null) {
     if (!user) return false;
 
     return (
       user.roles.includes(PlatformRole.PLATFORM_ADMIN) ||
       user.roles.includes(PlatformRole.PLATFORM_STAFF)
+    );
+  }
+
+  private hasRequiredPermission(
+    user: AuthenticatedUser,
+    requirement: AuthorizationPermission | AuthorizationPermission[]
+  ) {
+    const permissions = Array.isArray(requirement)
+      ? requirement
+      : [requirement];
+
+    return permissions.some((permission) =>
+      this.authorizationService.hasPermission(
+        user,
+        permission,
+        createPlatformScope()
+      )
     );
   }
 }

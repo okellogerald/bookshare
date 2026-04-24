@@ -1,4 +1,8 @@
-import type { ReadGatewayResourceName } from "@bookshare/shared";
+import {
+  AuthorizationPermission,
+  type AuthorizationSurface,
+  type ReadGatewayResourceName,
+} from "@bookshare/shared";
 
 /**
  * Client audiences that can call a read resource through the Next BFF routes.
@@ -6,11 +10,9 @@ import type { ReadGatewayResourceName } from "@bookshare/shared";
  * - `web_public`: anonymous or not-yet-authenticated traffic in the main web app
  * - `web_member`: authenticated end-user traffic in the main web app
  * - `admin_console`: authenticated internal admin UI traffic
+ * - `bookstore_portal`: bookstore staff traffic in the bookstore app
  */
-export type ReadGatewayClientAudience =
-  | "web_public"
-  | "web_member"
-  | "admin_console";
+export type ReadGatewayClientAudience = AuthorizationSurface;
 
 export type ReadAccessLevel =
   | "public"
@@ -18,7 +20,10 @@ export type ReadAccessLevel =
   | "platform_staff"
   | "platform_admin";
 
-type ReadScopeMode = "none" | "self_unless_platform_staff";
+type ReadScopeMode = "none" | "self_unless_elevated";
+type ReadPermissionRequirement =
+  | AuthorizationPermission
+  | AuthorizationPermission[];
 
 /**
  * Human-oriented explanation fields that live beside the runtime policy.
@@ -42,8 +47,12 @@ export interface ReadResourceConfig {
   access: ReadAccessLevel;
   maxLimit: number;
   scopeMode?: ReadScopeMode;
+  elevatedScopePermission?: ReadPermissionRequirement;
   blockedParams?: string[];
-  hideBootstrapAdminsUnlessPlatformStaff?: boolean;
+  permissionByAudience?: Partial<
+    Record<ReadGatewayClientAudience, ReadPermissionRequirement>
+  >;
+  hideBootstrapAdminsUnlessPermission?: ReadPermissionRequirement;
   docs: ReadResourceDocumentation;
 }
 
@@ -67,8 +76,11 @@ export const READ_RESOURCE_CONFIG: Record<
     source: "authors",
     access: "authenticated",
     maxLimit: 100,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.CATALOG_READ,
+    },
     docs: {
-      callableBy: ["web_member", "admin_console"],
+      callableBy: ["web_member", "admin_console", "bookstore_portal"],
       summary:
         "Author lookup for cataloging and library-entry flows.",
       accessReason:
@@ -83,7 +95,7 @@ export const READ_RESOURCE_CONFIG: Record<
     access: "public",
     maxLimit: 100,
     docs: {
-      callableBy: ["web_public", "web_member"],
+      callableBy: ["web_public", "web_member", "bookstore_portal"],
       summary:
         "Book-quote read model keyed by book for public-facing reading surfaces.",
       accessReason:
@@ -95,10 +107,14 @@ export const READ_RESOURCE_CONFIG: Record<
   // Raw books table kept admin-only; public web uses denormalized book views instead.
   books: {
     source: "books",
-    access: "platform_staff",
+    access: "authenticated",
     maxLimit: 200,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.CATALOG_READ,
+      bookstore_portal: AuthorizationPermission.CATALOG_READ,
+    },
     docs: {
-      callableBy: ["admin_console"],
+      callableBy: ["admin_console", "bookstore_portal"],
       summary:
         "Admin-only access to the base books relation.",
       accessReason:
@@ -112,8 +128,16 @@ export const READ_RESOURCE_CONFIG: Record<
     source: "books_with_authors",
     access: "public",
     maxLimit: 100,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.CATALOG_READ,
+    },
     docs: {
-      callableBy: ["web_public", "web_member", "admin_console"],
+      callableBy: [
+        "web_public",
+        "web_member",
+        "admin_console",
+        "bookstore_portal",
+      ],
       summary:
         "Primary book read model with embedded author data.",
       accessReason:
@@ -127,8 +151,16 @@ export const READ_RESOURCE_CONFIG: Record<
     source: "books_with_categories",
     access: "public",
     maxLimit: 100,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.CATALOG_READ,
+    },
     docs: {
-      callableBy: ["web_public", "web_member", "admin_console"],
+      callableBy: [
+        "web_public",
+        "web_member",
+        "admin_console",
+        "bookstore_portal",
+      ],
       summary:
         "Book read model with embedded category data.",
       accessReason:
@@ -143,7 +175,7 @@ export const READ_RESOURCE_CONFIG: Record<
     access: "public",
     maxLimit: 100,
     docs: {
-      callableBy: ["web_public", "web_member"],
+      callableBy: ["web_public", "web_member", "bookstore_portal"],
       summary:
         "Public browse view for community listings.",
       accessReason:
@@ -158,7 +190,7 @@ export const READ_RESOURCE_CONFIG: Record<
     access: "public",
     maxLimit: 100,
     docs: {
-      callableBy: ["web_public", "web_member"],
+      callableBy: ["web_public", "web_member", "bookstore_portal"],
       summary:
         "Public browse view for grouped community wishes.",
       accessReason:
@@ -172,8 +204,16 @@ export const READ_RESOURCE_CONFIG: Record<
     source: "categories",
     access: "public",
     maxLimit: 200,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.CATALOG_READ,
+    },
     docs: {
-      callableBy: ["web_public", "web_member", "admin_console"],
+      callableBy: [
+        "web_public",
+        "web_member",
+        "admin_console",
+        "bookstore_portal",
+      ],
       summary:
         "Category list for filters and catalog forms.",
       accessReason:
@@ -182,23 +222,33 @@ export const READ_RESOURCE_CONFIG: Record<
         "Category lists are often loaded as lookup sets rather than tiny search responses, so the cap is higher to avoid artificial truncation in selectors.",
     },
   },
-  // User-owned copies by default; platform roles can widen visibility for operations.
+  // User-owned copies by default; elevated callers can widen visibility for operations.
   copies: {
     source: "copies",
     access: "authenticated",
     maxLimit: 200,
-    scopeMode: "self_unless_platform_staff",
+    scopeMode: "self_unless_elevated",
+    elevatedScopePermission: [
+      AuthorizationPermission.MEMBER_DIRECTORY_READ,
+      AuthorizationPermission.CATALOG_READ,
+    ],
+    permissionByAudience: {
+      admin_console: [
+        AuthorizationPermission.MEMBER_DIRECTORY_READ,
+        AuthorizationPermission.CATALOG_READ,
+      ],
+    },
     blockedParams: ["user_id"],
     docs: {
-      callableBy: ["web_member", "admin_console"],
+      callableBy: ["web_member", "admin_console", "bookstore_portal"],
       summary:
-        "Copy inventory reads for a member's own library, with staff override for admin operations.",
+        "Copy inventory reads for a member's own library, with a permission-based override for admin operations.",
       accessReason:
         "Copy records are user-specific and must never be available anonymously. Authenticated members need them for their own library, while platform staff need broader visibility for support and moderation flows.",
       limitReason:
         "Library and admin inventory tables may page through larger batches than browse pages, so the cap is raised to 200 while remaining explicitly bounded.",
       scopeReason:
-        "Regular members are hard-scoped to their own `user_id`. Platform staff can query across members because their operational workflows require that visibility.",
+        "Regular members are hard-scoped to their own `user_id`. Admin console callers need either `member.directory.read` or `catalog.read` before the gateway will lift that scope for operational workflows.",
       blockedParamsReason:
         "Clients are not allowed to set `user_id` directly, because that would let a regular member attempt to step outside their own data slice. Nest injects the safe scope instead.",
     },
@@ -208,8 +258,16 @@ export const READ_RESOURCE_CONFIG: Record<
     source: "editions",
     access: "public",
     maxLimit: 100,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.CATALOG_READ,
+    },
     docs: {
-      callableBy: ["web_public", "web_member", "admin_console"],
+      callableBy: [
+        "web_public",
+        "web_member",
+        "admin_console",
+        "bookstore_portal",
+      ],
       summary:
         "Edition metadata for public book pages and authenticated catalog workflows.",
       accessReason:
@@ -223,9 +281,13 @@ export const READ_RESOURCE_CONFIG: Record<
     source: "member_profiles",
     access: "authenticated",
     maxLimit: 200,
-    hideBootstrapAdminsUnlessPlatformStaff: true,
+    permissionByAudience: {
+      admin_console: AuthorizationPermission.MEMBER_DIRECTORY_READ,
+    },
+    hideBootstrapAdminsUnlessPermission:
+      AuthorizationPermission.MEMBER_DIRECTORY_READ,
     docs: {
-      callableBy: ["web_member", "admin_console"],
+      callableBy: ["web_member", "admin_console", "bookstore_portal"],
       summary:
         "Member directory/profile listing for authenticated community and admin surfaces.",
       accessReason:
@@ -233,26 +295,36 @@ export const READ_RESOURCE_CONFIG: Record<
       limitReason:
         "Directory-style screens often page through larger sets than search pickers, so the cap is set to 200 to support member and admin list views.",
       visibilityReason:
-        "Bootstrap admin accounts are hidden from non-staff callers to avoid leaking privileged seed accounts into community-facing member views. Platform staff keep full visibility for operations.",
+        "Bootstrap admin accounts are hidden from community-facing callers to avoid leaking privileged seed accounts into member views. Admin callers need `member.directory.read` to keep full visibility for operations.",
     },
   },
-  // User-owned wishes by default; platform roles can widen visibility for admin review and operations.
+  // User-owned wishes by default; elevated callers can widen visibility for admin review and operations.
   wishes: {
     source: "wishes",
     access: "authenticated",
     maxLimit: 200,
-    scopeMode: "self_unless_platform_staff",
+    scopeMode: "self_unless_elevated",
+    elevatedScopePermission: [
+      AuthorizationPermission.MEMBER_DIRECTORY_READ,
+      AuthorizationPermission.CATALOG_READ,
+    ],
+    permissionByAudience: {
+      admin_console: [
+        AuthorizationPermission.MEMBER_DIRECTORY_READ,
+        AuthorizationPermission.CATALOG_READ,
+      ],
+    },
     blockedParams: ["user_id"],
     docs: {
-      callableBy: ["web_member", "admin_console"],
+      callableBy: ["web_member", "admin_console", "bookstore_portal"],
       summary:
-        "Wish records for a member's own wishlist, with staff override for admin operations.",
+        "Wish records for a member's own wishlist, with a permission-based override for admin operations.",
       accessReason:
         "Wishes are personal member records and must require authentication. Platform staff also need wider access for support, moderation, and operational review.",
       limitReason:
         "Wishlist management and admin tables can reasonably page through larger member-level batches, so 200 keeps those screens practical while still bounded.",
       scopeReason:
-        "Regular members are restricted to their own wishes. Platform staff can search more broadly because they operate across member accounts.",
+        "Regular members are restricted to their own wishes. Admin console callers need either `member.directory.read` or `catalog.read` before the gateway will lift that scope for broader operational review.",
       blockedParamsReason:
         "Clients cannot choose `user_id` themselves. Nest owns that scope so a normal member cannot reshape the query into someone else's wishlist.",
     },

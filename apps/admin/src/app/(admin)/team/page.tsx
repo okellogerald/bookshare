@@ -4,6 +4,7 @@ import { getSession } from "@/domain/auth/lib/session";
 export default async function TeamPage() {
   const session = await getSession();
   const actorRoles = session?.user.roles ?? [];
+  const actorUserId = session?.user.id ?? "";
 
-  return <TeamWorkspace actorRoles={actorRoles} />;
+  return <TeamWorkspace actorRoles={actorRoles} actorUserId={actorUserId} />;
 }

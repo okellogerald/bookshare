@@ -37,6 +37,7 @@ const protectedPagePrefixes = [
   "/community",
   "/my-library",
   "/my-wishlist",
+  "/notifications",
   "/profile",
   "/settings",
 ];

@@ -11,8 +11,8 @@ export type AdminFlow =
   | { kind: "edit-bookstore"; bookstore: AdminBookstoreDetail }
   | { kind: "catalog-search" }
   | { kind: "import-batch" }
-  | { kind: "add-team-member"; actorRoles: string[] }
-  | { kind: "manage-team-member"; actorRoles: string[]; entry: StaffDirectoryEntry }
+  | { kind: "add-team-member"; actorRoles: string[]; actorUserId: string }
+  | { kind: "manage-team-member"; actorRoles: string[]; actorUserId: string; entry: StaffDirectoryEntry }
   | { kind: "review-copy-submission"; submission: CopySubmissionRecord }
   | { kind: "review-want-submission"; submission: WantSubmissionRecord }
   | { kind: "edit-book"; book: PgBookWithAuthorsView }

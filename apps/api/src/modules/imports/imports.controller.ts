@@ -10,9 +10,12 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { PlatformRole } from "@bookshare/shared";
+import {
+  AuthorizationPermission,
+  PlatformRole,
+} from "@bookshare/shared";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { CurrentUser, Roles } from "../../common/decorators";
+import { CurrentUser, Permissions, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import { ImportsService } from "./imports.service";
 
@@ -35,6 +38,7 @@ export class ImportsController {
   constructor(private readonly importsService: ImportsService) {}
 
   @Get()
+  @Permissions(AuthorizationPermission.IMPORT_READ)
   listRecentRuns(@Query("limit") limitRaw?: string) {
     const limit =
       typeof limitRaw === "string" && limitRaw.trim().length > 0
@@ -46,6 +50,7 @@ export class ImportsController {
 
   @Post("validate")
   @UseInterceptors(FileInterceptor("zip"))
+  @Permissions(AuthorizationPermission.IMPORT_VALIDATE)
   validateZip(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: UploadedZipFile | undefined,
@@ -65,6 +70,7 @@ export class ImportsController {
   }
 
   @Post(":runId/commit")
+  @Permissions(AuthorizationPermission.IMPORT_COMMIT)
   commitRun(@Param("runId") runId: string) {
     return this.importsService.commitRun(runId);
   }

@@ -78,6 +78,13 @@
       "when": 1776774600000,
       "tag": "0012_organizations_owner_activated_at",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1777012922647,
+      "tag": "0013_authorization_v1",
+      "breakpoints": true
     }
   ]
 }

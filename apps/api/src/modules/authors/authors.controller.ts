@@ -1,13 +1,17 @@
 import { Controller, Post, Put, Delete, Body, Param } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { PlatformRole } from "@bookshare/shared";
+import {
+  AuthorizationPermission,
+  PlatformRole,
+} from "@bookshare/shared";
 import { AuthorsService } from "./authors.service";
 import { CreateAuthorDto, UpdateAuthorDto } from "./dto";
-import { Roles } from "../../common/decorators";
+import { Permissions, Roles } from "../../common/decorators";
 
 @ApiTags("Authors")
 @ApiBearerAuth()
 @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+@Permissions(AuthorizationPermission.CATALOG_WRITE)
 @Controller("authors")
 export class AuthorsController {
   constructor(private readonly authorsService: AuthorsService) {}

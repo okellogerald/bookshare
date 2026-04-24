@@ -10,10 +10,13 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { PlatformRole } from "@bookshare/shared";
+import {
+  AuthorizationPermission,
+  PlatformRole,
+} from "@bookshare/shared";
 import { WishesService } from "./wishes.service";
 import { AdminCreateWishDto, CreateWishDto, UpdateWishDto } from "./dto";
-import { CurrentUser, Roles } from "../../common/decorators";
+import { CurrentUser, Permissions, Roles } from "../../common/decorators";
 
 @ApiTags("Wishes")
 @ApiBearerAuth()
@@ -82,30 +85,35 @@ export class WishesController {
 
   @Post("admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.CATALOG_WRITE)
   adminCreate(@Body() dto: AdminCreateWishDto) {
     return this.wishesService.adminCreate(dto);
   }
 
   @Put(":id/admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.CATALOG_WRITE)
   adminUpdate(@Param("id") id: string, @Body() dto: UpdateWishDto) {
     return this.wishesService.adminUpdate(id, dto);
   }
 
   @Delete(":id/admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.CATALOG_WRITE)
   adminDelete(@Param("id") id: string) {
     return this.wishesService.adminDelete(id);
   }
 
   @Patch(":id/admin/archive")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.CATALOG_WRITE)
   adminArchive(@Param("id") id: string) {
     return this.wishesService.adminArchive(id);
   }
 
   @Patch(":id/admin/restore")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.CATALOG_WRITE)
   adminRestore(@Param("id") id: string) {
     return this.wishesService.adminRestore(id);
   }

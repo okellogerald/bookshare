@@ -110,6 +110,11 @@ export const organizationMembershipRoleEnum = pgEnum(
   ["owner", "member"]
 );
 
+export const organizationMembershipStatusEnum = pgEnum(
+  "organization_membership_status",
+  ["active", "suspended"]
+);
+
 export const organizationInviteStatusEnum = pgEnum(
   "organization_invite_status",
   ["pending", "accepted", "revoked"]
@@ -118,4 +123,9 @@ export const organizationInviteStatusEnum = pgEnum(
 export const bookstoreProposalStatusEnum = pgEnum(
   "bookstore_proposal_status",
   ["active", "withdrawn", "expired"]
+);
+
+export const permissionGrantScopeTypeEnum = pgEnum(
+  "permission_grant_scope_type",
+  ["platform", "bookstore"]
 );

@@ -29,15 +29,19 @@ import {
   wishes,
 } from "@bookshare/db";
 import {
+  AuthorizationPermission,
   BookstoreMembershipRole,
+  BookstoreMembershipStatus,
   BookstoreProposalStatus,
   BookstoreStatus,
   NotificationType,
   OrganizationType,
+  createBookstoreScope,
   type BookstoreProposalNotificationMetadata,
   type NotificationBookSnapshot,
   type NotificationWishSnapshot,
 } from "@bookshare/shared";
+import { AuthorizationService } from "../../common/authorization/authorization.service";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import type { AuthenticatedUser } from "../../common/guards";
 import { MailerService } from "../mailer/mailer.service";
@@ -77,7 +81,7 @@ interface KratosIdentity {
 
 interface MembershipAccess {
   organization: OrganizationRecord;
-  membership: MembershipRecord;
+  membership: MembershipRecord | null;
 }
 
 type BookstoreWantRow = Awaited<
@@ -95,7 +99,8 @@ export class BookstoresService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly configService: ConfigService,
-    private readonly mailer: MailerService
+    private readonly mailer: MailerService,
+    private readonly authorizationService: AuthorizationService
   ) {}
 
   async getMyBookstores(user: AuthenticatedUser) {
@@ -106,7 +111,10 @@ export class BookstoresService {
     }
 
     const memberships = await this.db.query.organizationMemberships.findMany({
-      where: eq(organizationMemberships.userId, user.id),
+      where: and(
+        eq(organizationMemberships.userId, user.id),
+        eq(organizationMemberships.status, BookstoreMembershipStatus.ACTIVE)
+      ),
       with: {
         organization: true,
       },
@@ -270,17 +278,46 @@ export class BookstoresService {
   }
 
   async getOne(bookstoreId: string, user: AuthenticatedUser) {
-    const { organization, membership } = await this.requireMembershipAccess(
+    const { organization, membership } = await this.requireBookstorePermission(
       bookstoreId,
-      user.id
+      user,
+      AuthorizationPermission.BOOKSTORE_READ
     );
+    if (!membership) {
+      throw new ForbiddenException("You do not have access to that bookstore.");
+    }
     const memberCount = await this.countMembers(bookstoreId);
     const proposalCount = await this.countRecentProposals(bookstoreId);
 
     return {
       ...this.mapOrganizationDetail(organization),
       myRole: membership.role,
-      canManageMembers: membership.role === BookstoreMembershipRole.OWNER,
+      canManageMembers:
+        this.authorizationService.hasPermission(
+          user,
+          AuthorizationPermission.BOOKSTORE_MEMBER_ROLE_MANAGE,
+          createBookstoreScope(bookstoreId)
+        ) ||
+        this.authorizationService.hasPermission(
+          user,
+          AuthorizationPermission.BOOKSTORE_MEMBER_REMOVE,
+          createBookstoreScope(bookstoreId)
+        ) ||
+        this.authorizationService.hasPermission(
+          user,
+          AuthorizationPermission.BOOKSTORE_MEMBER_SUSPEND,
+          createBookstoreScope(bookstoreId)
+        ) ||
+        this.authorizationService.hasPermission(
+          user,
+          AuthorizationPermission.BOOKSTORE_MEMBER_RESTORE,
+          createBookstoreScope(bookstoreId)
+        ) ||
+        this.authorizationService.hasPermission(
+          user,
+          AuthorizationPermission.BOOKSTORE_INVITE_MANAGE,
+          createBookstoreScope(bookstoreId)
+        ),
       memberCount,
       recentProposalCount: proposalCount,
     };
@@ -291,7 +328,11 @@ export class BookstoresService {
     user: AuthenticatedUser,
     dto: UpdateBookstoreDto
   ) {
-    const { organization } = await this.requireOwnerAccess(bookstoreId, user.id);
+    const { organization } = await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_UPDATE
+    );
     const values = this.normalizeUpdateBookstoreDto(dto);
     const [updated] = await this.db
       .update(organizations)
@@ -303,7 +344,11 @@ export class BookstoresService {
   }
 
   async resubmit(bookstoreId: string, user: AuthenticatedUser) {
-    const { organization } = await this.requireOwnerAccess(bookstoreId, user.id);
+    const { organization } = await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_UPDATE
+    );
     if (organization.status !== BookstoreStatus.REJECTED) {
       throw new BadRequestException("Only rejected bookstores can be resubmitted.");
     }
@@ -327,12 +372,22 @@ export class BookstoresService {
     user: AuthenticatedUser,
     query: ListBookstoreWantsQueryDto
   ) {
-    await this.requireApprovedMemberAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_WANT_READ,
+      { requireApproved: true }
+    );
     return this.loadMappedActiveWants(bookstoreId, query);
   }
 
   async getWant(bookstoreId: string, wishId: string, user: AuthenticatedUser) {
-    await this.requireApprovedMemberAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_WANT_READ,
+      { requireApproved: true }
+    );
     const wants = await this.loadMappedActiveWants(bookstoreId, {
       proposalState: "all",
       sort: "latest_activity_desc",
@@ -349,9 +404,11 @@ export class BookstoresService {
     user: AuthenticatedUser,
     dto: CreateBookstoreProposalDto
   ) {
-    const { organization } = await this.requireApprovedMemberAccess(
+    const { organization } = await this.requireBookstorePermission(
       bookstoreId,
-      user.id
+      user,
+      AuthorizationPermission.BOOKSTORE_PROPOSAL_CREATE,
+      { requireApproved: true }
     );
     const activeExisting = await this.db.query.bookstoreProposals.findFirst({
       where: and(
@@ -428,7 +485,12 @@ export class BookstoresService {
     proposalId: string,
     user: AuthenticatedUser
   ) {
-    await this.requireApprovedMemberAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_PROPOSAL_WITHDRAW,
+      { requireApproved: true }
+    );
     const proposal = await this.db.query.bookstoreProposals.findFirst({
       where: and(
         eq(bookstoreProposals.id, proposalId),
@@ -457,7 +519,11 @@ export class BookstoresService {
   }
 
   async listMembers(bookstoreId: string, user: AuthenticatedUser) {
-    await this.requireOwnerAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_MEMBER_READ
+    );
 
     const [memberships, invites] = await Promise.all([
       this.db.query.organizationMemberships.findMany({
@@ -480,6 +546,8 @@ export class BookstoresService {
         .map((entry) => ({
           userId: entry.userId,
           role: entry.role,
+          status: entry.status,
+          suspendedAt: toIsoString(entry.suspendedAt),
           joinedAt: entry.createdAt.toISOString(),
           email: entry.userProfile?.email ?? null,
           firstName: entry.userProfile?.firstName ?? null,
@@ -513,7 +581,12 @@ export class BookstoresService {
     user: AuthenticatedUser,
     dto: CreateOrganizationInviteDto
   ) {
-    await this.requireApprovedOwnerAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_INVITE_MANAGE,
+      { requireApproved: true }
+    );
     const normalizedEmail = this.normalizeRequiredEmail(dto.email);
     const existingMember = await this.db.query.memberProfiles.findFirst({
       columns: { userId: true },
@@ -609,7 +682,11 @@ export class BookstoresService {
   }
 
   async revokeInvite(bookstoreId: string, inviteId: string, user: AuthenticatedUser) {
-    await this.requireOwnerAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_INVITE_MANAGE
+    );
     const invite = await this.db.query.organizationInvites.findFirst({
       where: and(
         eq(organizationInvites.id, inviteId),
@@ -647,7 +724,11 @@ export class BookstoresService {
     user: AuthenticatedUser,
     dto: UpdateOrganizationMemberRoleDto
   ) {
-    await this.requireOwnerAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_MEMBER_ROLE_MANAGE
+    );
     const membership = await this.db.query.organizationMemberships.findFirst({
       where: and(
         eq(organizationMemberships.organizationId, bookstoreId),
@@ -668,9 +749,13 @@ export class BookstoresService {
 
     if (
       membership.role === BookstoreMembershipRole.OWNER &&
+      membership.status === BookstoreMembershipStatus.ACTIVE &&
       dto.role !== BookstoreMembershipRole.OWNER
     ) {
-      await this.ensureOrganizationHasAnotherOwner(bookstoreId, membership.userId);
+      await this.ensureOrganizationHasAnotherActiveOwner(
+        bookstoreId,
+        membership.userId
+      );
     }
 
     const [updated] = await this.db
@@ -690,7 +775,11 @@ export class BookstoresService {
     targetUserId: string,
     user: AuthenticatedUser
   ) {
-    await this.requireOwnerAccess(bookstoreId, user.id);
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_MEMBER_REMOVE
+    );
     const membership = await this.db.query.organizationMemberships.findFirst({
       where: and(
         eq(organizationMemberships.organizationId, bookstoreId),
@@ -702,8 +791,14 @@ export class BookstoresService {
       throw new NotFoundException("Member not found.");
     }
 
-    if (membership.role === BookstoreMembershipRole.OWNER) {
-      await this.ensureOrganizationHasAnotherOwner(bookstoreId, membership.userId);
+    if (
+      membership.role === BookstoreMembershipRole.OWNER &&
+      membership.status === BookstoreMembershipStatus.ACTIVE
+    ) {
+      await this.ensureOrganizationHasAnotherActiveOwner(
+        bookstoreId,
+        membership.userId
+      );
     }
 
     await this.db
@@ -711,6 +806,105 @@ export class BookstoresService {
       .where(eq(organizationMemberships.id, membership.id));
 
     return { ok: true, userId: targetUserId };
+  }
+
+  async suspendMember(
+    bookstoreId: string,
+    targetUserId: string,
+    user: AuthenticatedUser
+  ) {
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_MEMBER_SUSPEND
+    );
+
+    const membership = await this.db.query.organizationMemberships.findFirst({
+      where: and(
+        eq(organizationMemberships.organizationId, bookstoreId),
+        eq(organizationMemberships.userId, targetUserId)
+      ),
+    });
+
+    if (!membership) {
+      throw new NotFoundException("Member not found.");
+    }
+
+    if (membership.status === BookstoreMembershipStatus.SUSPENDED) {
+      return {
+        userId: membership.userId,
+        status: membership.status,
+        suspendedAt: toIsoString(membership.suspendedAt),
+      };
+    }
+
+    if (membership.role === BookstoreMembershipRole.OWNER) {
+      await this.ensureOrganizationHasAnotherActiveOwner(
+        bookstoreId,
+        membership.userId
+      );
+    }
+
+    const [updated] = await this.db
+      .update(organizationMemberships)
+      .set({
+        status: BookstoreMembershipStatus.SUSPENDED,
+        suspendedAt: new Date(),
+      })
+      .where(eq(organizationMemberships.id, membership.id))
+      .returning();
+
+    return {
+      userId: updated.userId,
+      status: updated.status,
+      suspendedAt: toIsoString(updated.suspendedAt),
+    };
+  }
+
+  async restoreMember(
+    bookstoreId: string,
+    targetUserId: string,
+    user: AuthenticatedUser
+  ) {
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_MEMBER_RESTORE
+    );
+
+    const membership = await this.db.query.organizationMemberships.findFirst({
+      where: and(
+        eq(organizationMemberships.organizationId, bookstoreId),
+        eq(organizationMemberships.userId, targetUserId)
+      ),
+    });
+
+    if (!membership) {
+      throw new NotFoundException("Member not found.");
+    }
+
+    if (membership.status === BookstoreMembershipStatus.ACTIVE) {
+      return {
+        userId: membership.userId,
+        status: membership.status,
+        suspendedAt: toIsoString(membership.suspendedAt),
+      };
+    }
+
+    const [updated] = await this.db
+      .update(organizationMemberships)
+      .set({
+        status: BookstoreMembershipStatus.ACTIVE,
+        suspendedAt: null,
+      })
+      .where(eq(organizationMemberships.id, membership.id))
+      .returning();
+
+    return {
+      userId: updated.userId,
+      status: updated.status,
+      suspendedAt: toIsoString(updated.suspendedAt),
+    };
   }
 
   async getPublicProfile(bookstoreId: string) {
@@ -1077,45 +1271,53 @@ export class BookstoresService {
     return this.adminGet(organization.id);
   }
 
-  private async requireMembershipAccess(bookstoreId: string, userId: string) {
+  private async requireBookstorePermission(
+    bookstoreId: string,
+    user: AuthenticatedUser,
+    permission: AuthorizationPermission,
+    options: { requireApproved?: boolean } = {}
+  ) {
+    const organization = await this.db.query.organizations.findFirst({
+      where: and(
+        eq(organizations.id, bookstoreId),
+        eq(organizations.type, OrganizationType.BOOKSTORE)
+      ),
+    });
+
+    if (!organization) {
+      throw new NotFoundException("Bookstore not found.");
+    }
+
     const membership = await this.db.query.organizationMemberships.findFirst({
       where: and(
         eq(organizationMemberships.organizationId, bookstoreId),
-        eq(organizationMemberships.userId, userId)
+        eq(organizationMemberships.userId, user.id)
       ),
-      with: {
-        organization: true,
-      },
     });
 
-    if (!membership || membership.organization.type !== OrganizationType.BOOKSTORE) {
-      throw new ForbiddenException("You do not have access to that bookstore.");
+    if (
+      membership?.status === BookstoreMembershipStatus.SUSPENDED &&
+      !this.authorizationService.hasPlatformPermission(user, permission)
+    ) {
+      throw new ForbiddenException(
+        "Your access to that bookstore is currently suspended."
+      );
+    }
+
+    this.authorizationService.assertPermission(
+      user,
+      permission,
+      createBookstoreScope(bookstoreId)
+    );
+
+    if (options.requireApproved) {
+      this.assertOrganizationCanOperate(organization);
     }
 
     return {
-      organization: membership.organization,
-      membership,
-    };
-  }
-
-  private async requireOwnerAccess(bookstoreId: string, userId: string) {
-    const access = await this.requireMembershipAccess(bookstoreId, userId);
-    if (access.membership.role !== BookstoreMembershipRole.OWNER) {
-      throw new ForbiddenException("Only bookstore owners can manage that resource.");
-    }
-    return access;
-  }
-
-  private async requireApprovedMemberAccess(bookstoreId: string, userId: string) {
-    const access = await this.requireMembershipAccess(bookstoreId, userId);
-    this.assertOrganizationCanOperate(access.organization);
-    return access;
-  }
-
-  private async requireApprovedOwnerAccess(bookstoreId: string, userId: string) {
-    const access = await this.requireOwnerAccess(bookstoreId, userId);
-    this.assertOrganizationCanOperate(access.organization);
-    return access;
+      organization,
+      membership: membership ?? null,
+    } satisfies MembershipAccess;
   }
 
   private assertOrganizationCanOperate(organization: OrganizationRecord) {
@@ -1277,7 +1479,12 @@ export class BookstoresService {
     const [row] = await this.db
       .select({ total: count() })
       .from(organizationMemberships)
-      .where(eq(organizationMemberships.organizationId, bookstoreId));
+      .where(
+        and(
+          eq(organizationMemberships.organizationId, bookstoreId),
+          eq(organizationMemberships.status, BookstoreMembershipStatus.ACTIVE)
+        )
+      );
 
     return Number(row?.total ?? 0);
   }
@@ -1293,14 +1500,15 @@ export class BookstoresService {
       .length;
   }
 
-  private async ensureOrganizationHasAnotherOwner(
+  private async ensureOrganizationHasAnotherActiveOwner(
     bookstoreId: string,
     excludedUserId: string
   ) {
     const owners = await this.db.query.organizationMemberships.findMany({
       where: and(
         eq(organizationMemberships.organizationId, bookstoreId),
-        eq(organizationMemberships.role, BookstoreMembershipRole.OWNER)
+        eq(organizationMemberships.role, BookstoreMembershipRole.OWNER),
+        eq(organizationMemberships.status, BookstoreMembershipStatus.ACTIVE)
       ),
     });
 

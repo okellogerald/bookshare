@@ -163,10 +163,15 @@ export function AdminFlowHost({
       ) : activeFlow.kind === "edit-bookstore" ? (
         <EditBookstoreFlow bookstore={activeFlow.bookstore} onClose={onClose} />
       ) : activeFlow.kind === "add-team-member" ? (
-        <AddTeamMemberFlow actorRoles={activeFlow.actorRoles} onComplete={onClose} />
+        <AddTeamMemberFlow
+          actorRoles={activeFlow.actorRoles}
+          actorUserId={activeFlow.actorUserId}
+          onComplete={onClose}
+        />
       ) : activeFlow.kind === "manage-team-member" ? (
         <ManageTeamMemberFlow
           actorRoles={activeFlow.actorRoles}
+          actorUserId={activeFlow.actorUserId}
           entry={activeFlow.entry}
           onClose={onClose}
         />

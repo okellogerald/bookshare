@@ -11,11 +11,16 @@ import { PinoLogger } from "nestjs-pino";
 import * as jwt from "jsonwebtoken";
 import jwksClient, { JwksClient } from "jwks-rsa";
 import { type Database, memberProfiles, staffRoles } from "@bookshare/db";
-import { PlatformRole, isAdminEmailAddress } from "@bookshare/shared";
+import {
+  type EffectiveAuthorizationGrant,
+  PlatformRole,
+  isAdminEmailAddress,
+} from "@bookshare/shared";
 import { eq } from "drizzle-orm";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { IS_OPTIONAL_AUTH_KEY } from "../decorators/optional-auth.decorator";
+import { AuthorizationService } from "../authorization/authorization.service";
 
 interface IdentityJwtPayload {
   sub: string;
@@ -46,6 +51,7 @@ export interface AuthenticatedUser {
   gender?: string;
   tokenIssuedAt?: number;
   roles: string[];
+  permissionGrants: EffectiveAuthorizationGrant[];
 }
 
 @Injectable()
@@ -56,7 +62,8 @@ export class AuthGuard implements CanActivate {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly configService: ConfigService,
     private readonly reflector: Reflector,
-    private readonly logger: PinoLogger
+    private readonly logger: PinoLogger,
+    private readonly authorizationService: AuthorizationService
   ) {
     this.logger.setContext(AuthGuard.name);
     const issuer = this.getIssuer();
@@ -116,6 +123,8 @@ export class AuthGuard implements CanActivate {
       const payload = await this.verifyToken(token);
       const mappedUser = this.mapToAuthenticatedUser(payload);
       mappedUser.roles = await this.resolveAuthorizedRoles(mappedUser);
+      mappedUser.permissionGrants =
+        await this.authorizationService.resolveEffectivePermissions(mappedUser);
       await this.ensureActiveAccount(mappedUser.id);
       request.user = mappedUser;
       this.logger.debug(
@@ -124,6 +133,7 @@ export class AuthGuard implements CanActivate {
           path: request.url,
           userId: mappedUser.id,
           roles: mappedUser.roles,
+          permissionCount: mappedUser.permissionGrants.length,
           optional,
         },
         "Authenticated request"
@@ -285,6 +295,7 @@ export class AuthGuard implements CanActivate {
       gender: payload.gender,
       tokenIssuedAt: payload.iat,
       roles,
+      permissionGrants: [],
     };
   }
 }

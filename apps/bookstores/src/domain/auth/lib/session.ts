@@ -74,6 +74,11 @@ export async function getSession(): Promise<SessionData | null> {
 }
 
 export async function getAccessToken(): Promise<string | null> {
+  const session = await getSession();
+  if (isJwtLike(session?.idToken)) {
+    return session.idToken;
+  }
+
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get(BOOKSTORES_TOKEN_COOKIE)?.value;
 
@@ -86,8 +91,7 @@ export async function getAccessToken(): Promise<string | null> {
     }
   }
 
-  const session = await getSession();
-  return isJwtLike(session?.idToken) ? session.idToken : null;
+  return null;
 }
 
 export async function clearSession(): Promise<void> {

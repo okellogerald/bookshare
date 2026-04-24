@@ -6,6 +6,7 @@ import type {
   BookFormat,
   BookstoreInviteStatus,
   BookstoreMembershipRole,
+  BookstoreMembershipStatus,
   BookstoreProposalStatus,
   BookstoreStatus,
   CopyCondition,
@@ -170,6 +171,8 @@ export interface OrganizationMembership {
   organizationId: string;
   userId: string;
   role: BookstoreMembershipRole;
+  status: BookstoreMembershipStatus;
+  suspendedAt: Date | null;
   createdAt: Date;
 }
 
@@ -306,6 +309,8 @@ export interface BookstoreWantRow {
 export interface BookstoreMemberRecord {
   userId: string;
   role: BookstoreMembershipRole;
+  status: BookstoreMembershipStatus;
+  suspendedAt: string | null;
   joinedAt: string;
   email: string | null;
   firstName: string | null;

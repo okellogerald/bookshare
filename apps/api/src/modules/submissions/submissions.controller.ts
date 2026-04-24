@@ -9,8 +9,11 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { PlatformRole } from "@bookshare/shared";
-import { CurrentUser, Roles } from "../../common/decorators";
+import {
+  AuthorizationPermission,
+  PlatformRole,
+} from "@bookshare/shared";
+import { CurrentUser, Permissions, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
   ApproveCopySubmissionDto,
@@ -64,18 +67,21 @@ export class SubmissionsController {
 
   @Get("copies")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_READ)
   listCopySubmissions(@Query("status") status?: string) {
     return this.submissionsService.listCopySubmissions(status);
   }
 
   @Get("copies/:id")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_READ)
   getCopySubmission(@Param("id") id: string) {
     return this.submissionsService.getCopySubmission(id);
   }
 
   @Patch("copies/:id/approve")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_REVIEW)
   approveCopySubmission(
     @Param("id") id: string,
     @Body() dto: ApproveCopySubmissionDto,
@@ -90,6 +96,7 @@ export class SubmissionsController {
 
   @Patch("copies/:id/reject")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_REVIEW)
   rejectCopySubmission(
     @Param("id") id: string,
     @Body() dto: RejectCopySubmissionDto,
@@ -106,18 +113,21 @@ export class SubmissionsController {
 
   @Get("wants")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_READ)
   listWantSubmissions(@Query("status") status?: string) {
     return this.submissionsService.listWantSubmissions(status);
   }
 
   @Get("wants/:id")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_READ)
   getWantSubmission(@Param("id") id: string) {
     return this.submissionsService.getWantSubmission(id);
   }
 
   @Patch("wants/:id/approve")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_REVIEW)
   approveWantSubmission(
     @Param("id") id: string,
     @Body() dto: ApproveWantSubmissionDto,
@@ -132,6 +142,7 @@ export class SubmissionsController {
 
   @Patch("wants/:id/reject")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.SUBMISSION_REVIEW)
   rejectWantSubmission(
     @Param("id") id: string,
     @Body() dto: RejectWantSubmissionDto,

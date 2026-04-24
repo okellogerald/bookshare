@@ -3,7 +3,8 @@
  *
  * These names are the shared contract between:
  * - the Next.js BFF routes (`/api/backend/:resource`)
- * - the Nest read gateway (`/api/read/:resource`)
+ * - the Nest read gateway (`/api/read/:audience/:resource`, with a legacy
+ *   fallback at `/api/read/:resource`)
  *
  * A name being listed here does not automatically make it safe to expose.
  * The actual policy, audience, and rationale live in

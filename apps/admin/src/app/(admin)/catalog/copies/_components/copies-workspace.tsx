@@ -138,6 +138,26 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
   );
 }
 
+function EditionCoverThumb({ url, title }: { url: string | null; title: string }) {
+  // The edition cover is the publisher's canonical cover image. It gives each
+  // row a stable visual anchor even when a member hasn't uploaded copy photos.
+  if (!url) {
+    return (
+      <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded-md border border-border/75 bg-muted text-[10px] font-medium text-muted-foreground">
+        No cover
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt={`${title} cover`}
+      className="h-14 w-10 shrink-0 rounded-md border border-border/75 bg-muted object-cover shadow-sm"
+      loading="lazy"
+    />
+  );
+}
+
 function CopyImagesCell({ images }: { images: CatalogCopyImageRecord[] }) {
   if (images.length === 0) {
     return <span className="text-xs text-muted-foreground">—</span>;
@@ -300,14 +320,22 @@ export function CopiesWorkspace() {
               <TableBody>
                 {filtered.map((copy) => (
                   <TableRow key={copy.id} className="group">
-                    <TableCell className="min-w-[200px] whitespace-normal">
-                      <p className="font-medium text-foreground">
-                        {copy.edition?.book?.title ?? "Untitled"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {copy.edition?.isbn || "No ISBN"}
-                      </p>
-                      <CopyRowActions copy={copy} />
+                    <TableCell className="min-w-[260px] whitespace-normal">
+                      <div className="flex items-start gap-3">
+                        <EditionCoverThumb
+                          url={copy.edition?.cover_image_url ?? null}
+                          title={copy.edition?.book?.title ?? "Untitled"}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground">
+                            {copy.edition?.book?.title ?? "Untitled"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {copy.edition?.isbn || "No ISBN"}
+                          </p>
+                          <CopyRowActions copy={copy} />
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <CopyImagesCell images={copy.images ?? []} />

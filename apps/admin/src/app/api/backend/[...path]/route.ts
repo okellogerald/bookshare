@@ -1,5 +1,8 @@
 import { getAccessToken, getSession } from "@/domain/auth/lib/session";
-import { isReadGatewayResourceName } from "@bookshare/shared";
+import {
+  AuthorizationSurface,
+  isReadGatewayResourceName,
+} from "@bookshare/shared";
 import {
   buildProxyBaseUrlCandidates,
   buildProxyRequestUrl,
@@ -14,41 +17,38 @@ const API_URL_CANDIDATES = buildProxyBaseUrlCandidates(
 );
 
 async function proxyToNestJS(request: NextRequest, path: string[]) {
-  const isReadOnly =
-    request.method === "GET" || request.method === "HEAD";
   const token = await getAccessToken();
   const session = await getSession();
 
-  if (!token || !session) {
-    if (isReadOnly) {
-      return proxyRequest(request, path, null);
-    }
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (session.user.emailVerified !== true) {
-    if (isReadOnly) {
-      return proxyRequest(request, path, null);
-    }
     return NextResponse.json(
       { error: "Email verification required" },
       { status: 403 }
     );
   }
 
-  return proxyRequest(request, path, token);
+  return proxyRequest(request, path, token, AuthorizationSurface.ADMIN_CONSOLE);
 }
 
 async function proxyRequest(
   request: NextRequest,
   path: string[],
-  token: string | null
+  token: string | null,
+  audience: string
 ) {
   const gatewayPath =
     (request.method === "GET" || request.method === "HEAD") &&
     path.length === 1 &&
     isReadGatewayResourceName(path[0])
-      ? ["read", path[0]]
+      ? ["read", audience, path[0]]
       : path;
   const apiPath = gatewayPath.join("/");
   const search = request.nextUrl.searchParams.toString();

@@ -1,5 +1,8 @@
 import { getAccessToken, getSession } from "@/domain/auth/lib/session";
-import { isReadGatewayResourceName } from "@bookshare/shared";
+import {
+  AuthorizationSurface,
+  isReadGatewayResourceName,
+} from "@bookshare/shared";
 import { createLogger } from "@bookshare/logger";
 import {
   buildProxyBaseUrlCandidates,
@@ -19,15 +22,10 @@ const API_URL_CANDIDATES = buildProxyBaseUrlCandidates(
 );
 
 async function proxyToNestJS(request: NextRequest, path: string[]) {
-  const isReadOnly =
-    request.method === "GET" || request.method === "HEAD";
   const token = await getAccessToken();
   const session = await getSession();
 
-  if (!token || !session) {
-    if (isReadOnly) {
-      return proxyRequest(request, path, null);
-    }
+  if (!session) {
     logger.warn(
       { method: request.method, path: path.join("/") },
       "Rejected authenticated API proxy request without session"
@@ -35,10 +33,15 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!token) {
+    logger.warn(
+      { method: request.method, path: path.join("/"), subject: session.user.id },
+      "Rejected API proxy request because the session had no usable token"
+    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   if (session.user.emailVerified !== true) {
-    if (isReadOnly) {
-      return proxyRequest(request, path, null);
-    }
     logger.warn(
       {
         method: request.method,
@@ -65,7 +68,7 @@ async function proxyRequest(
     (request.method === "GET" || request.method === "HEAD") &&
     path.length === 1 &&
     isReadGatewayResourceName(path[0])
-      ? ["read", path[0]]
+      ? ["read", AuthorizationSurface.BOOKSTORE_PORTAL, path[0]]
       : path;
   const apiPath = gatewayPath.join("/");
   const search = request.nextUrl.searchParams.toString();

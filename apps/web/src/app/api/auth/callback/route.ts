@@ -180,7 +180,7 @@ function resolveApiToken(
   accessToken?: string | null,
   idToken?: string | null
 ): string | null {
-  if (isJwtLike(accessToken)) return accessToken;
   if (isJwtLike(idToken)) return idToken;
+  if (isJwtLike(accessToken)) return accessToken;
   return accessToken ?? idToken ?? null;
 }

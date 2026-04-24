@@ -10,11 +10,12 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import {
-  BookstoreStatus,
+  AuthorizationPermission,
   PlatformRole,
 } from "@bookshare/shared";
 import {
   CurrentUser,
+  Permissions,
   Public,
   Roles,
 } from "../../common/decorators";
@@ -52,6 +53,7 @@ export class BookstoresController {
 
   @Post()
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_STATUS_MANAGE)
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateBookstoreDto
@@ -61,12 +63,14 @@ export class BookstoresController {
 
   @Get("admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_DIRECTORY_READ)
   adminList(@Query() query: ListAdminBookstoresQueryDto) {
     return this.bookstoresService.adminList(query);
   }
 
   @Post("admin")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_STATUS_MANAGE)
   adminCreate(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateAdminBookstoreDto
@@ -76,12 +80,14 @@ export class BookstoresController {
 
   @Get("admin/:bookstoreId")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_DIRECTORY_READ)
   adminGet(@Param("bookstoreId") bookstoreId: string) {
     return this.bookstoresService.adminGet(bookstoreId);
   }
 
   @Patch("admin/:bookstoreId/status")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_STATUS_MANAGE)
   adminUpdateStatus(
     @Param("bookstoreId") bookstoreId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -92,6 +98,7 @@ export class BookstoresController {
 
   @Patch("admin/:bookstoreId")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_STATUS_MANAGE)
   adminUpdate(
     @Param("bookstoreId") bookstoreId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -102,6 +109,7 @@ export class BookstoresController {
 
   @Patch("admin/:bookstoreId/owner")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.BOOKSTORE_OWNER_MANAGE)
   adminUpdateOwner(
     @Param("bookstoreId") bookstoreId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -112,6 +120,10 @@ export class BookstoresController {
 
   @Post("admin/:bookstoreId/owner/resend-email")
   @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(
+    AuthorizationPermission.BOOKSTORE_OWNER_MANAGE,
+    AuthorizationPermission.IDENTITY_PASSWORD_RESET
+  )
   adminResendOwnerEmail(@Param("bookstoreId") bookstoreId: string) {
     return this.bookstoresService.adminResendOwnerEmail(bookstoreId);
   }
@@ -224,6 +236,24 @@ export class BookstoresController {
       user,
       dto
     );
+  }
+
+  @Patch(":bookstoreId/members/:userId/suspend")
+  suspendMember(
+    @Param("bookstoreId") bookstoreId: string,
+    @Param("userId") targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.bookstoresService.suspendMember(bookstoreId, targetUserId, user);
+  }
+
+  @Patch(":bookstoreId/members/:userId/restore")
+  restoreMember(
+    @Param("bookstoreId") bookstoreId: string,
+    @Param("userId") targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.bookstoresService.restoreMember(bookstoreId, targetUserId, user);
   }
 
   @Delete(":bookstoreId/members/:userId")

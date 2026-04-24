@@ -22,7 +22,13 @@ import {
 } from "@/domain/team/lib";
 import { TeamRoleBadge } from "@/domain/team/team-role-badge";
 
-export function TeamWorkspace({ actorRoles }: { actorRoles: string[] }) {
+export function TeamWorkspace({
+  actorRoles,
+  actorUserId,
+}: {
+  actorRoles: string[];
+  actorUserId: string;
+}) {
   const [directoryQuery, setDirectoryQuery] = useState("");
   const { openFlow } = useAdminFlow();
   const directory = useTeamDirectory(directoryQuery);
@@ -40,7 +46,7 @@ export function TeamWorkspace({ actorRoles }: { actorRoles: string[] }) {
             <Button
               type="button"
               className="rounded-full px-4"
-              onClick={() => openFlow({ kind: "add-team-member", actorRoles })}
+              onClick={() => openFlow({ kind: "add-team-member", actorRoles, actorUserId })}
             >
               <Plus className="h-4 w-4" />
               Add Team Member
@@ -82,47 +88,72 @@ export function TeamWorkspace({ actorRoles }: { actorRoles: string[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {directoryEntries.map((entry) => (
-                <TableRow key={entry.userId}>
-                  <TableCell className="min-w-[180px] whitespace-normal">
-                    <p className="font-medium text-foreground">{entry.displayName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatIdentitySubtitle(entry)}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {entry.roles.map((assignment) => (
-                        <TeamRoleBadge key={`${entry.userId}-${assignment.role}`} role={assignment.role} />
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className="border border-border/75 bg-background text-muted-foreground"
-                    >
-                      {entry.emailVerified ? "Verified" : "Unverified"}
-                    </Badge>
-                  </TableCell>
-                  {canManage ? (
-                    <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() =>
-                          openFlow({ kind: "manage-team-member", actorRoles, entry })
-                        }
-                      >
-                        <ShieldCheck className="h-4 w-4" />
-                        Manage roles
-                      </Button>
+              {directoryEntries.map((entry) => {
+                const isSelf = entry.userId === actorUserId;
+
+                return (
+                  <TableRow key={entry.userId}>
+                    <TableCell className="min-w-[180px] whitespace-normal">
+                      <p className="font-medium text-foreground">
+                        {entry.displayName}
+                        {isSelf ? (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            (you)
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatIdentitySubtitle(entry)}
+                      </p>
                     </TableCell>
-                  ) : null}
-                </TableRow>
-              ))}
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {entry.roles.map((assignment) => (
+                          <TeamRoleBadge key={`${entry.userId}-${assignment.role}`} role={assignment.role} />
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className="border border-border/75 bg-background text-muted-foreground"
+                      >
+                        {entry.emailVerified ? "Verified" : "Unverified"}
+                      </Badge>
+                    </TableCell>
+                    {canManage ? (
+                      <TableCell className="text-right">
+                        {isSelf ? (
+                          // Admins can't modify their own roles from the directory.
+                          // Changes to the signed-in user's roles must come from
+                          // another admin to prevent self-lockout or self-escalation.
+                          <span className="text-xs text-muted-foreground">
+                            Can't edit your own roles
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() =>
+                              openFlow({
+                                kind: "manage-team-member",
+                                actorRoles,
+                                actorUserId,
+                                entry,
+                              })
+                            }
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                            Manage roles
+                          </Button>
+                        )}
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

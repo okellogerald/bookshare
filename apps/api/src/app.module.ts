@@ -4,7 +4,9 @@ import { ConfigModule } from "@nestjs/config";
 import { LoggerModule } from "nestjs-pino";
 import { createPinoHttpLoggerOptions } from "@bookshare/logger";
 import { DrizzleModule } from "./drizzle/drizzle.module";
+import { AuthorizationModule } from "./common/authorization/authorization.module";
 import { AuthGuard } from "./common/guards/auth.guard";
+import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { BooksModule } from "./modules/books/books.module";
 import { AuthorsModule } from "./modules/authors/authors.module";
@@ -31,6 +33,7 @@ import { BookstoresModule } from "./modules/bookstores/bookstores.module";
       pinoHttp: createPinoHttpLoggerOptions("bookshare-api"),
     }),
     DrizzleModule,
+    AuthorizationModule,
     BooksModule,
     AuthorsModule,
     EditionsModule,
@@ -52,8 +55,10 @@ import { BookstoresModule } from "./modules/bookstores/bookstores.module";
   providers: [
     AuthGuard,
     RolesGuard,
+    PermissionsGuard,
     { provide: APP_GUARD, useExisting: AuthGuard },
     { provide: APP_GUARD, useExisting: RolesGuard },
+    { provide: APP_GUARD, useExisting: PermissionsGuard },
   ],
 })
 export class AppModule {}

@@ -52,9 +52,11 @@ function IdentityResultCard({
 
 export function AddTeamMemberFlow({
   actorRoles,
+  actorUserId,
   onComplete,
 }: {
   actorRoles: string[];
+  actorUserId: string;
   onComplete: () => void;
 }) {
   const [identityQuery, setIdentityQuery] = useState("");
@@ -70,6 +72,9 @@ export function AddTeamMemberFlow({
   const candidates = identitySearch.data ?? [];
   const selectedCandidate =
     candidates.find((candidate) => candidate.userId === selectedCandidateId) ?? null;
+  // Admins should not be able to grant roles to themselves from this flow —
+  // role changes on the signed-in account must be initiated by another admin.
+  const selectedIsSelf = selectedCandidate?.userId === actorUserId;
 
   useEffect(() => {
     if (
@@ -91,7 +96,7 @@ export function AddTeamMemberFlow({
   }, [manageableRoles, selectedRole]);
 
   const handleGrant = async () => {
-    if (!selectedCandidate || !selectedRole) {
+    if (!selectedCandidate || !selectedRole || selectedIsSelf) {
       return;
     }
 
@@ -160,6 +165,13 @@ export function AddTeamMemberFlow({
             </p>
           </div>
 
+          {selectedIsSelf ? (
+            <p className="rounded-md border border-border/75 bg-muted/30 p-3 text-sm text-muted-foreground">
+              You can&rsquo;t grant roles to your own account. Ask another admin
+              to make changes here.
+            </p>
+          ) : null}
+
           <fieldset className="space-y-4">
             <legend className="text-sm font-medium text-muted-foreground">Role</legend>
             <div className="space-y-4">
@@ -205,14 +217,17 @@ export function AddTeamMemberFlow({
               disabled={
                 grantRole.isPending ||
                 !selectedRole ||
+                selectedIsSelf ||
                 selectedCandidate.existingRoles.includes(selectedRole)
               }
             >
-              {selectedCandidate.existingRoles.includes(selectedRole)
-                ? `${formatRole(selectedRole)} already assigned`
-                : grantRole.isPending
-                  ? "Granting role..."
-                  : `Grant ${formatRole(selectedRole)}`}
+              {selectedIsSelf
+                ? "Can't grant to yourself"
+                : selectedCandidate.existingRoles.includes(selectedRole)
+                  ? `${formatRole(selectedRole)} already assigned`
+                  : grantRole.isPending
+                    ? "Granting role..."
+                    : `Grant ${formatRole(selectedRole)}`}
             </Button>
           </div>
 

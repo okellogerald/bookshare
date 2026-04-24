@@ -3,7 +3,7 @@
  *
  * Two encrypted httpOnly cookies (AES-256-GCM, SameSite=Lax, 24h TTL):
  * - `bookshare_session`: SessionData (user info, expiry)
- * - `bookshare_token`: access token for API calls
+ * - `bookshare_token`: API bearer token for backend calls
  */
 import { cookies } from "next/headers";
 import { encrypt, decrypt } from "./crypto";
@@ -30,9 +30,9 @@ export async function setSession(
   accessToken?: string | null
 ): Promise<void> {
   const cookieStore = await cookies();
-  const tokenForApi = isJwtLike(accessToken)
-    ? accessToken
-    : data.idToken ?? accessToken;
+  // API authorization should use the ID token we issued for the client,
+  // because it carries the claims our Nest auth layer expects consistently.
+  const tokenForApi = data.idToken ?? accessToken;
 
   if (!tokenForApi) {
     throw new Error("Cannot persist a session without an API token");
@@ -71,6 +71,11 @@ export async function getSession(): Promise<SessionData | null> {
 }
 
 export async function getAccessToken(): Promise<string | null> {
+  const session = await getSession();
+  if (isJwtLike(session?.idToken)) {
+    return session.idToken;
+  }
+
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get(WEB_TOKEN_COOKIE)?.value ?? null;
 
@@ -81,16 +86,6 @@ export async function getAccessToken(): Promise<string | null> {
     } catch {
       // fall through
     }
-  }
-
-  const sessionCookie = cookieStore.get(WEB_SESSION_COOKIE)?.value;
-  if (!sessionCookie) return null;
-
-  try {
-    const session: SessionData = JSON.parse(await decrypt(sessionCookie));
-    if (isJwtLike(session.idToken)) return session.idToken;
-  } catch {
-    return null;
   }
 
   return null;

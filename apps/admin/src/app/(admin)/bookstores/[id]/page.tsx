@@ -448,7 +448,13 @@ export default function AdminBookstoreDetailPage() {
             No members yet.
           </p>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-xl border border-border/70">
+          // The shared `Table` primitive already renders its own bordered
+          // wrapper (see `apps/admin/src/shared/components/ui/table.tsx`).
+          // Wrapping it in a second bordered/rounded container produced a
+          // doubled bottom line that visibly extended past the card corners.
+          // The outer card already frames this block — use the primitive
+          // directly and give it breathing room with a top margin.
+          <div className="mt-4">
             <Table>
               <TableHeader>
                 <TableRow>

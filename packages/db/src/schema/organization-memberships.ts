@@ -9,7 +9,10 @@ import {
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { memberProfiles } from "./member-profiles";
-import { organizationMembershipRoleEnum } from "./enums";
+import {
+  organizationMembershipRoleEnum,
+  organizationMembershipStatusEnum,
+} from "./enums";
 
 export const organizationMemberships = pgTable(
   "organization_memberships",
@@ -20,6 +23,10 @@ export const organizationMemberships = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     userId: varchar("user_id", { length: 255 }).notNull(),
     role: organizationMembershipRoleEnum("role").notNull().default("member"),
+    status: organizationMembershipStatusEnum("status")
+      .notNull()
+      .default("active"),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -33,6 +40,10 @@ export const organizationMemberships = pgTable(
     index("organization_memberships_org_role_idx").on(
       table.organizationId,
       table.role
+    ),
+    index("organization_memberships_org_status_idx").on(
+      table.organizationId,
+      table.status
     ),
   ]
 );

@@ -6,12 +6,28 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { AuthorizationService } from "../../common/authorization/authorization.service";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
-import { type Database, staffRoles } from "@bookshare/db";
-import { PlatformRole } from "@bookshare/shared";
+import {
+  type Database,
+  organizations,
+  permissionGrants,
+  staffRoles,
+} from "@bookshare/db";
+import {
+  AuthorizationPermission,
+  AuthorizationScopeType,
+  OrganizationType,
+  PlatformRole,
+  createPlatformScope,
+} from "@bookshare/shared";
 import { and, asc, count, desc, eq } from "drizzle-orm";
 import type { AuthenticatedUser } from "../../common/guards";
-import type { ManageStaffRoleDto } from "./dto";
+import {
+  type ManagePermissionGrantDto,
+  type ManageStaffRoleDto,
+  normalizePermissionScopeId,
+} from "./dto";
 
 export interface StaffIdentity {
   userId: string;
@@ -29,6 +45,14 @@ export interface StaffDirectoryEntry extends StaffIdentity {
     grantedBy: string | null;
     createdAt: string;
   }>;
+}
+
+export interface StaffPermissionGrantRecord {
+  permission: string;
+  scopeType: string;
+  scopeId: string;
+  grantedBy: string | null;
+  createdAt: string;
 }
 
 export interface StaffIdentitySearchResult extends StaffIdentity {
@@ -55,7 +79,8 @@ interface KratosIdentityRecord {
 export class StaffService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly authorizationService: AuthorizationService
   ) {}
 
   async listDirectory(query?: string) {
@@ -145,7 +170,11 @@ export class StaffService {
   }
 
   async grantRole(user: AuthenticatedUser, dto: ManageStaffRoleDto) {
-    this.ensureCanManageRole(user.roles, dto.role);
+    this.authorizationService.assertPermission(
+      user,
+      AuthorizationPermission.STAFF_ROLE_MANAGE,
+      createPlatformScope()
+    );
 
     const existing = await this.db.query.staffRoles.findFirst({
       where: and(
@@ -177,7 +206,11 @@ export class StaffService {
   }
 
   async revokeRole(user: AuthenticatedUser, dto: ManageStaffRoleDto) {
-    this.ensureCanManageRole(user.roles, dto.role);
+    this.authorizationService.assertPermission(
+      user,
+      AuthorizationPermission.STAFF_ROLE_MANAGE,
+      createPlatformScope()
+    );
 
     const existing = await this.db.query.staffRoles.findFirst({
       where: and(
@@ -216,16 +249,140 @@ export class StaffService {
     };
   }
 
-  private ensureCanManageRole(actorRoles: string[], targetRole: string) {
-    if (
-      actorRoles.includes(PlatformRole.PLATFORM_ADMIN) &&
-      (targetRole === PlatformRole.PLATFORM_ADMIN ||
-        targetRole === PlatformRole.PLATFORM_STAFF)
-    ) {
+  async listPermissionGrants(userId: string): Promise<StaffPermissionGrantRecord[]> {
+    const grants = await this.db.query.permissionGrants.findMany({
+      where: eq(permissionGrants.userId, userId),
+      orderBy: (table, { asc }) => [
+        asc(table.permission),
+        asc(table.scopeType),
+        asc(table.scopeId),
+        asc(table.createdAt),
+      ],
+    });
+
+    return grants.map((grant) => ({
+      permission: grant.permission,
+      scopeType: grant.scopeType,
+      scopeId: grant.scopeId,
+      grantedBy: grant.grantedBy,
+      createdAt: grant.createdAt.toISOString(),
+    }));
+  }
+
+  async grantPermission(user: AuthenticatedUser, dto: ManagePermissionGrantDto) {
+    this.authorizationService.assertPermission(
+      user,
+      AuthorizationPermission.STAFF_PERMISSION_MANAGE,
+      createPlatformScope()
+    );
+
+    const scopeId = normalizePermissionScopeId(dto);
+    await this.validateScope(dto.scopeType, scopeId);
+
+    const existing = await this.db.query.permissionGrants.findFirst({
+      where: and(
+        eq(permissionGrants.userId, dto.userId),
+        eq(permissionGrants.permission, dto.permission),
+        eq(permissionGrants.scopeType, dto.scopeType),
+        eq(permissionGrants.scopeId, scopeId)
+      ),
+    });
+
+    if (existing) {
+      throw new ConflictException("That permission grant already exists.");
+    }
+
+    const identity = await this.fetchIdentity(dto.userId);
+    if (!identity) {
+      throw new NotFoundException("The target identity could not be found.");
+    }
+
+    await this.db.insert(permissionGrants).values({
+      userId: dto.userId,
+      permission: dto.permission,
+      scopeType: dto.scopeType,
+      scopeId,
+      grantedBy: user.id,
+    });
+
+    return {
+      ok: true,
+      userId: dto.userId,
+      permission: dto.permission,
+      scopeType: dto.scopeType,
+      scopeId,
+    };
+  }
+
+  async revokePermission(user: AuthenticatedUser, dto: ManagePermissionGrantDto) {
+    this.authorizationService.assertPermission(
+      user,
+      AuthorizationPermission.STAFF_PERMISSION_MANAGE,
+      createPlatformScope()
+    );
+
+    const scopeId = normalizePermissionScopeId(dto);
+    await this.validateScope(dto.scopeType, scopeId);
+
+    const existing = await this.db.query.permissionGrants.findFirst({
+      where: and(
+        eq(permissionGrants.userId, dto.userId),
+        eq(permissionGrants.permission, dto.permission),
+        eq(permissionGrants.scopeType, dto.scopeType),
+        eq(permissionGrants.scopeId, scopeId)
+      ),
+    });
+
+    if (!existing) {
+      throw new NotFoundException("That permission grant does not exist.");
+    }
+
+    await this.db
+      .delete(permissionGrants)
+      .where(
+        and(
+          eq(permissionGrants.userId, dto.userId),
+          eq(permissionGrants.permission, dto.permission),
+          eq(permissionGrants.scopeType, dto.scopeType),
+          eq(permissionGrants.scopeId, scopeId)
+        )
+      );
+
+    return {
+      ok: true,
+      userId: dto.userId,
+      permission: dto.permission,
+      scopeType: dto.scopeType,
+      scopeId,
+    };
+  }
+
+  private async validateScope(scopeType: string, scopeId: string) {
+    if (scopeType === AuthorizationScopeType.PLATFORM) {
       return;
     }
 
-    throw new ForbiddenException("You do not have permission to manage that role.");
+    if (scopeType === AuthorizationScopeType.BOOKSTORE) {
+      if (!scopeId || scopeId === "platform") {
+        throw new ForbiddenException("A bookstore-scoped grant requires a bookstore id.");
+      }
+
+      const bookstore = await this.db.query.organizations.findFirst({
+        columns: { id: true },
+        where: and(
+          eq(organizations.id, scopeId),
+          eq(organizations.type, OrganizationType.BOOKSTORE)
+        ),
+      });
+
+      if (!bookstore) {
+        throw new NotFoundException("That bookstore could not be found.");
+      }
+
+      return;
+    }
+
+    throw new ForbiddenException("Unsupported permission grant scope.");
   }
 
   private getKratosAdminUrl() {

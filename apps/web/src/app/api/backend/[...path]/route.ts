@@ -1,5 +1,8 @@
 import { getAccessToken, getSession } from "@/domains/auth/lib/session";
-import { isReadGatewayResourceName } from "@bookshare/shared";
+import {
+  AuthorizationSurface,
+  isReadGatewayResourceName,
+} from "@bookshare/shared";
 import { createLogger } from "@bookshare/logger";
 import {
   buildProxyBaseUrlCandidates,
@@ -18,15 +21,25 @@ const API_URL_CANDIDATES = buildProxyBaseUrlCandidates(
   "http://api:3333/api"
 );
 
+function isReadGatewayRequest(
+  request: NextRequest,
+  path: string[]
+): boolean {
+  return (
+    (request.method === "GET" || request.method === "HEAD") &&
+    path.length === 1 &&
+    isReadGatewayResourceName(path[0])
+  );
+}
+
 async function proxyToNestJS(request: NextRequest, path: string[]) {
-  const isReadOnly =
-    request.method === "GET" || request.method === "HEAD";
+  const readGatewayRequest = isReadGatewayRequest(request, path);
   const token = await getAccessToken();
   const session = await getSession();
 
-  if (!token || !session) {
-    if (isReadOnly) {
-      return proxyRequest(request, path, null);
+  if (!session) {
+    if (readGatewayRequest) {
+      return proxyRequest(request, path, null, AuthorizationSurface.WEB_PUBLIC);
     }
     logger.warn(
       { method: request.method, path: path.join("/") },
@@ -35,10 +48,15 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!token) {
+    logger.warn(
+      { method: request.method, path: path.join("/"), subject: session.user.id },
+      "Rejected API proxy request because the session had no usable token"
+    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   if (session.user.emailVerified !== true) {
-    if (isReadOnly) {
-      return proxyRequest(request, path, null);
-    }
     logger.warn(
       {
         method: request.method,
@@ -53,20 +71,18 @@ async function proxyToNestJS(request: NextRequest, path: string[]) {
     );
   }
 
-  return proxyRequest(request, path, token);
+  return proxyRequest(request, path, token, AuthorizationSurface.WEB_MEMBER);
 }
 
 async function proxyRequest(
   request: NextRequest,
   path: string[],
-  token: string | null
+  token: string | null,
+  audience: string
 ) {
-  const gatewayPath =
-    (request.method === "GET" || request.method === "HEAD") &&
-    path.length === 1 &&
-    isReadGatewayResourceName(path[0])
-      ? ["read", path[0]]
-      : path;
+  const gatewayPath = isReadGatewayRequest(request, path)
+    ? ["read", audience, path[0]]
+    : path;
   const apiPath = gatewayPath.join("/");
   const search = request.nextUrl.searchParams.toString();
   const headers = new Headers();

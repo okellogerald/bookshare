@@ -15,6 +15,7 @@ export * from "./copy-images";
 export * from "./import-runs";
 export * from "./notifications";
 export * from "./staff-roles";
+export * from "./permission-grants";
 export * from "./copy-submissions";
 export * from "./want-submissions";
 export * from "./organizations";

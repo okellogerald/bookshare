@@ -152,6 +152,14 @@ export const BookstoreMembershipRole = {
 export type BookstoreMembershipRole =
   (typeof BookstoreMembershipRole)[keyof typeof BookstoreMembershipRole];
 
+export const BookstoreMembershipStatus = {
+  ACTIVE: "active",
+  SUSPENDED: "suspended",
+} as const;
+
+export type BookstoreMembershipStatus =
+  (typeof BookstoreMembershipStatus)[keyof typeof BookstoreMembershipStatus];
+
 export const BookstoreInviteStatus = {
   PENDING: "pending",
   ACCEPTED: "accepted",
