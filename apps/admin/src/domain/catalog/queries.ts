@@ -62,6 +62,12 @@ export interface CatalogEditionRecord {
   book: CatalogBookRecord | null;
 }
 
+export interface CatalogCopyImageRecord {
+  id: string;
+  image_url: string;
+  sort_order: number;
+}
+
 export interface CatalogCopyRecord {
   id: string;
   user_id: string;
@@ -78,6 +84,7 @@ export interface CatalogCopyRecord {
         book: CatalogBookRecord | null;
       })
     | null;
+  images: CatalogCopyImageRecord[];
 }
 
 export interface CatalogWishRecord {
@@ -213,7 +220,7 @@ async function fetchCatalogCopies(limit = 40): Promise<CatalogCopyRecord[]> {
   const params = new URLSearchParams();
   params.set(
     "select",
-    "id,user_id,condition,status,share_type,notes,contact_note,last_confirmed_at,created_at,updated_at,edition:editions(id,isbn,format,description,publisher,published_year,page_count,cover_image_url,created_at,updated_at,book:books(id,title,subtitle,language))"
+    "id,user_id,condition,status,share_type,notes,contact_note,last_confirmed_at,created_at,updated_at,edition:editions(id,isbn,format,description,publisher,published_year,page_count,cover_image_url,created_at,updated_at,book:books(id,title,subtitle,language)),images:copy_images(id,image_url,sort_order)"
   );
   params.set("order", "created_at.desc");
   params.set("limit", String(limit));

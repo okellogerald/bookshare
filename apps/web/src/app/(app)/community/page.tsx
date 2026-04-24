@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 import { useCurrentUser } from "@/shared/providers/user-provider";
 import { useCommunityMembers } from "@/domains/community/queries";
 import { PaginationControls } from "@/shared/components/pagination-controls";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import {
   Table,
@@ -79,8 +79,7 @@ export default function CommunityPage() {
       </div>
 
       <Card>
-        <CardHeader className="space-y-3">
-          <CardTitle>Members</CardTitle>
+        <CardHeader>
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

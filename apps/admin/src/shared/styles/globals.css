@@ -54,7 +54,6 @@
   h6 {
     font-family: "GT Pressura Trial", "Inter", Avenir, ui-sans-serif, system-ui, sans-serif;
     text-wrap: balance;
-    color: hsl(var(--foreground));
   }
 
   h1 {

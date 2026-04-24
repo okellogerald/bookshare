@@ -7,10 +7,12 @@ import {
   useCatalogCopies,
   useAdminArchiveCopy,
   useAdminUnarchiveCopy,
+  type CatalogCopyImageRecord,
   type CatalogCopyRecord,
 } from "@/domain/catalog/queries";
 import { useMemberDirectory } from "@/domain/members/queries";
 import { useAdminFlow } from "@/flows/admin-flow-provider";
+import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { PageIntro } from "@/shared/components/page-intro";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -36,6 +38,7 @@ function formatDate(value: string | null) {
 function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
   const { openFlow } = useAdminFlow();
   const [rowError, setRowError] = useState<string | null>(null);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   const archiveMutation = useAdminArchiveCopy();
   const unarchiveMutation = useAdminUnarchiveCopy();
@@ -44,12 +47,16 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
   const canArchive = copy.status !== "shelved" && copy.status !== "lent" && copy.status !== "gone";
   const canUnarchive = copy.status === "shelved";
 
-  async function handleArchive() {
+  // Archive is destructive (shelves a member's copy). Gate it behind an
+  // explicit confirmation so a stray click can't remove inventory.
+  async function confirmArchive() {
     setRowError(null);
     try {
       await archiveMutation.mutateAsync(copy.id);
+      setArchiveConfirmOpen(false);
     } catch (err) {
       setRowError(err instanceof Error ? err.message : "Archive failed.");
+      setArchiveConfirmOpen(false);
     }
   }
 
@@ -61,6 +68,8 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
       setRowError(err instanceof Error ? err.message : "Unarchive failed.");
     }
   }
+
+  const copyLabel = copy.edition?.book?.title ?? "this copy";
 
   return (
     <>
@@ -83,7 +92,7 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
             variant="outline"
             size="sm"
             className="h-7 px-2 text-xs"
-            onClick={handleArchive}
+            onClick={() => setArchiveConfirmOpen(true)}
             disabled={busy}
           >
             {archiveMutation.isPending ? (
@@ -115,7 +124,49 @@ function CopyRowActions({ copy }: { copy: CatalogCopyRecord }) {
       </div>
 
       {rowError && <p className="mt-1 text-xs text-red-700">{rowError}</p>}
+
+      <ConfirmDialog
+        open={archiveConfirmOpen}
+        title="Archive this copy?"
+        description={`"${copyLabel}" will be moved to the shelved state and removed from active inventory. You can unarchive it later if needed.`}
+        confirmLabel="Archive"
+        isLoading={archiveMutation.isPending}
+        onConfirm={confirmArchive}
+        onCancel={() => setArchiveConfirmOpen(false)}
+      />
     </>
+  );
+}
+
+function CopyImagesCell({ images }: { images: CatalogCopyImageRecord[] }) {
+  if (images.length === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  // Images are ordered by the uploader via `sort_order`; the first one is the
+  // canonical thumbnail. Show up to three overlapping thumbs and a "+N" badge
+  // when there are more, to keep the row compact.
+  const ordered = [...images].sort((a, b) => a.sort_order - b.sort_order);
+  const visible = ordered.slice(0, 3);
+  const overflow = ordered.length - visible.length;
+
+  return (
+    <div className="flex items-center -space-x-2">
+      {visible.map((image) => (
+        <img
+          key={image.id}
+          src={image.image_url}
+          alt=""
+          className="h-10 w-10 rounded-md border border-border/75 bg-muted object-cover shadow-sm"
+          loading="lazy"
+        />
+      ))}
+      {overflow > 0 && (
+        <span className="relative z-10 inline-flex h-10 items-center rounded-md border border-border/75 bg-background px-2 text-xs font-medium text-muted-foreground">
+          +{overflow}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -239,6 +290,7 @@ export function CopiesWorkspace() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Images</TableHead>
                   <TableHead>Member</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Share Type</TableHead>
@@ -256,6 +308,9 @@ export function CopiesWorkspace() {
                         {copy.edition?.isbn || "No ISBN"}
                       </p>
                       <CopyRowActions copy={copy} />
+                    </TableCell>
+                    <TableCell>
+                      <CopyImagesCell images={copy.images ?? []} />
                     </TableCell>
                     <TableCell>{memberNamesById.get(copy.user_id) ?? copy.user_id}</TableCell>
                     <TableCell>

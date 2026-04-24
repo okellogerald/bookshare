@@ -303,13 +303,17 @@ services:
       PUBLIC_MINIO_URL: ${PUBLIC_MINIO_URL:-http://127.0.0.1:9002}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3334}
       WORKFLOWS_URL: ${WORKFLOWS_URL:-http://http-capture:3335}
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-no-reply@bookshare.local}
-      SUBMISSIONS_EMAIL_TO: ${SUBMISSIONS_EMAIL_TO:-admin@bookshare.local}
+      # Dev email is pinned to the mailpit container so nothing ever leaves the
+      # local stack. Real SMTP (Gmail/SES/etc.) is configured only in the prod
+      # compose via env vars — do NOT source these from .env here, otherwise
+      # a shared .env can accidentally route dev mail through a live provider.
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: no-reply@bookshare.local
+      SUBMISSIONS_EMAIL_TO: admin@bookshare.local
       AUTH_PORTAL_PUBLIC_URL: ${AUTH_PORTAL_PUBLIC_URL:-http://localhost:3337}
       BOOKSTORES_PUBLIC_URL: ${BOOKSTORES_PUBLIC_URL:-http://localhost:3339}
       POSTGREST_INTERNAL_URL: ${POSTGREST_INTERNAL_URL:-http://http-capture:9300}

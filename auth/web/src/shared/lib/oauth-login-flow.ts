@@ -52,7 +52,7 @@ export async function answerHydraLoginChallenge(
   const loginHint = loginRequest.oidc_context?.login_hint?.trim() || "";
   const prompts = getOidcPromptValues(loginRequest);
 
-  if (prompts.has("login") || prompts.has("select_account")) {
+  if (prompts.has("login")) {
     logger.info("Hydra login challenge requires fresh Kratos login");
     return redirectWithChallenge(
       buildLoginUrl(request.url, loginHint, {
