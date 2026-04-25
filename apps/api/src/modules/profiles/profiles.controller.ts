@@ -4,13 +4,19 @@ import {
   Delete,
   Get,
   Headers,
+  Param,
   Post,
   Put,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { CurrentUser } from "../../common/decorators";
+import {
+  AuthorizationPermission,
+  PlatformRole,
+} from "@bookshare/shared";
+import { CurrentUser, Permissions, Roles } from "../../common/decorators";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
+  AdminPasswordResetDto,
   DeactivateAccountDto,
   DeleteAccountDto,
   UpdateEmailDto,
@@ -117,6 +123,47 @@ export class ProfilesController {
       identityAccessToken,
       dto
     );
+  }
+
+  @Post("admin/:userId/password-reset")
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.IDENTITY_PASSWORD_RESET)
+  createAdminPasswordReset(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("userId") userId: string,
+    @Body() dto: AdminPasswordResetDto
+  ) {
+    return this.profilesService.createAdminPasswordReset(user, userId, dto);
+  }
+
+  @Post("admin/:userId/deactivate")
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.IDENTITY_ACCOUNT_DEACTIVATE)
+  deactivateMemberAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("userId") userId: string
+  ) {
+    return this.profilesService.deactivateMemberAccount(user, userId);
+  }
+
+  @Post("admin/:userId/reactivate")
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.IDENTITY_ACCOUNT_REACTIVATE)
+  reactivateMemberAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("userId") userId: string
+  ) {
+    return this.profilesService.reactivateMemberAccount(user, userId);
+  }
+
+  @Post("admin/:userId/revoke-sessions")
+  @Roles(PlatformRole.PLATFORM_ADMIN, PlatformRole.PLATFORM_STAFF)
+  @Permissions(AuthorizationPermission.IDENTITY_SESSIONS_REVOKE)
+  revokeMemberSessions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("userId") userId: string
+  ) {
+    return this.profilesService.revokeMemberSessions(user, userId);
   }
 
   @Delete("me")

@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { getSession } from "@/domain/auth/lib/session";
 import { isAdminConsoleRole } from "@bookshare/shared";
-import { adminNavItems } from "@/shared/lib/admin-shell";
 import { Button } from "@/shared/components/ui/button";
 
 export default async function LandingPage({
@@ -24,39 +23,24 @@ export default async function LandingPage({
   return (
     <main className="flex min-h-screen">
       {/* Brand panel */}
-      <div className="hidden lg:flex lg:w-[58%] flex-col justify-between p-12 xl:p-16 bg-[hsl(224,20%,12%)] text-white">
+      <div className="relative hidden lg:flex lg:w-[58%] flex-col justify-between overflow-hidden p-12 xl:p-16 bg-[hsl(224,20%,12%)] text-white">
+        <div className="pointer-events-none absolute left-[12%] top-[18%] h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
         <p className="text-xs font-semibold tracking-[0.18em] uppercase text-white/40">
           BookShare
         </p>
 
-        <div>
+        <div className="relative max-w-md">
+          <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/8 ring-1 ring-white/10">
+            <LockKeyhole className="h-6 w-6 text-white/70" />
+          </div>
           <h1 className="text-5xl xl:text-6xl font-semibold tracking-tight leading-[1.1]">
             Admin
             <br />
-            Console
+            Portal
           </h1>
-          <p className="mt-5 text-base text-white/50 max-w-xs leading-relaxed">
-            Internal tooling for catalog quality, ingestion, and member
-            operations.
+          <p className="mt-5 text-base text-white/50 max-w-sm leading-relaxed">
+            Sign in with an approved BookShare staff account.
           </p>
-
-          <div className="mt-14 space-y-4">
-            {adminNavItems.map((item) => (
-              <div key={item.href} className="flex items-start gap-4">
-                <div className="mt-0.5 rounded-xl bg-white/8 p-2.5 ring-1 ring-white/10">
-                  <item.icon className="h-4 w-4 text-white/70" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white/90">
-                    {item.label}
-                  </p>
-                  <p className="mt-0.5 text-sm text-white/40 leading-snug">
-                    {item.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
         <p className="text-xs text-white/25">Internal use only</p>
@@ -71,26 +55,28 @@ export default async function LandingPage({
               BookShare
             </p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-              Admin Console
+              Admin Portal
             </h1>
           </div>
 
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Sign in to the admin portal
+            </h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Staff access — verified account and platform role required.
+              For approved BookShare staff accounts only.
             </p>
           </div>
 
           <div className="space-y-3 rounded-2xl border border-border/75 bg-card px-5 py-4">
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 flex-none text-primary" />
-              Verified identity
+              Verified email required
             </div>
             <div className="h-px bg-border/60" />
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 flex-none text-primary" />
-              Admin console role
+              Staff role required
             </div>
           </div>
 
@@ -100,7 +86,7 @@ export default async function LandingPage({
             className="w-full justify-between rounded-[1.15rem] px-5"
           >
             <Link href="/api/auth/login?returnTo=/catalog">
-              Continue with SSO
+              Sign in to admin portal
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

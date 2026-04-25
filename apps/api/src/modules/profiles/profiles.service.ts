@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { AuthorizationService } from "../../common/authorization/authorization.service";
 import { DRIZZLE } from "../../drizzle/drizzle.service";
 import {
   type Database,
@@ -18,6 +21,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { AuthenticatedUser } from "../../common/guards";
 import {
+  type AdminPasswordResetDto,
   type DeactivateAccountDto,
   type DeleteAccountDto,
   type UpdateEmailDto,
@@ -26,6 +30,10 @@ import {
   type UpdateProfileDto,
   type IdentityGenderValue,
 } from "./dto";
+import {
+  AuthorizationPermission,
+  createPlatformScope,
+} from "@bookshare/shared";
 
 interface IdentityProfileSnapshot {
   email: string;
@@ -34,11 +42,31 @@ interface IdentityProfileSnapshot {
   gender: IdentityGenderValue | null;
 }
 
+interface KratosIdentityRecord {
+  id: string;
+  schema_id?: string;
+  state?: string;
+  traits?: Record<string, unknown> | null;
+  verifiable_addresses?: unknown;
+  recovery_addresses?: unknown;
+  metadata_public?: unknown;
+  metadata_admin?: unknown;
+}
+
+export interface AdminPasswordResetResult {
+  ok: true;
+  userId: string;
+  recoveryCode: string | null;
+  recoveryLink: string | null;
+  expiresAt: string | null;
+}
+
 @Injectable()
 export class ProfilesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly authorizationService: AuthorizationService
   ) {}
 
   async sync(
@@ -247,6 +275,128 @@ export class ProfilesService {
     return { deleted: true };
   }
 
+  async createAdminPasswordReset(
+    actor: AuthenticatedUser,
+    userId: string,
+    dto: AdminPasswordResetDto = {}
+  ): Promise<AdminPasswordResetResult> {
+    this.authorizationService.assertPermission(
+      actor,
+      AuthorizationPermission.IDENTITY_PASSWORD_RESET,
+      createPlatformScope()
+    );
+
+    const targetUserId = this.normalizeUserId(userId);
+    await this.requireMemberProfile(targetUserId);
+
+    const recovery = await this.createKratosRecoveryCode(
+      targetUserId,
+      dto.expiresIn
+    );
+
+    return {
+      ok: true,
+      userId: targetUserId,
+      recoveryCode: recovery.recoveryCode,
+      recoveryLink: recovery.recoveryLink,
+      expiresAt: recovery.expiresAt,
+    };
+  }
+
+  async deactivateMemberAccount(actor: AuthenticatedUser, userId: string) {
+    this.authorizationService.assertPermission(
+      actor,
+      AuthorizationPermission.IDENTITY_ACCOUNT_DEACTIVATE,
+      createPlatformScope()
+    );
+
+    const targetUserId = this.normalizeUserId(userId);
+    this.assertNotSelf(actor, targetUserId, "deactivate your own account");
+    await this.requireMemberProfile(targetUserId);
+
+    await this.updateKratosIdentityState(targetUserId, "inactive");
+
+    const deactivatedAt = new Date();
+    const [updated] = await this.db
+      .update(memberProfiles)
+      .set({ deactivatedAt, identityUpdatedAt: new Date() })
+      .where(eq(memberProfiles.userId, targetUserId))
+      .returning({
+        userId: memberProfiles.userId,
+        deactivatedAt: memberProfiles.deactivatedAt,
+      });
+
+    if (!updated) {
+      throw new NotFoundException("Member profile not found.");
+    }
+
+    const sessionsRevoked = await this.revokeKratosIdentitySessions(targetUserId, {
+      throwOnFailure: false,
+    });
+
+    return {
+      ok: true,
+      userId: updated.userId,
+      status: "deactivated",
+      deactivatedAt: updated.deactivatedAt,
+      sessionsRevoked,
+    };
+  }
+
+  async reactivateMemberAccount(actor: AuthenticatedUser, userId: string) {
+    this.authorizationService.assertPermission(
+      actor,
+      AuthorizationPermission.IDENTITY_ACCOUNT_REACTIVATE,
+      createPlatformScope()
+    );
+
+    const targetUserId = this.normalizeUserId(userId);
+    await this.requireMemberProfile(targetUserId);
+
+    await this.updateKratosIdentityState(targetUserId, "active");
+
+    const [updated] = await this.db
+      .update(memberProfiles)
+      .set({ deactivatedAt: null, identityUpdatedAt: new Date() })
+      .where(eq(memberProfiles.userId, targetUserId))
+      .returning({
+        userId: memberProfiles.userId,
+        deactivatedAt: memberProfiles.deactivatedAt,
+      });
+
+    if (!updated) {
+      throw new NotFoundException("Member profile not found.");
+    }
+
+    return {
+      ok: true,
+      userId: updated.userId,
+      status: "active",
+      deactivatedAt: updated.deactivatedAt,
+    };
+  }
+
+  async revokeMemberSessions(actor: AuthenticatedUser, userId: string) {
+    this.authorizationService.assertPermission(
+      actor,
+      AuthorizationPermission.IDENTITY_SESSIONS_REVOKE,
+      createPlatformScope()
+    );
+
+    const targetUserId = this.normalizeUserId(userId);
+    this.assertNotSelf(actor, targetUserId, "revoke your own sessions");
+    await this.requireMemberProfile(targetUserId);
+    await this.revokeKratosIdentitySessions(targetUserId, {
+      throwOnFailure: true,
+    });
+
+    return {
+      ok: true,
+      userId: targetUserId,
+      sessionsRevoked: true,
+    };
+  }
+
   private normalizeText(value: string | null | undefined) {
     if (!value) return null;
     const normalized = value.trim();
@@ -392,6 +542,190 @@ export class ProfilesService {
 
   private getKratosAdminUrl() {
     return this.configService.get<string>("KRATOS_ADMIN_URL") || "http://kratos:4434";
+  }
+
+  private normalizeUserId(userId: string) {
+    const normalized = userId.trim();
+    if (!normalized) {
+      throw new BadRequestException("userId is required");
+    }
+    return normalized;
+  }
+
+  private assertNotSelf(
+    actor: AuthenticatedUser,
+    targetUserId: string,
+    action: string
+  ) {
+    if (actor.id === targetUserId) {
+      throw new ForbiddenException(`You cannot ${action}.`);
+    }
+  }
+
+  private async requireMemberProfile(userId: string) {
+    const profile = await this.db.query.memberProfiles.findFirst({
+      columns: {
+        userId: true,
+        email: true,
+        deactivatedAt: true,
+      },
+      where: eq(memberProfiles.userId, userId),
+    });
+
+    if (!profile) {
+      throw new NotFoundException("Member profile not found.");
+    }
+
+    return profile;
+  }
+
+  private async getKratosIdentity(userId: string): Promise<KratosIdentityRecord> {
+    const url = new URL(
+      `/admin/identities/${encodeURIComponent(userId)}`,
+      this.getKratosAdminUrl()
+    );
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+
+    if (response.status === 404) {
+      throw new NotFoundException("Identity not found in Kratos.");
+    }
+
+    if (!response.ok) {
+      throw new InternalServerErrorException(
+        `Failed to load Kratos identity (status ${response.status}).`
+      );
+    }
+
+    return (await response.json()) as KratosIdentityRecord;
+  }
+
+  private buildKratosIdentityUpdateBody(
+    identity: KratosIdentityRecord,
+    state: "active" | "inactive"
+  ) {
+    return {
+      schema_id: identity.schema_id ?? "default",
+      state,
+      traits: identity.traits ?? {},
+      verifiable_addresses: identity.verifiable_addresses,
+      recovery_addresses: identity.recovery_addresses,
+      metadata_public: identity.metadata_public,
+      metadata_admin: identity.metadata_admin,
+    };
+  }
+
+  private async updateKratosIdentityState(
+    userId: string,
+    state: "active" | "inactive"
+  ) {
+    const identity = await this.getKratosIdentity(userId);
+    const url = new URL(
+      `/admin/identities/${encodeURIComponent(userId)}`,
+      this.getKratosAdminUrl()
+    );
+    const response = await fetch(url.toString(), {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(this.buildKratosIdentityUpdateBody(identity, state)),
+    });
+
+    if (response.status === 404) {
+      throw new NotFoundException("Identity not found in Kratos.");
+    }
+
+    if (!response.ok) {
+      throw new InternalServerErrorException(
+        `Failed to update Kratos identity state (status ${response.status}).`
+      );
+    }
+  }
+
+  private normalizeExpiresIn(value: string | undefined) {
+    const normalized = value?.trim();
+    return normalized && normalized.length > 0 ? normalized : "1h";
+  }
+
+  private async createKratosRecoveryCode(
+    userId: string,
+    expiresIn: string | undefined
+  ) {
+    const url = new URL("/admin/recovery/code", this.getKratosAdminUrl());
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        identity_id: userId,
+        expires_in: this.normalizeExpiresIn(expiresIn),
+        flow_type: "browser",
+      }),
+    });
+
+    if (response.status === 404) {
+      throw new NotFoundException("Identity not found in Kratos.");
+    }
+
+    if (!response.ok) {
+      throw new InternalServerErrorException(
+        `Failed to create Kratos recovery code (status ${response.status}).`
+      );
+    }
+
+    const payload = (await response.json()) as {
+      recovery_code?: unknown;
+      recovery_link?: unknown;
+      expires_at?: unknown;
+    };
+
+    return {
+      recoveryCode:
+        typeof payload.recovery_code === "string" ? payload.recovery_code : null,
+      recoveryLink:
+        typeof payload.recovery_link === "string" ? payload.recovery_link : null,
+      expiresAt:
+        typeof payload.expires_at === "string" ? payload.expires_at : null,
+    };
+  }
+
+  private async revokeKratosIdentitySessions(
+    userId: string,
+    options: { throwOnFailure: boolean }
+  ) {
+    const url = new URL(
+      `/admin/identities/${encodeURIComponent(userId)}/sessions`,
+      this.getKratosAdminUrl()
+    );
+
+    const response = await fetch(url.toString(), {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+
+    if (response.ok || response.status === 204) {
+      return true;
+    }
+
+    if (options.throwOnFailure) {
+      if (response.status === 404) {
+        throw new NotFoundException("Identity not found in Kratos.");
+      }
+
+      throw new InternalServerErrorException(
+        `Failed to revoke Kratos sessions (status ${response.status}).`
+      );
+    }
+
+    return false;
   }
 
   private async fetchIdentityProfileFromKratos(
