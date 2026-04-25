@@ -1,3 +1,5 @@
+import { HelpCircle } from "lucide-react";
+import NextLink from "next/link";
 import { AuthShell } from "@/shared/components/auth-shell";
 import { FlowFooterLinks } from "@/shared/components/flow/footer-links";
 import { FlowMessages } from "@/shared/components/flow/messages";
@@ -37,6 +39,27 @@ function LoginFieldMessages({ field }: { field: LoginFieldModel }) {
         </p>
       ))}
     </>
+  );
+}
+
+function SwitchAccountLink({ href }: { href: string }) {
+  return (
+    <div className="flow-switch-account">
+      <NextLink href={href} className="flow-switch-account-link">
+        Use a different account
+      </NextLink>
+      <span
+        tabIndex={0}
+        role="img"
+        aria-label="You'll be signed out of the current session and can sign in with a different account."
+        className="flow-switch-account-trigger"
+      >
+        <HelpCircle className="size-4" aria-hidden />
+        <span role="tooltip" className="flow-switch-account-tooltip">
+          You&apos;ll be signed out of the current session and can sign in with a different account.
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -84,6 +107,9 @@ function LoginStepForm({ model }: { model: LoginStepModel }) {
         ))}
 
         <LoginField field={model.identifierField} autoComplete="email" />
+        {model.switchAccountHref ? (
+          <SwitchAccountLink href={model.switchAccountHref} />
+        ) : null}
         <LoginField field={model.passwordField} autoComplete="current-password" />
 
         <div className="flow-actions">

@@ -126,6 +126,29 @@
     @apply mt-2 flex flex-wrap items-center justify-between gap-3;
   }
 
+  .flow-switch-account {
+    @apply -mt-1 flex items-center gap-2 text-sm;
+  }
+
+  .flow-switch-account-link {
+    @apply font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline;
+  }
+
+  .flow-switch-account-trigger {
+    @apply relative inline-flex items-center text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground;
+    cursor: help;
+  }
+
+  .flow-switch-account-tooltip {
+    @apply pointer-events-none absolute left-1/2 z-50 w-max max-w-[240px] -translate-x-1/2 rounded-md bg-foreground px-2 py-1.5 text-xs leading-snug text-background opacity-0 shadow-md transition-opacity duration-150;
+    bottom: calc(100% + 6px);
+  }
+
+  .flow-switch-account-trigger:hover .flow-switch-account-tooltip,
+  .flow-switch-account-trigger:focus-visible .flow-switch-account-tooltip {
+    @apply opacity-100;
+  }
+
   .flow-error-block {
     @apply overflow-auto rounded-md border bg-muted/40 p-3 text-xs text-foreground;
   }

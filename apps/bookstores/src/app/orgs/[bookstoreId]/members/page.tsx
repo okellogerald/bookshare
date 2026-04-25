@@ -2,15 +2,17 @@
 
 import { type FormEvent, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import {
   BookstoreMembershipRole,
+  BookstoreMembershipStatus,
   BookstoreStatus,
   type BookstoreMemberRecord,
 } from "@bookshare/shared";
 import {
   useBookstore,
   useBookstoreMembers,
+  useBookstoresMe,
   useCreateOrganizationInvite,
   useRemoveOrganizationMember,
   useRevokeOrganizationInvite,
@@ -47,6 +49,7 @@ import {
 import { getMembershipRoleLabel } from "@/shared/lib/bookstores";
 import { formatUiDateTime } from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
+import { PermissionsDialog } from "./_components/permissions-dialog";
 
 type MembersTab = "members" | "invites";
 
@@ -54,6 +57,12 @@ type PendingAccessAction =
   | { kind: "demote"; userId: string; label: string }
   | { kind: "remove"; userId: string; label: string }
   | { kind: "revokeInvite"; inviteId: string; label: string };
+
+type PermissionsTarget = {
+  userId: string;
+  label: string;
+  extraPermissions: string[];
+};
 
 function getActionDialogCopy(action: PendingAccessAction | null) {
   switch (action?.kind) {
@@ -88,6 +97,17 @@ function getMemberLabel(member: BookstoreMemberRecord) {
   return member.displayName || member.email || member.userId;
 }
 
+function getMemberInitials(member: BookstoreMemberRecord) {
+  const source = member.displayName || member.email || member.userId;
+  const parts = source
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function BookstoreMembersPage() {
   const params = useParams<{ bookstoreId: string }>();
   const bookstoreId = params.bookstoreId;
@@ -96,7 +116,11 @@ export default function BookstoreMembersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [pendingAction, setPendingAction] =
     useState<PendingAccessAction | null>(null);
+  const [permissionsTarget, setPermissionsTarget] =
+    useState<PermissionsTarget | null>(null);
 
+  const meQuery = useBookstoresMe();
+  const currentUserId = meQuery.data?.user.id ?? null;
   const bookstoreQuery = useBookstore(bookstoreId);
   const bookstore = bookstoreQuery.data;
   const membersQuery = useBookstoreMembers(bookstoreId, {
@@ -221,7 +245,7 @@ export default function BookstoreMembersPage() {
           {(membersQuery.error as Error | null)?.message || "Failed to load members."}
         </div>
       ) : (
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div className="space-y-1">
               <CardTitle>Access</CardTitle>
@@ -262,40 +286,108 @@ export default function BookstoreMembersPage() {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
                       <TableHead>Member</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Permissions</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {members.map((member) => {
                       const memberLabel = getMemberLabel(member);
+                      const isSelf = member.userId === currentUserId;
+                      const isOwner =
+                        member.role === BookstoreMembershipRole.OWNER;
+                      const isSuspended =
+                        member.status ===
+                        BookstoreMembershipStatus.SUSPENDED;
+                      const extraCount = member.extraPermissions.length;
 
                       return (
                         <TableRow key={member.userId}>
                           <TableCell className="whitespace-normal">
-                            <div className="space-y-1">
-                              <p className="font-medium">{memberLabel}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {member.email || "No email synced"}
-                              </p>
+                            <div className="flex items-center gap-3">
+                              <div
+                                aria-hidden
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                              >
+                                {getMemberInitials(member)}
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <p className="flex flex-wrap items-center gap-2 font-medium">
+                                  <span className="truncate">{memberLabel}</span>
+                                  {isSelf ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-border/60 bg-background/80 text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
+                                    >
+                                      You
+                                    </Badge>
+                                  ) : null}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {member.email || "No email synced"}
+                                </p>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant={
-                                member.role === BookstoreMembershipRole.OWNER
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {getMembershipRoleLabel(member.role)}
-                            </Badge>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge
+                                variant={isOwner ? "default" : "secondary"}
+                              >
+                                {getMembershipRoleLabel(member.role)}
+                              </Badge>
+                              {isSuspended ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-300 bg-amber-50 text-amber-800"
+                                >
+                                  Suspended
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {isOwner ? (
+                              <span className="text-xs text-muted-foreground">
+                                All bookstore permissions
+                              </span>
+                            ) : extraCount === 0 ? (
+                              <span className="text-xs text-muted-foreground">
+                                Standard access
+                              </span>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-800"
+                              >
+                                <ShieldCheck className="h-3 w-3" />
+                                {extraCount} extra
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex flex-wrap justify-end gap-2">
-                              {member.role === BookstoreMembershipRole.OWNER ? (
+                              {!isOwner ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setPermissionsTarget({
+                                      userId: member.userId,
+                                      label: memberLabel,
+                                      extraPermissions: member.extraPermissions,
+                                    })
+                                  }
+                                  disabled={actionPending || isSelf}
+                                >
+                                  Permissions
+                                </Button>
+                              ) : null}
+                              {isOwner ? (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -307,7 +399,12 @@ export default function BookstoreMembersPage() {
                                       label: memberLabel,
                                     })
                                   }
-                                  disabled={actionPending}
+                                  disabled={actionPending || isSelf}
+                                  title={
+                                    isSelf
+                                      ? "You cannot demote yourself."
+                                      : undefined
+                                  }
                                 >
                                   Demote
                                 </Button>
@@ -317,7 +414,12 @@ export default function BookstoreMembersPage() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handlePromote(member)}
-                                  disabled={actionPending}
+                                  disabled={actionPending || isSelf}
+                                  title={
+                                    isSelf
+                                      ? "You cannot change your own role."
+                                      : undefined
+                                  }
                                 >
                                   Promote
                                 </Button>
@@ -334,7 +436,12 @@ export default function BookstoreMembersPage() {
                                     label: memberLabel,
                                   })
                                 }
-                                disabled={actionPending}
+                                disabled={actionPending || isSelf}
+                                title={
+                                  isSelf
+                                    ? "You cannot remove yourself."
+                                    : undefined
+                                }
                               >
                                 Remove
                               </Button>
@@ -483,6 +590,15 @@ export default function BookstoreMembersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PermissionsDialog
+        bookstoreId={bookstoreId}
+        open={permissionsTarget !== null}
+        member={permissionsTarget}
+        onOpenChange={(open) => {
+          if (!open) setPermissionsTarget(null);
+        }}
+      />
     </div>
   );
 }

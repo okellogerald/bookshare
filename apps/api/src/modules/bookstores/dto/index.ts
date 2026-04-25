@@ -5,6 +5,7 @@ export { ListBookstoreWantsQueryDto } from "./list-bookstore-wants-query.dto";
 export { CreateBookstoreProposalDto } from "./create-bookstore-proposal.dto";
 export { CreateOrganizationInviteDto } from "./create-organization-invite.dto";
 export { UpdateOrganizationMemberRoleDto } from "./update-organization-member-role.dto";
+export { ManageOrganizationPermissionDto } from "./manage-organization-permission.dto";
 export { ListAdminBookstoresQueryDto } from "./list-admin-bookstores-query.dto";
 export { UpdateAdminBookstoreStatusDto } from "./update-admin-bookstore-status.dto";
 export { UpdateAdminBookstoreOwnerDto } from "./update-admin-bookstore-owner.dto";

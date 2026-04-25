@@ -26,10 +26,12 @@ import {
   organizationInvites,
   organizationMemberships,
   organizations,
+  permissionGrants,
   wishes,
 } from "@bookshare/db";
 import {
   AuthorizationPermission,
+  AuthorizationScopeType,
   BookstoreMembershipRole,
   BookstoreMembershipStatus,
   BookstoreProposalStatus,
@@ -37,6 +39,7 @@ import {
   NotificationType,
   OrganizationType,
   createBookstoreScope,
+  isBookstoreGrantablePermission,
   type BookstoreProposalNotificationMetadata,
   type NotificationBookSnapshot,
   type NotificationWishSnapshot,
@@ -52,6 +55,7 @@ import {
   CreateOrganizationInviteDto,
   ListAdminBookstoresQueryDto,
   ListBookstoreWantsQueryDto,
+  ManageOrganizationPermissionDto,
   UpdateAdminBookstoreOwnerDto,
   UpdateAdminBookstoreStatusDto,
   UpdateBookstoreDto,
@@ -525,7 +529,7 @@ export class BookstoresService {
       AuthorizationPermission.BOOKSTORE_MEMBER_READ
     );
 
-    const [memberships, invites] = await Promise.all([
+    const [memberships, invites, scopedGrants] = await Promise.all([
       this.db.query.organizationMemberships.findMany({
         where: eq(organizationMemberships.organizationId, bookstoreId),
         with: {
@@ -539,7 +543,20 @@ export class BookstoresService {
         ),
         orderBy: (table, { desc }) => [desc(table.createdAt)],
       }),
+      this.db.query.permissionGrants.findMany({
+        where: and(
+          eq(permissionGrants.scopeType, AuthorizationScopeType.BOOKSTORE),
+          eq(permissionGrants.scopeId, bookstoreId)
+        ),
+      }),
     ]);
+
+    const grantsByUser = new Map<string, string[]>();
+    for (const grant of scopedGrants) {
+      const list = grantsByUser.get(grant.userId) ?? [];
+      list.push(grant.permission);
+      grantsByUser.set(grant.userId, list);
+    }
 
     return {
       members: memberships
@@ -559,6 +576,9 @@ export class BookstoresService {
             entry.userProfile?.lastName ?? null,
             entry.userProfile?.email ?? entry.userId
           ),
+          extraPermissions: (grantsByUser.get(entry.userId) ?? [])
+            .filter((permission) => isBookstoreGrantablePermission(permission))
+            .sort(),
         }))
         .sort((left, right) => {
           if (left.role !== right.role) {
@@ -729,6 +749,9 @@ export class BookstoresService {
       user,
       AuthorizationPermission.BOOKSTORE_MEMBER_ROLE_MANAGE
     );
+    if (targetUserId === user.id) {
+      throw new ForbiddenException("You cannot change your own role.");
+    }
     const membership = await this.db.query.organizationMemberships.findFirst({
       where: and(
         eq(organizationMemberships.organizationId, bookstoreId),
@@ -780,6 +803,9 @@ export class BookstoresService {
       user,
       AuthorizationPermission.BOOKSTORE_MEMBER_REMOVE
     );
+    if (targetUserId === user.id) {
+      throw new ForbiddenException("You cannot remove yourself from the bookstore.");
+    }
     const membership = await this.db.query.organizationMemberships.findFirst({
       where: and(
         eq(organizationMemberships.organizationId, bookstoreId),
@@ -818,6 +844,10 @@ export class BookstoresService {
       user,
       AuthorizationPermission.BOOKSTORE_MEMBER_SUSPEND
     );
+
+    if (targetUserId === user.id) {
+      throw new ForbiddenException("You cannot suspend yourself.");
+    }
 
     const membership = await this.db.query.organizationMemberships.findFirst({
       where: and(
@@ -905,6 +935,124 @@ export class BookstoresService {
       status: updated.status,
       suspendedAt: toIsoString(updated.suspendedAt),
     };
+  }
+
+  async listMemberPermissions(
+    bookstoreId: string,
+    targetUserId: string,
+    user: AuthenticatedUser
+  ) {
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_MEMBER_READ
+    );
+    await this.requireMembership(bookstoreId, targetUserId);
+
+    const grants = await this.db.query.permissionGrants.findMany({
+      where: and(
+        eq(permissionGrants.userId, targetUserId),
+        eq(permissionGrants.scopeType, AuthorizationScopeType.BOOKSTORE),
+        eq(permissionGrants.scopeId, bookstoreId)
+      ),
+    });
+
+    return grants
+      .filter((grant) => isBookstoreGrantablePermission(grant.permission))
+      .map((grant) => ({
+        permission: grant.permission,
+        grantedBy: grant.grantedBy,
+        createdAt: grant.createdAt.toISOString(),
+      }));
+  }
+
+  async grantMemberPermission(
+    bookstoreId: string,
+    targetUserId: string,
+    user: AuthenticatedUser,
+    dto: ManageOrganizationPermissionDto
+  ) {
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_SECURITY_ESCALATE
+    );
+    if (targetUserId === user.id) {
+      throw new ForbiddenException(
+        "You cannot grant permissions to yourself."
+      );
+    }
+    await this.requireMembership(bookstoreId, targetUserId);
+
+    const existing = await this.db.query.permissionGrants.findFirst({
+      where: and(
+        eq(permissionGrants.userId, targetUserId),
+        eq(permissionGrants.permission, dto.permission),
+        eq(permissionGrants.scopeType, AuthorizationScopeType.BOOKSTORE),
+        eq(permissionGrants.scopeId, bookstoreId)
+      ),
+    });
+
+    if (existing) {
+      return { ok: true as const, alreadyGranted: true };
+    }
+
+    await this.db.insert(permissionGrants).values({
+      userId: targetUserId,
+      permission: dto.permission,
+      scopeType: AuthorizationScopeType.BOOKSTORE,
+      scopeId: bookstoreId,
+      grantedBy: user.id,
+    });
+
+    return { ok: true as const, alreadyGranted: false };
+  }
+
+  async revokeMemberPermission(
+    bookstoreId: string,
+    targetUserId: string,
+    user: AuthenticatedUser,
+    dto: ManageOrganizationPermissionDto
+  ) {
+    await this.requireBookstorePermission(
+      bookstoreId,
+      user,
+      AuthorizationPermission.BOOKSTORE_SECURITY_ESCALATE
+    );
+    if (targetUserId === user.id) {
+      throw new ForbiddenException(
+        "You cannot revoke permissions from yourself."
+      );
+    }
+    await this.requireMembership(bookstoreId, targetUserId);
+
+    await this.db
+      .delete(permissionGrants)
+      .where(
+        and(
+          eq(permissionGrants.userId, targetUserId),
+          eq(permissionGrants.permission, dto.permission),
+          eq(permissionGrants.scopeType, AuthorizationScopeType.BOOKSTORE),
+          eq(permissionGrants.scopeId, bookstoreId)
+        )
+      );
+
+    return { ok: true as const };
+  }
+
+  private async requireMembership(bookstoreId: string, targetUserId: string) {
+    const membership = await this.db.query.organizationMemberships.findFirst({
+      where: and(
+        eq(organizationMemberships.organizationId, bookstoreId),
+        eq(organizationMemberships.userId, targetUserId)
+      ),
+    });
+
+    if (!membership) {
+      throw new NotFoundException("Member not found.");
+    }
+
+    return membership;
   }
 
   async getPublicProfile(bookstoreId: string) {

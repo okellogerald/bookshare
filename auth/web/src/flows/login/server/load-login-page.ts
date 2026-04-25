@@ -37,10 +37,14 @@ export async function loadLoginPageData(
   const rawEmailHint = getSingleParam(searchParams, "email")?.trim() ?? "";
   const emailHint = isLikelyEmail(rawEmailHint) ? rawEmailHint : "";
 
+  const switchAccountReturnTo = new URL("/login", getAuthPortalPublicUrl()).toString();
   const links = {
     registerHref: "/register",
     recoveryHref: "/recovery",
     retryHref: isRefreshFlow ? "/login?refresh=1" : "/login",
+    switchAccountHref: isRefreshFlow
+      ? `/logout?return_to=${encodeURIComponent(switchAccountReturnTo)}`
+      : undefined,
   };
 
   try {

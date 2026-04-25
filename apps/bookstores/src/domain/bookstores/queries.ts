@@ -47,6 +47,11 @@ interface UpdateMemberRoleInput {
   role: BookstoreMembershipRole;
 }
 
+interface ManageMemberPermissionInput {
+  userId: string;
+  permission: string;
+}
+
 interface AdminBookstoresQuery {
   status?: string;
   query?: string;
@@ -345,6 +350,40 @@ export function useUpdateOrganizationMemberRole(bookstoreId: string) {
         queryClient.invalidateQueries({ queryKey: bookstoreKeys.members(bookstoreId) }),
         queryClient.invalidateQueries({ queryKey: bookstoreKeys.detail(bookstoreId) }),
       ]);
+    },
+  });
+}
+
+export function useGrantMemberPermission(bookstoreId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ManageMemberPermissionInput) =>
+      nestjsFetch<{ ok: true; alreadyGranted: boolean }>(
+        `bookstores/${bookstoreId}/members/${input.userId}/permissions`,
+        "POST",
+        { permission: input.permission }
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: bookstoreKeys.members(bookstoreId),
+      });
+    },
+  });
+}
+
+export function useRevokeMemberPermission(bookstoreId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ManageMemberPermissionInput) =>
+      nestjsFetch<{ ok: true }>(
+        `bookstores/${bookstoreId}/members/${input.userId}/permissions`,
+        "DELETE",
+        { permission: input.permission }
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: bookstoreKeys.members(bookstoreId),
+      });
     },
   });
 }

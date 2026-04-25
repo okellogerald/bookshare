@@ -25,6 +25,7 @@ import { StaffModule } from "./modules/staff/staff.module";
 import { ImportsModule } from "./modules/imports/imports.module";
 import { ReadGatewayModule } from "./modules/read-gateway/read-gateway.module";
 import { BookstoresModule } from "./modules/bookstores/bookstores.module";
+import { RequestsModule } from "./modules/requests/requests.module";
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { BookstoresModule } from "./modules/bookstores/bookstores.module";
     ImportsModule,
     ReadGatewayModule,
     BookstoresModule,
+    RequestsModule,
   ],
   providers: [
     AuthGuard,

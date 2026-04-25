@@ -27,6 +27,7 @@ import {
   CreateOrganizationInviteDto,
   ListAdminBookstoresQueryDto,
   ListBookstoreWantsQueryDto,
+  ManageOrganizationPermissionDto,
   UpdateAdminBookstoreOwnerDto,
   UpdateAdminBookstoreStatusDto,
   UpdateBookstoreDto,
@@ -263,5 +264,48 @@ export class BookstoresController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.bookstoresService.removeMember(bookstoreId, targetUserId, user);
+  }
+
+  @Get(":bookstoreId/members/:userId/permissions")
+  listMemberPermissions(
+    @Param("bookstoreId") bookstoreId: string,
+    @Param("userId") targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.bookstoresService.listMemberPermissions(
+      bookstoreId,
+      targetUserId,
+      user
+    );
+  }
+
+  @Post(":bookstoreId/members/:userId/permissions")
+  grantMemberPermission(
+    @Param("bookstoreId") bookstoreId: string,
+    @Param("userId") targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ManageOrganizationPermissionDto
+  ) {
+    return this.bookstoresService.grantMemberPermission(
+      bookstoreId,
+      targetUserId,
+      user,
+      dto
+    );
+  }
+
+  @Delete(":bookstoreId/members/:userId/permissions")
+  revokeMemberPermission(
+    @Param("bookstoreId") bookstoreId: string,
+    @Param("userId") targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ManageOrganizationPermissionDto
+  ) {
+    return this.bookstoresService.revokeMemberPermission(
+      bookstoreId,
+      targetUserId,
+      user,
+      dto
+    );
   }
 }

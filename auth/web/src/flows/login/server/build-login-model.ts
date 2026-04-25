@@ -169,6 +169,11 @@ interface LoginPageLinks {
   recoveryHref: string;
   /** Link that discards the current login flow and starts over. */
   retryHref: string;
+  /**
+   * Link that signs out the current Kratos session and restarts login.
+   * Only meaningful when the identifier is locked by a refresh flow.
+   */
+  switchAccountHref?: string;
 }
 
 /**
@@ -193,6 +198,11 @@ export interface LoginStepModel extends LoginPageLinks {
   passwordField: LoginFieldModel;
   /** Primary submit action that completes login. */
   submit: LoginSubmitModel;
+  /**
+   * When set, the email field is locked by Kratos refresh and this link offers
+   * the user a way out: sign out and start a fresh login as someone else.
+   */
+  switchAccountHref?: string;
 }
 
 /**
@@ -232,6 +242,8 @@ export function buildLoginModel(
     "Login flow expected exactly one password submit node."
   );
 
+  const identifierField = resolveIdentifierField(flow);
+
   return {
     variant: "login",
     flowId: flow.id,
@@ -239,11 +251,12 @@ export function buildLoginModel(
     method: flow.ui.method.toLowerCase(),
     messages: flow.ui.messages ?? [],
     hiddenFields: resolveHiddenFields(flow) as LoginHiddenField[],
-    identifierField: resolveIdentifierField(flow),
+    identifierField,
     passwordField: resolveField(flow, LOGIN_PASSWORD_FIELD),
     submit: toSubmitModel(submit),
     registerHref: links.registerHref,
     recoveryHref: links.recoveryHref,
     retryHref: links.retryHref,
+    switchAccountHref: identifierField.disabled ? links.switchAccountHref : undefined,
   };
 }

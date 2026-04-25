@@ -140,6 +140,23 @@ export function getPlatformRolePermissionBundle(
   ];
 }
 
+export const BOOKSTORE_GRANTABLE_PERMISSIONS: AuthorizationPermission[] = [
+  AuthorizationPermission.BOOKSTORE_UPDATE,
+  AuthorizationPermission.BOOKSTORE_INVITE_MANAGE,
+  AuthorizationPermission.BOOKSTORE_MEMBER_ROLE_MANAGE,
+  AuthorizationPermission.BOOKSTORE_MEMBER_SUSPEND,
+  AuthorizationPermission.BOOKSTORE_MEMBER_RESTORE,
+  AuthorizationPermission.BOOKSTORE_MEMBER_REMOVE,
+];
+
+export function isBookstoreGrantablePermission(
+  permission: string
+): permission is AuthorizationPermission {
+  return BOOKSTORE_GRANTABLE_PERMISSIONS.includes(
+    permission as AuthorizationPermission
+  );
+}
+
 export function getBookstoreRolePermissionBundle(
   role: BookstoreAuthorizationRole
 ): AuthorizationPermission[] {

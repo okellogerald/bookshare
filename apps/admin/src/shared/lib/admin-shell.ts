@@ -2,6 +2,7 @@ import {
   BookCopy,
   Building2,
   FolderKanban,
+  HeartHandshake,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -25,6 +26,12 @@ export const adminNavItems: AdminNavItem[] = [
     label: "Catalog",
     icon: BookCopy,
     description: "Work through catalog operations, edition flows, copies, wishes, and intake queues.",
+  },
+  {
+    href: "/requests",
+    label: "Matches",
+    icon: HeartHandshake,
+    description: "See active wishes paired with available copies, plus unmet demand and idle supply.",
   },
   {
     href: "/batches",

@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "apps/bookstores"],
       "port": 3339
+    },
+    {
+      "name": "auth",
+      "runtimeExecutable": "tail",
+      "runtimeArgs": ["-f", "/dev/null"],
+      "port": 3337
     }
   ]
 }
